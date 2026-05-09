@@ -1,0 +1,1565 @@
+/* ============================================================
+   SARIF CONSULTING — SPATIAL LOBBY DESIGN SYSTEM
+   Dark spatial 3D environment with cyan energy + warm gold accents
+   Glass context pattern: root tokens = light-on-dark; glass panels restore dark tokens
+   ============================================================ */
+
+/* Self-hosted fonts — see src/styles/fonts.css for rationale. */
+@import './fonts.css';
+
+/* --- Offscreen animation pause (IntersectionObserver toggles `.is-offscreen`) --- */
+[data-pause-offscreen].is-offscreen,
+[data-pause-offscreen].is-offscreen *,
+[data-pause-offscreen].is-offscreen *::before,
+[data-pause-offscreen].is-offscreen *::after {
+  animation-play-state: paused !important;
+}
+
+/* --- Below-fold render-skip utility ---
+   Opt-in `content-visibility: auto` for heavy offscreen sections. The
+   intrinsic-size hint keeps the scroll position stable as the browser
+   decides to render / skip. Do NOT apply to above-the-fold layout; the
+   browser can otherwise produce a visible flash on navigation.
+
+   Size tiers (data-cv-size) calibrated to observed rendered heights so the
+   browser's first-paint scrollbar position is close to the final layout —
+   the smaller the |fallback - actual| delta, the less the thumb jumps on
+   the first scroll-through. The `auto` keyword tells the browser to
+   remember the real rendered size after first paint, so subsequent scrolls
+   through the same section are stable regardless of the fallback. */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 800px;
+}
+
+.cv-auto[data-cv-size="sm"]   { contain-intrinsic-size: auto 400px; }
+.cv-auto[data-cv-size="md"]   { contain-intrinsic-size: auto 900px; }
+.cv-auto[data-cv-size="lg"]   { contain-intrinsic-size: auto 1400px; }
+.cv-auto[data-cv-size="xl"]   { contain-intrinsic-size: auto 2000px; }
+.cv-auto[data-cv-size="xxl"]  { contain-intrinsic-size: auto 3000px; }
+
+/* Mobile layouts are narrower so sections grow taller. Stepping each tier
+   up by ~1.3× preserves the |fallback - actual| delta across breakpoints. */
+@media (max-width: 768px) {
+  .cv-auto[data-cv-size="sm"]   { contain-intrinsic-size: auto 520px; }
+  .cv-auto[data-cv-size="md"]   { contain-intrinsic-size: auto 1200px; }
+  .cv-auto[data-cv-size="lg"]   { contain-intrinsic-size: auto 1900px; }
+  .cv-auto[data-cv-size="xl"]   { contain-intrinsic-size: auto 2700px; }
+  .cv-auto[data-cv-size="xxl"]  { contain-intrinsic-size: auto 4200px; }
+}
+
+/* --- Network status live region ---
+   Fixed-position pill that announces online/offline transitions. Visually
+   hidden when idle so sighted users don't see stale text; SR users hear
+   every transition through role=status + aria-live=polite. */
+#sarif-network-status {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 9000;
+  max-width: min(340px, 92vw);
+  padding: 0.65rem 0.95rem;
+  border-radius: 6px;
+  font-family: var(--font-mono, 'Space Grotesk', system-ui, sans-serif);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  color: var(--lobby-white, #faf8f5);
+  background: rgba(9, 12, 18, 0.88);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 220ms ease, transform 220ms ease;
+  pointer-events: none;
+}
+#sarif-network-status[data-state='idle'] {
+  opacity: 0;
+  transform: translateY(8px);
+}
+#sarif-network-status[data-state='offline'],
+#sarif-network-status[data-state='online'] {
+  opacity: 1;
+  transform: translateY(0);
+}
+#sarif-network-status[data-state='offline'] {
+  border-left: 3px solid #ff7a59;
+}
+#sarif-network-status[data-state='online'] {
+  border-left: 3px solid #5bd4a2;
+}
+@media (prefers-reduced-motion: reduce) {
+  #sarif-network-status {
+    transition: opacity 120ms linear;
+    transform: none;
+  }
+}
+
+/* --- Animatable Custom Properties (CSS Houdini) --- */
+@property --ticker-glow {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0.08;
+}
+
+/* --- Custom Properties --- */
+:root {
+  /* Palette Foundation — lobby tones (used in glass panels, fallbacks) */
+  --lobby-white:   #faf8f5;
+  --lobby-cream:   #f0ece7;
+  --lobby-silver:  #e8e4df;
+  --lobby-mist:    #d8d4cf;
+  --lobby-shadow:  #c8c4bf;
+
+  /* Chrome / Metallic — light range for dark spatial background */
+  --chrome-dark:      #8a8a8a;
+  --chrome-mid:       #b0b0b0;
+  --chrome-light:     #d8d8d8;
+  --chrome-highlight: #f4f4f4;
+
+  /* Cyan Energy System — primary accent, UI interactions */
+  --cyan-core:   #00d4ff;
+  --cyan-bright: #40f0ff;
+  --cyan-deep:   #0099bb;
+  --cyan-dim:    #007a99;
+  --cyan-glow-subtle:  0 0 20px rgba(0, 212, 255, 0.12);
+  --cyan-glow-medium:  0 0 40px rgba(0, 212, 255, 0.20);
+  --cyan-glow-strong:  0 0 60px rgba(0, 212, 255, 0.30);
+  --cyan-glow-text:    0 0 20px rgba(0, 212, 255, 0.15);
+
+  /* Gold System — 3D geometry accents + button theme */
+  --sarif-gold:  #C9A227;
+  --gold-bright: #DDB83D;
+  --gold-deep:   #8B6914;
+  --gold-glow-soft: 0 0 20px rgba(201, 162, 39, 0.28);
+  /* Gold text sheen: one full seamless scan cycle (linear infinite reverse), all surfaces */
+  --sarif-sheen-leg: 4s;
+  /* Mirrored two-half gradients + glow — single source for all clipped text sheens */
+  --sarif-sheen-cyan-mid: #4cdbf5;
+  --sarif-sheen-cyan-highlight: rgba(224, 255, 255, 0.92);
+  --sarif-sheen-gold-mid: #e8b830;
+  --sarif-sheen-gold-highlight: rgba(255, 248, 220, 0.92);
+  --sarif-sheen-text-gradient-cyan: linear-gradient(
+    100deg,
+    var(--cyan-deep) 0%,
+    var(--cyan-core) 5%,
+    var(--sarif-sheen-cyan-mid) 18%,
+    var(--sarif-sheen-cyan-highlight) 23%,
+    var(--sarif-sheen-cyan-mid) 27%,
+    var(--cyan-core) 45%,
+    var(--cyan-deep) 50%,
+    var(--cyan-core) 55%,
+    var(--sarif-sheen-cyan-mid) 73%,
+    var(--sarif-sheen-cyan-highlight) 77%,
+    var(--sarif-sheen-cyan-mid) 82%,
+    var(--cyan-core) 95%,
+    var(--cyan-deep) 100%
+  );
+  --sarif-sheen-text-gradient-gold: linear-gradient(
+    100deg,
+    var(--gold-deep) 0%,
+    var(--sarif-gold) 5%,
+    var(--sarif-sheen-gold-mid) 18%,
+    var(--sarif-sheen-gold-highlight) 23%,
+    var(--sarif-sheen-gold-mid) 27%,
+    var(--sarif-gold) 45%,
+    var(--gold-deep) 50%,
+    var(--sarif-gold) 55%,
+    var(--sarif-sheen-gold-mid) 73%,
+    var(--sarif-sheen-gold-highlight) 77%,
+    var(--sarif-sheen-gold-mid) 82%,
+    var(--sarif-gold) 95%,
+    var(--gold-deep) 100%
+  );
+  --sarif-sheen-filter-cyan-text: brightness(1.2)
+    drop-shadow(0 0 9px rgba(0, 212, 255, 0.42))
+    drop-shadow(0 0 22px rgba(0, 153, 187, 0.28));
+  --sarif-sheen-filter-gold-text: brightness(1.25)
+    drop-shadow(0 0 9px rgba(255, 216, 96, 0.48))
+    drop-shadow(0 0 22px rgba(201, 162, 39, 0.34));
+
+  /*
+   * Typography substrates (prefer inherited --text-*; use --text-glass-* on light fields
+   * when no glass-context ancestor sets tokens):
+   * - spatial — open 3D lobby (default body chrome)
+   * - frost — low-alpha blur panels (.content-back-panel, .panel-frost-base)
+   * - glass — opaque / light UI surfaces and form controls on spatial bg
+   */
+  --text-spatial-primary:   #e0dcd8;
+  --text-spatial-secondary: #c8c4be;
+  --text-spatial-muted:     #b0aaa4;
+
+  --text-frost-primary:   #f4f1ec;
+  --text-frost-secondary: #e6e2db;
+  --text-frost-muted:     #cec9c2;
+
+  --text-glass-primary:   #2a2520;
+  --text-glass-secondary: #5a5550;
+  --text-glass-muted:     #8a8580;
+
+  /* Aliases — default page chrome = spatial */
+  --text-primary:   var(--text-spatial-primary);
+  --text-secondary: var(--text-spatial-secondary);
+  --text-muted:     var(--text-spatial-muted);
+  --text-on-dark:   #eae6dc;
+
+  /* Glass Panel System — slightly elevated opacity for dark-bg contrast */
+  --glass-bg:       rgba(255, 255, 255, 0.62);
+  --glass-bg-heavy: rgba(255, 255, 255, 0.78);
+  --glass-border:   rgba(0, 212, 255, 0.12);
+  --glass-border-hover: rgba(0, 212, 255, 0.30);
+  --glass-blur:     24px;
+
+  /* Typography Scale */
+  --font-heading: 'Orbitron', system-ui, sans-serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+  --font-ticker:  'Space Grotesk', system-ui, sans-serif;
+
+  --text-base:    clamp(0.95rem, 1vw, 1.05rem);
+  --text-sm:      clamp(0.75rem, 0.9vw, 0.85rem);
+  --text-lg:      clamp(1.05rem, 1.3vw, 1.2rem);
+  --text-hero:    clamp(2.5rem, 5vw, 4.5rem);
+  --text-section: clamp(1.8rem, 3.5vw, 3rem);
+  --text-sub:     clamp(0.9rem, 1.5vw, 1.1rem);
+
+  /* Spacing */
+  --section-pad:        120px;
+  --section-pad-tablet: 80px;
+  --section-pad-mobile: 60px;
+  --content-max:        1200px;
+  --card-gap:           24px;
+
+  /* Clip Paths — angled-corner futuristic panels */
+  --clip-card:   polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px);
+  --clip-button: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
+  --clip-sm:     polygon(6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px);
+
+  /* Transitions */
+  --transition-base:  all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-slow:  all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-hover: all 0.2s ease;
+}
+
+/* --- Reset & Base --- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+* {
+  border-radius: 0 !important;
+}
+
+html {
+  /* No global scroll-behavior: smooth. It forced every anchor jump and some
+     pointer scrolls through the UA's ~350ms interpolation, which fights the
+     lobby rAF for main-thread time and produces perceptible first-frame lag.
+     Pages that want smooth anchor scrolling opt in per-call via
+     element.scrollIntoView({ behavior: 'smooth' }); the homepage uses Lenis
+     (see src/scripts/home-smooth-scroll.js) for inertial wheel scroll. */
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: #1a2e3c;
+  background-image:
+    radial-gradient(ellipse at 50% 70%, rgba(0, 212, 255, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 100%, rgba(201, 162, 39, 0.06) 0%, transparent 40%);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.6;
+  overflow-x: hidden;
+
+  /* Sticky-footer layout: make body a flex column so <footer> stays at the
+     viewport bottom on short pages. Fixed-positioned elements (canvases, Nav,
+     CapabilityTicker, CommandPalette) are out of flow and unaffected. Only
+     the in-flow children (#perspective-root, .site-eng-ticker-wrap, footer)
+     participate. #perspective-root gets flex:1 so it absorbs extra height
+     above the footer. min-height uses 100dvh for iOS Safari's dynamic
+     viewport; falls back to 100vh on browsers that lack dvh support. */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+body > #perspective-root {
+  flex: 1 0 auto;
+}
+
+body > .site-footer {
+  flex-shrink: 0;
+}
+
+/* --- Typography --- */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  line-height: 1.1;
+}
+
+h1 { font-size: var(--text-hero); }
+h2 { font-size: var(--text-section); }
+h3 { font-size: clamp(1rem, 1.5vw, 1.25rem); }
+
+p { line-height: 1.7; }
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* --- Chrome Metallic Text — brushed metal heading treatment --- */
+.text-chrome {
+  background: linear-gradient(
+    180deg,
+    var(--chrome-dark) 0%,
+    var(--chrome-light) 45%,
+    var(--chrome-highlight) 50%,
+    var(--chrome-light) 55%,
+    var(--chrome-dark) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-cyan {
+  color: var(--cyan-core);
+  text-shadow: var(--cyan-glow-text);
+}
+
+/* --- UI eyebrow — canonical typography for service lane titles; pair with local margins --- */
+.ui-eyebrow {
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  line-height: 1.3;
+  color: var(--cyan-bright);
+  text-shadow: var(--cyan-glow-text);
+}
+
+.ui-eyebrow.ui-eyebrow--natural-case {
+  text-transform: none;
+  letter-spacing: 0.06em;
+}
+
+/* --- Glass Context — restore dark tokens inside frosted/white surfaces --- */
+/* .lane omitted: lanes use panel-frost-base (~7% white + blur); dark tokens wash out over
+   bright spatial backdrop — keep root light text like content-back-panel on same page */
+.glass-panel,
+.breath-section,
+.contact-info,
+.policy-contact,
+.nav-mobile,
+#site-nav.scrolled {
+  --text-primary:   var(--text-glass-primary);
+  --text-secondary: var(--text-glass-secondary);
+  --text-muted:     var(--text-glass-muted);
+  --chrome-dark:      #3a3a3a;
+  --chrome-mid:       #6a6a6a;
+  --chrome-light:     #9a9a9a;
+  --chrome-highlight: #c8c8c8;
+}
+
+/* --- Skip Link — keyboard navigation --- */
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--cyan-core);
+  color: var(--lobby-white);
+  padding: 12px 24px;
+  font-family: var(--font-heading);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  z-index: 9999;
+  clip-path: var(--clip-button);
+  transition: top 0.2s ease;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  top: max(12px, env(safe-area-inset-top));
+  outline: none;
+}
+
+.skip-link:not(:focus) {
+  top: -100px;
+}
+
+/* --- Focus Visible — keyboard accessibility --- */
+*:focus-visible {
+  outline: 2px solid var(--cyan-core);
+  outline-offset: 3px;
+}
+
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+details summary:focus-visible {
+  outline: 2px solid var(--cyan-core);
+  outline-offset: 3px;
+}
+
+/* --- Custom Cursor — cyan crosshair --- */
+a,
+button,
+[role="button"],
+.interactive {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cline x1='12' y1='2' x2='12' y2='8' stroke='%2300d4ff' stroke-width='1.5' stroke-linecap='square'/%3E%3Cline x1='12' y1='16' x2='12' y2='22' stroke='%2300d4ff' stroke-width='1.5' stroke-linecap='square'/%3E%3Cline x1='2' y1='12' x2='8' y2='12' stroke='%2300d4ff' stroke-width='1.5' stroke-linecap='square'/%3E%3Cline x1='16' y1='12' x2='22' y2='12' stroke='%2300d4ff' stroke-width='1.5' stroke-linecap='square'/%3E%3Crect x='10' y='10' width='4' height='4' stroke='%2300d4ff' stroke-width='1' fill='none'/%3E%3C/svg%3E") 12 12, crosshair;
+}
+
+/* --- Layout Utilities --- */
+.container {
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
+.section {
+  padding-block: var(--section-pad);
+}
+
+.section-label {
+  font-family: var(--font-heading);
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: var(--gold-bright);
+  text-shadow: var(--gold-glow-soft);
+  margin-bottom: 20px;
+}
+
+.section-header {
+  font-size: var(--text-section);
+  letter-spacing: 0.3em;
+  text-align: center;
+  margin-bottom: 64px;
+  position: relative;
+  z-index: 2;
+  background: linear-gradient(
+    180deg,
+    var(--chrome-dark) 0%,
+    var(--chrome-light) 45%,
+    var(--chrome-highlight) 50%,
+    var(--chrome-light) 55%,
+    var(--chrome-dark) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* --- Clip-Path Components --- */
+.clip-card   { clip-path: var(--clip-card); }
+.clip-button { clip-path: var(--clip-button); }
+
+/* --- Subtle frosted surface — 5% white fill (services intro, cards, lanes) --- */
+.content-back-panel,
+.panel-frost-base {
+  --panel-frost-fill-alpha: 0.07;
+  /* Brighter ink on frost — see :root --text-frost-* */
+  --text-primary:   var(--text-frost-primary);
+  --text-secondary: var(--text-frost-secondary);
+  --text-muted:     var(--text-frost-muted);
+  background: rgba(255, 255, 255, var(--panel-frost-fill-alpha));
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px) saturate(1.15);
+  -webkit-backdrop-filter: blur(20px) saturate(1.15);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+.content-back-panel {
+  padding: clamp(28px, 5vw, 48px) clamp(20px, 4vw, 40px);
+  clip-path: var(--clip-card);
+}
+
+/* Long-form prose surface (legal pages, lexicon, 404) —
+   inherits the frosted readability of .content-back-panel but without the
+   clip-path so tall variable-height content doesn't get corner-truncated.
+   Used to isolate body copy from the persistent 3D lobby backdrop. Read
+   bright on the lobby's cyan-blue wash via the text-frost-* tokens. */
+.page-reads-over-lobby {
+  --panel-frost-fill-alpha: 0.07;
+  --text-primary:   var(--text-frost-primary);
+  --text-secondary: var(--text-frost-secondary);
+  --text-muted:     var(--text-frost-muted);
+  background: rgba(255, 255, 255, var(--panel-frost-fill-alpha));
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px) saturate(1.15);
+  -webkit-backdrop-filter: blur(20px) saturate(1.15);
+  border-radius: 10px;
+  padding: clamp(32px, 5vw, 56px) clamp(24px, 4vw, 48px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .content-back-panel,
+  .panel-frost-base,
+  .page-reads-over-lobby {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* --- Dossier card chrome — opaque cyan-tinted deep-navy surface ----
+   Mirrors `.praxis-case` on the Praxis article page (the canonical
+   "sealed dossier" look). Designed to be co-applied with
+   `.panel-frost-base` on five surfaces (about-dossier, ucim-brief,
+   service-card-border, lane, proof-entry) so each one carries the
+   frost text-ink tokens (--text-frost-*) but paints the opaque
+   dossier fill instead of translucent frost.
+
+   Cascade contract: this rule MUST sit after the .panel-frost-base
+   group above (484–498) so its paint declarations (background,
+   border, box-shadow, clip-path, backdrop-filter) win at equal
+   specificity. Do not reorder. Do not raise specificity of the
+   frost rule without also updating this block. */
+.panel-dossier {
+  background:
+    linear-gradient(180deg, rgba(10, 22, 32, 0.94) 0%, rgba(6, 16, 24, 0.97) 100%);
+  border: 1px solid rgba(0, 212, 255, 0.22);
+  clip-path: var(--clip-card);
+  box-shadow:
+    inset 0 1px 0 rgba(0, 212, 255, 0.14),
+    inset 0 0 0 1px rgba(0, 212, 255, 0.03),
+    0 24px 56px rgba(6, 18, 28, 0.28),
+    0 4px 18px rgba(0, 0, 0, 0.16);
+  overflow: hidden;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Interactive variant — shared cyan-intensified hover/focus affordance
+   for dossier surfaces that respond to pointer/keyboard. The gold
+   glow from the legacy frost hovers is deliberately dropped: against
+   the opaque navy fill, the warm layer fights the cyan border and
+   reads as noise. Components that want a transform lift (e.g.
+   service-card-border, lane) keep that in their own scoped rule. */
+.panel-dossier--interactive {
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    transform 200ms ease;
+}
+
+.panel-dossier--interactive:hover,
+.panel-dossier--interactive:focus-within {
+  border-color: rgba(0, 212, 255, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(0, 212, 255, 0.22),
+    inset 0 0 0 1px rgba(0, 212, 255, 0.06),
+    0 24px 56px rgba(6, 18, 28, 0.36),
+    0 0 28px rgba(0, 212, 255, 0.12);
+}
+
+/* Gold cap line — Orbitron eyebrow ink (services lead, lane bullets, hero lines) */
+.sarif-gold-cap-line {
+  font-family: var(--font-heading);
+  font-size: clamp(0.68rem, 1.5vw, 0.8rem);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+  text-shadow: var(--gold-glow-soft);
+  filter: brightness(1.2);
+  line-height: 1.55;
+}
+
+/* --- Glass Panel — core spatial UI surface --- */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.3);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.3);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.08),
+    0 8px 24px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 0 0 1px rgba(255, 255, 255, 0.35),
+    0 0 40px rgba(0, 212, 255, 0.03);
+  position: relative;
+}
+
+.glass-panel--heavy {
+  background: var(--glass-bg-heavy);
+}
+
+.glass-panel:hover {
+  border-color: var(--glass-border-hover);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.10),
+    0 10px 28px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 0 0 1px rgba(255, 255, 255, 0.35),
+    0 0 50px rgba(0, 212, 255, 0.06);
+}
+
+/* --- Primary Button — warm gold energy --- */
+.btn-primary,
+.btn-gold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 36px;
+  clip-path: var(--clip-button);
+  border: 1px solid var(--sarif-gold);
+  /* Dark-glass resting chrome. The previous 10%-gold fill washed out to
+     invisible against the 3D lobby's sandy zones (about CTA, contact
+     submit), so the chamfered gold bracket disappeared there while
+     reading cleanly on darker sections (hero, engagements CTA). A
+     consistent dark translucent fill + blur gives the button its own
+     surface on every backdrop; hover still swaps to solid --sarif-gold. */
+  background-color: rgba(8, 22, 34, 0.72);
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  color: var(--gold-bright);
+  font-family: var(--font-heading);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  position: relative;
+  transform: translateY(0);
+  box-shadow:
+    0 2px 12px rgba(201, 162, 39, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  /* Scoped to the properties the hover/focus/active/.cyan-gold-label
+     states actually mutate. `transition: all` caused the browser to
+     prep paint for every property on every style recalc — measurable
+     on long button grids. transform + box-shadow stay composited;
+     color/background/border recolor without layout; text-shadow is
+     included because the .cyan-gold-label hover variants toggle it;
+     backdrop-filter is listed so the glass→solid-gold handoff on
+     hover doesn't snap on engines that animate it. */
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease,
+    backdrop-filter 0.2s ease,
+    -webkit-backdrop-filter 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    text-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+@media (hover: hover) {
+  .btn-primary:hover,
+  .btn-gold:hover {
+    background: var(--sarif-gold);
+    /* Drop the blur once the fill is fully opaque — backdrop-filter has
+       no visual effect behind a solid layer but still costs a GPU pass. */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    color: #1a1410;
+    transform: translateY(-2px);
+    box-shadow:
+      0 4px 20px rgba(201, 162, 39, 0.20),
+      0 0 30px rgba(201, 162, 39, 0.15);
+  }
+}
+
+.btn-primary:active,
+.btn-gold:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  transition-duration: 0.05s;
+}
+
+/* Cyan/celadon label on warm gold chrome; hover matches standard gold CTA ink */
+.btn-gold.cyan-gold-label,
+.btn-primary.cyan-gold-label {
+  color: var(--cyan-bright);
+  text-shadow: var(--cyan-glow-text);
+}
+
+.btn-gold.cyan-gold-label:hover,
+.btn-gold.cyan-gold-label:active,
+.btn-primary.cyan-gold-label:hover,
+.btn-primary.cyan-gold-label:active {
+  color: #1a1410;
+  text-shadow: none;
+}
+
+/* Primary CTA footprint — matches contact submit (.form-submit + .form-submit--digitize); font-size from .btn-gold / .btn-primary */
+.btn-gold.form-submit,
+.btn-primary.form-submit,
+.btn-gold.lane-cta,
+.btn-primary.lane-cta {
+  padding: 18px 56px;
+}
+
+.btn-gold.form-submit--digitize,
+.btn-primary.form-submit--digitize,
+.btn-gold.lane-cta,
+.btn-primary.lane-cta {
+  min-width: 12.5rem;
+}
+
+.btn-gold.lane-cta > .sarif-hover-sheen,
+.btn-primary.lane-cta > .sarif-hover-sheen,
+.btn-gold.form-submit .form-submit__label,
+.btn-primary.form-submit .form-submit__label {
+  display: inline-block;
+  min-width: 11ch;
+  text-align: center;
+  letter-spacing: 0.12em;
+  transition: letter-spacing 0.2s ease, filter 0.2s ease;
+}
+
+/* Landing-hero CTA footprint — tighter padding than `.lane-cta` / form
+   submit; same chrome as `.btn-primary` / `.btn-gold` baseline. */
+.btn-gold.btn-cta-hero-footprint,
+.btn-primary.btn-cta-hero-footprint {
+  padding: 16px 44px;
+  font-size: 0.75rem;
+  min-width: 0;
+}
+
+/* --- Accent Section — tinted glass panel section break --- */
+.breath-section {
+  background: var(--glass-bg-heavy);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  color: var(--text-primary);
+  position: relative;
+  z-index: 2;
+  border-top: 1px solid rgba(0, 212, 255, 0.08);
+  border-bottom: 1px solid rgba(0, 212, 255, 0.08);
+  box-shadow:
+    0 -8px 40px rgba(0, 0, 0, 0.04),
+    0 8px 40px rgba(0, 0, 0, 0.04);
+}
+
+.breath-section::before,
+.breath-section::after {
+  display: none;
+}
+
+.breath-section .section-header {
+  background: linear-gradient(
+    180deg,
+    var(--chrome-dark) 0%,
+    var(--chrome-mid) 45%,
+    var(--chrome-light) 50%,
+    var(--chrome-mid) 55%,
+    var(--chrome-dark) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.breath-section p {
+  color: var(--text-primary);
+}
+
+.breath-section a:not(.btn-gold):not(.btn-primary) {
+  color: var(--cyan-deep);
+}
+
+.breath-section .btn-gold,
+.breath-section .btn-primary {
+  border-color: var(--sarif-gold);
+  color: var(--gold-bright);
+}
+
+@media (hover: hover) {
+  .breath-section .btn-gold:hover,
+  .breath-section .btn-primary:hover {
+    background: var(--sarif-gold);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    color: #1a1410;
+  }
+}
+
+.breath-section .btn-gold.cyan-gold-label,
+.breath-section .btn-primary.cyan-gold-label {
+  color: var(--cyan-bright);
+  text-shadow: var(--cyan-glow-text);
+}
+
+@media (hover: hover) {
+  .breath-section .btn-gold.cyan-gold-label:hover,
+  .breath-section .btn-primary.cyan-gold-label:hover {
+    color: #1a1410;
+    text-shadow: none;
+  }
+}
+
+.breath-section .btn-gold.cyan-gold-label:active,
+.breath-section .btn-primary.cyan-gold-label:active {
+  color: #1a1410;
+  text-shadow: none;
+}
+
+/* --- Gold text sheen: seamless one-way loop (shared keyframes + gradient) --- */
+@keyframes sarif-gold-sheen-loop {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+.sarif-hover-sheen {
+  display: inline-block;
+  min-width: 0;
+}
+
+/* Cyan/celadon default label — gold interaction sheen uses higher-specificity rule below */
+:is(.btn-gold, .btn-primary).cyan-gold-label:not(:disabled) > .sarif-hover-sheen {
+  color: transparent;
+  background-image: var(--sarif-sheen-text-gradient-cyan);
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  filter: var(--sarif-sheen-filter-cyan-text);
+  animation: sarif-gold-sheen-loop var(--sarif-sheen-leg) linear infinite reverse;
+}
+
+/* Gold default label: static gold ink → same always-on sheen as hover (cyan-labeled CTAs use rule above) */
+:is(.btn-gold, .btn-primary):not(.cyan-gold-label):not(:disabled) > .sarif-hover-sheen {
+  color: transparent;
+  background-image: var(--sarif-sheen-text-gradient-gold);
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  filter: var(--sarif-sheen-filter-gold-text);
+  animation: sarif-gold-sheen-loop var(--sarif-sheen-leg) linear infinite reverse;
+}
+
+/* Gold sheen on :hover / :focus-visible / :active — specificity must beat defaults above (0,4,0) */
+:is(.btn-gold, .btn-primary).cyan-gold-label:not(:disabled):is(:hover, :focus-visible, :active) > .sarif-hover-sheen,
+button.form-submit--digitize.cyan-gold-label:not(:disabled):is(:hover, :focus-visible, :active) > .sarif-hover-sheen,
+:is(.btn-gold, .btn-primary):not(.cyan-gold-label):not(:disabled):is(:hover, :focus-visible, :active) > .sarif-hover-sheen {
+  color: transparent;
+  background-image: var(--sarif-sheen-text-gradient-gold);
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  filter: var(--sarif-sheen-filter-gold-text);
+  animation: sarif-gold-sheen-loop var(--sarif-sheen-leg) linear infinite reverse;
+}
+
+/* Contact sidebar, carousel pills, Praxis preview issue numbers, Praxis index
+   card numbers, home practice heading — always-on same loop */
+.contact-info .info-label.ui-eyebrow,
+.eng-carousel__pill-label,
+.praxis-preview .preview-num,
+.praxis-card__num,
+a#practice-heading.practice-coming__heading-link {
+  color: transparent;
+  background-image: var(--sarif-sheen-text-gradient-gold);
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  filter: var(--sarif-sheen-filter-gold-text);
+  animation: sarif-gold-sheen-loop var(--sarif-sheen-leg) linear infinite reverse;
+}
+
+a#practice-heading.practice-coming__heading-link:hover,
+a#practice-heading.practice-coming__heading-link:focus-visible {
+  filter: brightness(1.32)
+    drop-shadow(0 0 11px rgba(255, 216, 96, 0.52))
+    drop-shadow(0 0 26px rgba(201, 162, 39, 0.38));
+}
+
+.contact-info .info-block:nth-child(1) .info-label.ui-eyebrow {
+  animation-delay: 0s;
+}
+
+.contact-info .info-block:nth-child(2) .info-label.ui-eyebrow {
+  animation-delay: -1.333s;
+}
+
+.contact-info .info-block:nth-child(3) .info-label.ui-eyebrow {
+  animation-delay: -2.667s;
+}
+
+.eng-carousel__pill-list > li:nth-child(1) .eng-carousel__pill-label {
+  animation-delay: 0s;
+}
+
+.eng-carousel__pill-list > li:nth-child(2) .eng-carousel__pill-label {
+  animation-delay: -0.667s;
+}
+
+.eng-carousel__pill-list > li:nth-child(3) .eng-carousel__pill-label {
+  animation-delay: -1.333s;
+}
+
+.eng-carousel__pill-list > li:nth-child(4) .eng-carousel__pill-label {
+  animation-delay: -2s;
+}
+
+.eng-carousel__pill-list > li:nth-child(5) .eng-carousel__pill-label {
+  animation-delay: -2.667s;
+}
+
+.eng-carousel__pill-list > li:nth-child(6) .eng-carousel__pill-label {
+  animation-delay: -3.333s;
+}
+
+.praxis-preview .preview-entry:nth-child(1) .preview-num {
+  animation-delay: 0s;
+}
+
+.praxis-preview .preview-entry:nth-child(2) .preview-num {
+  animation-delay: -0.667s;
+}
+
+.praxis-preview .preview-entry:nth-child(3) .preview-num {
+  animation-delay: -1.333s;
+}
+
+/* --- Cyan/celadon text sheen — same seamless loop as gold (lanes, proof entries, service cards, contact email) --- */
+.lanes .lane-title.ui-eyebrow,
+.lanes h2.lane-section-title,
+.lanes .lane-meta-value--gold,
+article.proof-entry .proof-entry__classification.ui-eyebrow,
+article.service-card .service-card__title.ui-eyebrow,
+article.about-dossier .about-dossier__stat-label.ui-eyebrow,
+article.ucim-brief .ucim-brief__cell-label.ui-eyebrow,
+article.ucim-brief .ucim-brief__cue-text.ui-eyebrow,
+.contact-info a.info-value.info-value--link.ui-eyebrow,
+.contact-form#contact-form #form-success > p.ui-eyebrow.ui-eyebrow--natural-case {
+  display: inline-block;
+  color: transparent;
+  background-image: var(--sarif-sheen-text-gradient-cyan);
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  filter: var(--sarif-sheen-filter-cyan-text);
+  animation: sarif-gold-sheen-loop var(--sarif-sheen-leg) linear infinite reverse;
+}
+
+/* will-change is compositor-reserved: we pay layer memory and re-rasterise cost
+   for it. The sheen animates background-position (a paint property), so keeping
+   will-change permanently on dozens of offscreen elements bloats compositor
+   memory with no benefit. Reveal.js toggles .sarif-sheen-active via an
+   IntersectionObserver so only in-view elements pay the compositor tax, and
+   offscreen ones pause their paint entirely. */
+.sarif-sheen-active {
+  will-change: background-position;
+}
+
+.sarif-sheen-inactive {
+  animation-play-state: paused;
+}
+
+.lanes .lane-meta-value--gold {
+  font-weight: 700;
+}
+
+.contact-info a.info-value.info-value--link.ui-eyebrow,
+.contact-form#contact-form #form-success > p.ui-eyebrow.ui-eyebrow--natural-case {
+  transition: filter 0.25s ease;
+}
+
+.contact-info a.info-value.info-value--link.ui-eyebrow:hover,
+.contact-info a.info-value.info-value--link.ui-eyebrow:focus-visible,
+.contact-form#contact-form #form-success > p.ui-eyebrow.ui-eyebrow--natural-case:is(:hover, :focus-visible) {
+  filter: brightness(1.32)
+    drop-shadow(0 0 11px rgba(0, 212, 255, 0.52))
+    drop-shadow(0 0 26px rgba(0, 153, 187, 0.34));
+}
+
+/* Sheen reset targets — keep in sync with @media (prefers-reduced-motion: reduce) block below */
+@media (forced-colors: active) {
+  :is(.btn-gold, .btn-primary).cyan-gold-label:not(:disabled) > .sarif-hover-sheen,
+  :is(.btn-gold, .btn-primary):not(.cyan-gold-label):not(:disabled) > .sarif-hover-sheen,
+  :is(.btn-gold, .btn-primary).cyan-gold-label:not(:disabled):is(:hover, :focus-visible, :active) > .sarif-hover-sheen,
+  button.form-submit--digitize.cyan-gold-label:not(:disabled):is(:hover, :focus-visible, :active) > .sarif-hover-sheen,
+  :is(.btn-gold, .btn-primary):not(.cyan-gold-label):not(:disabled):is(:hover, :focus-visible, :active) > .sarif-hover-sheen,
+  .contact-info .info-label.ui-eyebrow,
+  .eng-carousel__pill-label,
+  .praxis-preview .preview-num,
+  .praxis-card__num,
+  a#practice-heading.practice-coming__heading-link,
+  .lanes .lane-title.ui-eyebrow,
+  .lanes h2.lane-section-title,
+  .lanes .lane-meta-value--gold,
+  article.proof-entry .proof-entry__classification.ui-eyebrow,
+  article.proof-entry .proof-entry__stat-value,
+  article.service-card .service-card__title.ui-eyebrow,
+  article.about-dossier .about-dossier__stat-label.ui-eyebrow,
+  article.ucim-brief .ucim-brief__cell-label.ui-eyebrow,
+  article.ucim-brief .ucim-brief__cue-text.ui-eyebrow,
+  .contact-info a.info-value.info-value--link.ui-eyebrow,
+  .contact-form#contact-form #form-success > p.ui-eyebrow.ui-eyebrow--natural-case,
+  .sarif-gold-cap-line {
+    animation: none;
+    background-image: none;
+    background-size: auto;
+    background-position: 0 0;
+    filter: none;
+    will-change: auto;
+    color: inherit;
+    -webkit-text-fill-color: inherit;
+    transition: none;
+  }
+
+  [data-materialize-text] {
+    color: CanvasText !important;
+  }
+
+  [data-materialize-text] .materialize-cipher {
+    display: none !important;
+  }
+}
+
+/* --- Glass Noise Texture ---
+   Single SVG fractal-noise data URL shared across glass surfaces and tickers.
+   Exposed as a custom property so the asset is defined once and rasterized/cached
+   once by the browser; consumers set --noise-opacity for tonal control. */
+:root {
+  --noise-texture-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+.glass-noise::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--noise-texture-url);
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: soft-light;
+}
+
+/* --- Cyan Divider --- */
+.gold-divider,
+.cyan-divider {
+  display: block;
+  width: 80px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan-core), transparent);
+  margin: 24px auto;
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.2);
+}
+
+/* --- Gradient Text Utilities --- */
+.text-gold-gradient {
+  background: linear-gradient(135deg, var(--gold-deep) 0%, var(--gold-bright) 50%, var(--sarif-gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* --- Ambient Glow --- */
+.gold-ambient {
+  position: relative;
+}
+
+.gold-ambient::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(ellipse, rgba(0, 212, 255, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* --- Scroll-Driven Reveal --- */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.reveal-on-scroll.is-visible {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  animation: none !important;
+  transition: opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@supports (animation-timeline: scroll()) {
+  .reveal-on-scroll:not(.is-visible) {
+    animation: revealUp linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 35%;
+  }
+}
+
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Hero Entrance (superseded by materialize.js/css) ---
+   Legacy .hero-animate removed; entrance orchestration is now handled
+   by the unified materialization sequence (src/scripts/materialize.js). */
+
+/* --- Section Threshold Lines --- */
+.section-threshold {
+  position: relative;
+  height: 1px;
+  overflow: visible;
+  z-index: 2;
+}
+
+.section-threshold .threshold-line {
+  position: absolute;
+  left: 50%;
+  /* Hold the line at its target width; animate a scaleX from 0 to 1
+     instead of animating `width`. `width` forces layout every frame;
+     `transform: scaleX()` composites and is free. The -50% translate
+     keeps the element centered regardless of its scaled visual size
+     (translate percentages resolve against the layout box, which
+     never changes here). Per-page overrides set `--threshold-scale`
+     to adjust the reveal target (defaults to 1). */
+  transform: translateX(-50%) scaleX(0);
+  width: min(80%, 600px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan-core), transparent);
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+  transition: transform 1s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transform-origin: center;
+  will-change: transform;
+}
+
+.section-threshold.is-visible .threshold-line {
+  transform: translateX(-50%) scaleX(var(--threshold-scale, 1));
+}
+
+/* --- Connector Lines — spatial UI linking --- */
+.connector-line {
+  position: relative;
+}
+
+.connector-line::after {
+  content: '';
+  display: block;
+  width: 1px;
+  height: 40px;
+  background: linear-gradient(to bottom, rgba(0, 212, 255, 0.3), transparent);
+  margin: 0 auto;
+}
+
+/* --- Scroll Progress Indicator --- */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 1001;
+  background: transparent;
+  pointer-events: none;
+}
+
+/* Driven via transform: scaleX() instead of width%. Width invalidates layout
+   on every tick; transform stays on the compositor (paint-only). Initial
+   scaleX(0) hides the bar until the first JS write — or, on engines that
+   support scroll-driven animations, until the CSS keyframe below takes over
+   and removes the JS tick entirely. */
+.scroll-progress__bar {
+  height: 100%;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--cyan-deep), var(--cyan-core), var(--cyan-bright));
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.4);
+  /* Short linear smoothing keeps the thumb movement silky between coalesced
+     writes (~1 write per frame max, plus extra between frames the browser
+     fills via transition). Use transform instead of width. */
+  transition: transform 0.1s linear;
+}
+
+/* Scroll-driven animation (progressive enhancement): pure compositor, zero
+   main-thread cost. The JS path in Base.astro feature-detects this and
+   skips its own subscribe when supported. */
+@supports (animation-timeline: scroll()) {
+  .scroll-progress__bar {
+    transition: none;
+    animation: sarif-scroll-progress-bar linear both;
+    animation-timeline: scroll(root block);
+  }
+
+  @keyframes sarif-scroll-progress-bar {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-progress__bar {
+    transition: none;
+  }
+}
+
+/* --- Interactive Surface --- */
+.interactive-surface {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+@media (hover: hover) {
+  .interactive-surface:hover {
+    transform: scale(1.02);
+  }
+}
+
+/* --- 3D Depth Layer Utilities --- */
+.depth-hero     { transform: translateZ(40px); }
+.depth-primary  { transform: translateZ(20px); }
+.depth-neutral  { transform: translateZ(0px); }
+.depth-recessed { transform: translateZ(-20px); }
+
+/* --- prefers-reduced-motion --- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  [data-materialize-text] {
+    color: inherit !important;
+  }
+
+  [data-materialize-text] .materialize-cipher {
+    display: none !important;
+  }
+
+  .reveal-on-scroll {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+
+  .hero__particle { display: none !important; }
+  .hero__loader { display: none !important; }
+  .scroll-progress { display: none !important; }
+  .section-threshold .threshold-line {
+    transform: translateX(-50%) scaleX(var(--threshold-scale, 1)) !important;
+    transition: none !important;
+  }
+
+  .service-card-border { transform: none !important; }
+  .proof-entry { transform: none !important; }
+  .hero__content { transform: none !important; }
+  .lane[open] { transform: none !important; }
+  .lane-content { animation: none !important; }
+
+  :is(.btn-gold, .btn-primary).cyan-gold-label:not(:disabled) > .sarif-hover-sheen,
+  :is(.btn-gold, .btn-primary):not(.cyan-gold-label):not(:disabled) > .sarif-hover-sheen,
+  :is(.btn-gold, .btn-primary).cyan-gold-label:not(:disabled):is(:hover, :focus-visible, :active) > .sarif-hover-sheen,
+  button.form-submit--digitize.cyan-gold-label:not(:disabled):is(:hover, :focus-visible, :active) > .sarif-hover-sheen,
+  :is(.btn-gold, .btn-primary):not(.cyan-gold-label):not(:disabled):is(:hover, :focus-visible, :active) > .sarif-hover-sheen,
+  .contact-info .info-label.ui-eyebrow,
+  .eng-carousel__pill-label,
+  .praxis-preview .preview-num,
+  .praxis-card__num,
+  a#practice-heading.practice-coming__heading-link,
+  .lanes .lane-title.ui-eyebrow,
+  .lanes h2.lane-section-title,
+  .lanes .lane-meta-value--gold,
+  article.proof-entry .proof-entry__classification.ui-eyebrow,
+  article.proof-entry .proof-entry__stat-value,
+  article.service-card .service-card__title.ui-eyebrow,
+  article.about-dossier .about-dossier__stat-label.ui-eyebrow,
+  article.ucim-brief .ucim-brief__cell-label.ui-eyebrow,
+  article.ucim-brief .ucim-brief__cue-text.ui-eyebrow,
+  .contact-info a.info-value.info-value--link.ui-eyebrow,
+  .contact-form#contact-form #form-success > p.ui-eyebrow.ui-eyebrow--natural-case,
+  .sarif-gold-cap-line {
+    animation: none !important;
+    will-change: auto !important;
+    background-image: none !important;
+    background-size: auto !important;
+    background-position: 0 0 !important;
+    filter: none !important;
+    color: inherit !important;
+    -webkit-text-fill-color: inherit !important;
+  }
+
+  /* Flatten 3D depth layers */
+  .depth-hero,
+  .depth-primary,
+  .depth-neutral,
+  .depth-recessed {
+    transform: none !important;
+  }
+
+  /* #perspective-root no longer declares perspective at the page level
+     (removed globally to cut compositor pressure); this override is now a no-op. */
+}
+
+/* --- Responsive --- */
+@media (max-width: 1024px) {
+  :root {
+    --section-pad: var(--section-pad-tablet);
+  }
+
+  /* P0: fixed body background repaints hurt scroll on tablet / large-phone landscape */
+  body {
+    background-attachment: scroll;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --section-pad: var(--section-pad-mobile);
+  }
+
+  .container {
+    padding-inline: 20px;
+  }
+
+  /* P1-10: Defensive — disable document-level scroll-snap on touch devices */
+  html {
+    scroll-snap-type: none;
+  }
+
+  /* Flatten 3D on mobile for performance */
+  .depth-hero,
+  .depth-primary,
+  .depth-neutral,
+  .depth-recessed {
+    transform: none;
+  }
+
+  /* P1-4: Tighten letter-spacing on headings for narrow viewports */
+  h1, h2, h3, h4 {
+    letter-spacing: 0.15em;
+  }
+
+  .section-header {
+    letter-spacing: 0.15em;
+  }
+
+  .section-label {
+    font-size: 0.75rem;
+  }
+
+  .sarif-gold-cap-line {
+    font-size: max(0.75rem, clamp(0.68rem, 1.5vw, 0.8rem));
+  }
+
+  /* P1-5: Ensure minimum 44px touch targets */
+  .skip-link:focus,
+  .skip-link:focus-visible {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .btn-primary,
+  .btn-gold {
+    min-height: 44px;
+  }
+
+  /* P1-6: Reduce section header margin and padding */
+  .section-header {
+    margin-bottom: 40px;
+  }
+
+  /* #perspective-root no longer declares perspective at the page level
+     (removed globally to cut compositor pressure); this override is redundant. */
+}
+
+/* --- High Contrast Mode --- */
+@media (prefers-contrast: more) {
+  :root {
+    --glass-bg: rgba(255, 255, 255, 0.88);
+    --glass-bg-heavy: rgba(255, 255, 255, 0.94);
+    --glass-border: rgba(0, 150, 200, 0.5);
+    --text-primary: #ffffff;
+    --text-secondary: #e0e0e0;
+    --text-muted: #c0c0c0;
+    --cyan-core: #0099cc;
+  }
+
+  .glass-panel,
+  .breath-section,
+  .contact-info,
+  .policy-contact,
+  .nav-mobile,
+  #site-nav.scrolled {
+    --text-primary: #000000;
+    --text-secondary: #1a1a1a;
+    --text-muted: #3a3a3a;
+  }
+
+  .service-card,
+  .proof-entry,
+  .lane {
+    border-width: 2px !important;
+  }
+
+  .btn-primary,
+  .btn-gold {
+    border-width: 2px;
+    font-weight: 700;
+  }
+}
+
+/* --- Persistent background canvases ---
+   Authored as real DOM elements in Base.astro with transition:persist so the
+   WebGL context (lobby) and 2D context (atmosphere) survive ClientRouter view
+   transitions. Pointer-events disabled; aria-hidden — purely decorative layer.
+   z-index stack: lobby 0, hex pattern 0, atmosphere 1 (above lobby, below
+   content). view-transition-name:none prevents the browser View Transitions
+   API from trying to crossfade the canvas bitmap during a swap. */
+#lobby-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  view-transition-name: none;
+}
+#atmosphere-canvas {
+  position: fixed;
+  inset: 0;
+  /* z-index 3 keeps atmosphere above content sections (z-index 2) and below
+     the nav / scroll-progress chrome (z-index 9000+). Necessary because the
+     persistent canvas now lives earlier in the body DOM than the content
+     sections, so DOM-order tie-breaking would otherwise put content on top. */
+  z-index: 3;
+  pointer-events: none;
+  view-transition-name: none;
+}
+
+/* --- Print Styles --- */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+
+  .scroll-progress,
+  #lobby-canvas,
+  #atmosphere-canvas {
+    display: none !important;
+  }
+
+  .glass-panel {
+    background: white !important;
+    backdrop-filter: none !important;
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+  }
+
+  .breath-section {
+    background: #f5f5f0 !important;
+    backdrop-filter: none !important;
+  }
+
+  .text-chrome,
+  .section-header {
+    -webkit-text-fill-color: #333 !important;
+    background: none !important;
+    color: #333 !important;
+  }
+
+  a[href]::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.8em;
+    color: #666;
+  }
+
+  nav, footer {
+    break-inside: avoid;
+  }
+}
+
+/* --- Screen-reader only utility --- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Geometric SVG background pattern — hexagonal, cyan tint --- */
+.geo-pattern-bg {
+  position: relative;
+}
+
+.geo-pattern-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cpath d='M50 0 L100 25 L100 75 L50 100 L0 75 L0 25 Z' fill='none' stroke='rgba(0,212,255,0.04)' stroke-width='0.5'/%3E%3Cpath d='M50 20 L80 35 L80 65 L50 80 L20 65 L20 35 Z' fill='none' stroke='rgba(0,212,255,0.025)' stroke-width='0.3'/%3E%3C/svg%3E");
+  background-size: 100px 100px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.7;
+}

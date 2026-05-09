@@ -1,0 +1,597 @@
+---
+const cookieStorageKey = 'sarif_consulting_cookie_notice_dismissed';
+---
+
+<footer class="site-footer glass-panel" role="contentinfo">
+  <div class="container footer-inner">
+    <p class="footer-meta">
+      <span class="footer-copy">&copy; 2026 Sarif Consulting</span>
+      <span class="footer-sep" aria-hidden="true">·</span>
+      <span class="footer-location">Portland, Oregon</span>
+    </p>
+
+    <div class="footer-right">
+      <nav class="footer-nav" aria-label="Footer navigation">
+        <a href="/lexicon/" class="footer-link">Lexicon</a>
+        <span class="footer-sep" aria-hidden="true">·</span>
+        <a href="/privacy/" class="footer-link">Privacy</a>
+        <span class="footer-sep" aria-hidden="true">·</span>
+        <a href="/terms/" class="footer-link">Terms</a>
+        <span class="footer-sep" aria-hidden="true">·</span>
+        <a href="/accessibility/" class="footer-link">Accessibility</a>
+      </nav>
+
+      <div class="footer-utilities" role="group" aria-label="Search and ambient audio">
+        <button
+          type="button"
+          class="footer-search"
+          data-command-palette-trigger
+          aria-label="Open search (Ctrl+K)"
+          title="Search (Ctrl+K)"
+        >
+          <svg
+            class="footer-search__icon"
+            viewBox="0 0 20 20"
+            width="16"
+            height="16"
+            fill="none"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <circle cx="9" cy="9" r="5.25" stroke="currentColor" stroke-width="1.5" />
+            <path d="m13.5 13.5 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+          <kbd class="footer-search__kbd" aria-hidden="true">⌘K</kbd>
+        </button>
+
+        <button
+          type="button"
+          class="footer-audio-toggle audio-toggle"
+          data-audio-toggle
+          aria-label="Toggle ambient audio"
+          aria-pressed="false"
+          title="Ambient audio"
+        >
+          <span class="audio-toggle__bars" aria-hidden="true">
+            <span class="audio-toggle__bar"></span>
+            <span class="audio-toggle__bar"></span>
+            <span class="audio-toggle__bar"></span>
+          </span>
+          <span class="audio-toggle__state" aria-hidden="true">OFF</span>
+          <span class="sr-only">Ambient audio:&nbsp;</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div
+    id="cookie-notice-bar"
+    class="cookie-notice"
+    role="region"
+    aria-label="Cookie and infrastructure notice"
+  >
+    <div class="container cookie-notice__inner">
+      <p class="cookie-notice__text">
+        Strictly necessary cookies only &mdash; no third-party advertising or behavioural tracking.
+        <a href="/privacy#cookies" class="cookie-notice__link">Details</a>.
+      </p>
+      <button
+        type="button"
+        id="cookie-notice-dismiss"
+        class="cookie-notice__dismiss"
+        aria-controls="cookie-notice-bar"
+      >
+        Dismiss
+      </button>
+    </div>
+  </div>
+</footer>
+
+<script is:inline define:vars={{ cookieStorageKey }}>
+  (function () {
+    try {
+      if (localStorage.getItem(cookieStorageKey) === '1') {
+        document.getElementById('cookie-notice-bar')?.setAttribute('hidden', '');
+      }
+    } catch {
+      /* private mode / blocked storage */
+    }
+  })();
+</script>
+
+<script define:vars={{ cookieStorageKey }}>
+  /**
+   * View transitions (ClientRouter): footer DOM is swapped without a full reload, so we
+   * re-sync visibility from localStorage on astro:page-load and use document-level delegation
+   * for Dismiss (one listener survives navigations).
+   */
+  function syncCookieNoticeBar() {
+    const bar = document.getElementById('cookie-notice-bar');
+    if (!bar) return;
+    try {
+      if (localStorage.getItem(cookieStorageKey) === '1') {
+        bar.setAttribute('hidden', '');
+      } else {
+        bar.removeAttribute('hidden');
+      }
+    } catch {
+      bar.removeAttribute('hidden');
+    }
+  }
+
+  function onDocumentClick(e) {
+    const t = e.target;
+    if (!(t instanceof Element)) return;
+    if (!t.closest('#cookie-notice-dismiss')) return;
+    const bar = document.getElementById('cookie-notice-bar');
+    try {
+      localStorage.setItem(cookieStorageKey, '1');
+    } catch {
+      /* ignore */
+    }
+    bar?.setAttribute('hidden', '');
+    // Move focus off the now-hidden dismiss button to a stable landmark.
+    // Prefer the main content region (skip-link destination) to keep the user
+    // in context rather than teleporting them to the footer.
+    const main = document.getElementById('main-content');
+    if (main instanceof HTMLElement) {
+      if (!main.hasAttribute('tabindex')) main.setAttribute('tabindex', '-1');
+      main.focus({ preventScroll: true });
+    } else {
+      const fallback = document.querySelector('footer .footer-nav a[href="/privacy/"]');
+      if (fallback instanceof HTMLElement) fallback.focus();
+    }
+  }
+
+  document.addEventListener('click', onDocumentClick);
+  document.addEventListener('DOMContentLoaded', syncCookieNoticeBar);
+  document.addEventListener('astro:page-load', syncCookieNoticeBar);
+  if (document.readyState !== 'loading') {
+    syncCookieNoticeBar();
+  }
+</script>
+
+<style>
+  /* ------------------------------------------------------------------
+     Thin bar footer (Round 6.1)
+     - Snug-fit panel: padding is on the inner row; the panel itself
+       carries zero block padding and zero box-shadow so it reads as a
+       chrome strip, not a floating surface.
+     - The panel-level .glass-panel drop shadow (used for hero cards)
+       is overridden here — a thin bar with a 20px drop shadow looks
+       like UI furniture rather than a site footer.
+     - Interactive children (.footer-link, .footer-search, .footer-audio-toggle) own their
+       own 44px touch-target via padding; the row itself can stay
+       tight at ~32px content + 8px block padding ≈ 40px.
+     - Body is flex-column (see global.css), so the footer is pinned
+       to viewport bottom on short pages.
+     ------------------------------------------------------------------ */
+  .site-footer {
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid rgba(0, 212, 255, 0.12);
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    background: var(--glass-bg-heavy);
+    position: relative;
+    overflow: hidden;
+    /* Kill the .glass-panel floating-card shadow stack for the thin bar.
+       One tight inset highlight kept for the glassy edge under the border. */
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+
+  .site-footer:hover {
+    /* .glass-panel:hover otherwise widens the drop shadow — override. */
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    border-color: rgba(0, 212, 255, 0.18);
+  }
+
+  .footer-inner {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 20px;
+    flex-wrap: wrap;
+    padding-block: 8px;
+    line-height: 1.2;
+  }
+
+  .footer-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    flex-wrap: wrap;
+  }
+
+  .footer-copy {
+    font-family: var(--font-heading);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--chrome-dark);
+  }
+
+  .footer-location {
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+  }
+
+  .footer-sep {
+    color: var(--text-muted);
+    opacity: 0.5;
+    font-size: 0.7rem;
+    user-select: none;
+  }
+
+  .footer-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .footer-utilities {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  /* Command palette + ambient — same contract as former header controls;
+     footer bar reads like scrolled nav (light glass). */
+  .footer-search {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px 6px 12px;
+    background: transparent;
+    border: 1px solid rgba(0, 95, 130, 0.22);
+    border-radius: 999px;
+    color: #27323e;
+    font-family: var(--font-heading);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    line-height: 1;
+    min-height: 32px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+  }
+
+  /* WCAG 2.5.5 AAA on touch: the thin footer bar is the last surface
+     to scale up, so instead of inflating the row we expand the button
+     with block padding. 44px min-height is met without shifting the
+     adjacent inline siblings out of alignment. */
+  @media (pointer: coarse) {
+    .footer-search {
+      min-height: 44px;
+      padding: 10px 14px;
+    }
+  }
+
+  .footer-search:hover,
+  .footer-search:focus-visible {
+    color: var(--cyan-core);
+    border-color: rgba(0, 155, 200, 0.5);
+    background: rgba(0, 212, 255, 0.06);
+    outline: none;
+  }
+
+  .footer-search:focus-visible {
+    box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.28);
+  }
+
+  .footer-search__icon {
+    flex: 0 0 auto;
+    display: block;
+  }
+
+  .footer-search__kbd {
+    font-family: inherit;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 95, 130, 0.25);
+    background: rgba(0, 212, 255, 0.04);
+    color: inherit;
+    min-width: 2.4em;
+    text-align: center;
+  }
+
+  @media (max-width: 560px) {
+    .footer-search {
+      padding: 8px;
+      min-width: 40px;
+      justify-content: center;
+    }
+    .footer-search__kbd {
+      display: none;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .footer-search {
+      border-color: CanvasText;
+      color: CanvasText;
+      background: Canvas;
+    }
+    .footer-search__kbd {
+      border-color: CanvasText;
+      background: Canvas;
+    }
+  }
+
+  .footer-audio-toggle.audio-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid rgba(0, 95, 130, 0.22);
+    border-radius: 999px;
+    color: #27323e;
+    font-family: var(--font-heading);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    line-height: 1;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+  }
+
+  /* Mirror the footer-search AAA target sizing so the two pills sit
+     at the same visual height on touch devices. */
+  @media (pointer: coarse) {
+    .footer-audio-toggle.audio-toggle {
+      min-height: 44px;
+      padding: 10px 14px;
+    }
+  }
+
+  .footer-audio-toggle:hover,
+  .footer-audio-toggle:focus-visible {
+    color: var(--cyan-core);
+    border-color: rgba(0, 155, 200, 0.5);
+    background: rgba(0, 212, 255, 0.06);
+    outline: none;
+  }
+
+  .footer-audio-toggle:focus-visible {
+    box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.28);
+  }
+
+  .footer-audio-toggle[aria-pressed='true'] {
+    color: var(--cyan-core);
+    border-color: rgba(0, 212, 255, 0.55);
+    background: rgba(0, 212, 255, 0.08);
+  }
+
+  .footer-audio-toggle .audio-toggle__bars {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 10px;
+  }
+
+  /* Layout: height is fixed at 9px (the max pulse height) and the
+     visible size is driven by `transform: scaleY()` with origin at
+     the bottom. Animating `transform` keeps the pulse on the
+     compositor instead of re-laying out the audio-bar strip on every
+     frame (the old `height` keyframe triggered layout + paint 60x/s
+     while playing). Scale factors mirror the original height ratios
+     (3/9 = 0.333, 5/9 = 0.556, 9/9 = 1). */
+  .footer-audio-toggle .audio-toggle__bar {
+    width: 2px;
+    height: 9px;
+    background: currentColor;
+    border-radius: 1px;
+    transform-origin: bottom center;
+    transform: scaleY(0.333);
+    opacity: 0.75;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+
+  .footer-audio-toggle[aria-pressed='true'] .audio-toggle__bar {
+    opacity: 1;
+    animation: footer-audio-bar-pulse 1.6s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  .footer-audio-toggle[aria-pressed='true'] .audio-toggle__bar:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .footer-audio-toggle[aria-pressed='true'] .audio-toggle__bar:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes footer-audio-bar-pulse {
+    0%,
+    100% {
+      transform: scaleY(0.333);
+    }
+    40% {
+      transform: scaleY(1);
+    }
+    60% {
+      transform: scaleY(0.556);
+    }
+  }
+
+  .footer-audio-toggle .audio-toggle__state {
+    min-width: 1.7em;
+    text-align: right;
+  }
+
+  @media (forced-colors: active) {
+    .footer-audio-toggle.audio-toggle {
+      border-color: CanvasText;
+      background: Canvas;
+      color: CanvasText;
+    }
+    .footer-audio-toggle[aria-pressed='true'] {
+      background: Canvas;
+      color: Highlight;
+      border-color: Highlight;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .footer-audio-toggle[aria-pressed='true'] .audio-toggle__bar {
+      animation: none;
+    }
+  }
+
+  .footer-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .footer-link {
+    font-family: var(--font-heading);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    transition: color 0.2s ease;
+    /* 44px touch target without inflating the row: 18px top/bottom padding
+       on a 0.65rem line gives a ~44px hit area while visually the text
+       sits in the middle of the slim bar. */
+    display: inline-flex;
+    align-items: center;
+    padding-block: 14px;
+    margin-block: -14px;
+  }
+
+  .footer-link:hover {
+    color: var(--cyan-core);
+  }
+
+  .footer-link:focus {
+    outline: none;
+  }
+
+  .footer-link:focus-visible {
+    outline: 2px solid var(--cyan-core);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  @media (max-width: 600px) {
+    .footer-inner {
+      justify-content: center;
+      text-align: center;
+    }
+
+    .footer-right {
+      justify-content: center;
+    }
+  }
+
+  /* ---- Cookie notice: thin strip variant ---- */
+
+  .cookie-notice {
+    border-top: 1px solid rgba(0, 212, 255, 0.1);
+    background: rgba(255, 255, 255, 0.32);
+  }
+
+  .cookie-notice[hidden] {
+    display: none !important;
+  }
+
+  .cookie-notice__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    padding-block: 6px;
+    min-height: 36px;
+  }
+
+  .cookie-notice__text {
+    flex: 1 1 260px;
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    line-height: 1.45;
+    color: var(--chrome-dark);
+  }
+
+  .cookie-notice__link {
+    color: var(--cyan-core);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: rgba(0, 212, 255, 0.45);
+    font-weight: 500;
+  }
+
+  .cookie-notice__link:hover {
+    color: var(--cyan-bright);
+    text-decoration-color: rgba(0, 212, 255, 0.75);
+  }
+
+  .cookie-notice__dismiss {
+    flex-shrink: 0;
+    font-family: var(--font-heading);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--chrome-dark);
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    clip-path: var(--clip-sm);
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+  }
+
+  /* GDPR-grade UX: the dismiss button is often the only way to hide
+     the cookie strip, so it must be trivially tappable on mobile.
+     Bump to AAA 44px min-height; the notice strip grows naturally
+     to accommodate via its `min-height: 36px` floor. */
+  @media (pointer: coarse) {
+    .cookie-notice__dismiss {
+      min-height: 44px;
+      padding: 12px 16px;
+    }
+  }
+
+  .cookie-notice__dismiss:hover {
+    border-color: var(--cyan-core);
+    color: var(--cyan-core);
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.12);
+  }
+
+  .cookie-notice__dismiss:focus {
+    outline: none;
+  }
+
+  .cookie-notice__dismiss:focus-visible {
+    outline: 2px solid var(--cyan-core);
+    outline-offset: 3px;
+  }
+
+  .cookie-notice__link:focus-visible {
+    outline: 2px solid var(--cyan-core);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cookie-notice__dismiss {
+      transition: none;
+    }
+  }
+</style>

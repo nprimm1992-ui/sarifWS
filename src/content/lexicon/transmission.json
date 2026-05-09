@@ -1,0 +1,14 @@
+{
+  "num": "09",
+  "term": "Transmission",
+  "category": "engagement",
+  "lastReviewed": "2026-04-18",
+  "definition": "Sarif's framing for the first exchange with a prospective client. A transmission is a signal, not a form submission. The prospect states what they are facing; Sarif responds with a reply that cites the firm's existing thinking on the problem and outlines whether and how Sarif can help. The reply is the first engagement artifact.",
+  "matters": "It reframes the contact surface from administrative intake to first act of work. It also filters for clients who take their own signal seriously, which is the only kind Sarif should engage.",
+  "appears": "Contact page (primary surface). About page (brief mention). Lexicon cross-links from Praxis posts that discuss client intake or engagement design.",
+  "related": [
+    { "id": "briefing", "label": "Briefing" },
+    { "id": "epistemic-mode", "label": "Epistemic Mode" },
+    { "id": "architectural-depth", "label": "Architectural Depth" }
+  ]
+}

@@ -1,0 +1,348 @@
+---
+/**
+ * ServiceCard — grid-scale lane card used on /about "What We Build".
+ *
+ * Dossier grammar at grid scale: accent rail, ghost numeral, ui-eyebrow title,
+ * description, diamond-marker highlights. Keeps the
+ * existing 3D mouse-tilt and radial mouse-follow light that already set this
+ * component above baseline — those tricks make the dossier card feel spatial,
+ * not static.
+ *
+ * Tokens reused (zero new tokens): panel-frost-base, ui-eyebrow, --sarif-gold,
+ * --gold-bright, --cyan-core, --cyan-bright,
+ * --glass-border-hover, --clip-card.
+ *
+ * highlights render with set:html for author-controlled inline <strong>
+ * emphasis — compile-time-static data only. Any literal < > & in copy must be
+ * escaped (&lt; &gt; &amp;) or they will be interpreted as markup.
+ */
+export type ServiceAccent = 'intelligence' | 'digital' | 'narrative' | 'media';
+
+interface Props {
+  title: string;
+  description: string;
+  icon?: string;
+  num?: '01' | '02' | '03' | '04';
+  highlights?: string[];
+  accent?: ServiceAccent;
+}
+
+const {
+  title,
+  description,
+  icon,
+  num,
+  highlights = [],
+  accent,
+} = Astro.props;
+---
+
+<div class="service-card-wrapper" data-reveal-item>
+  <div class="service-card-border panel-frost-base panel-dossier panel-dossier--interactive" data-service-accent={accent}>
+    <div class="tilt-inner service-card__tilt-inner">
+      <article class="service-card">
+        <div class="service-card__light" aria-hidden="true"></div>
+        {accent && <div class="service-card__accent" aria-hidden="true"></div>}
+        {num && <span class="service-card__num" aria-hidden="true">{num}</span>}
+        {icon && <div class="service-card__icon" set:html={icon} />}
+        <h2 class="service-card__title ui-eyebrow">{title}</h2>
+        <p class="service-card__desc">{description}</p>
+        {highlights.length > 0 && (
+          <ul class="service-card__highlights" role="list">
+            {highlights.map((line) => (
+              <li class="sarif-gold-cap-line" set:html={line} />
+            ))}
+          </ul>
+        )}
+      </article>
+    </div>
+  </div>
+</div>
+
+<style>
+  .service-card-wrapper {
+    container-type: inline-size;
+    perspective: 800px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .service-card-wrapper.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Round-3 P8e — Tilt lives on a dedicated inner wrapper so the
+     border can retain its hover translateY(-6px) lift without
+     conflicting with the per-frame tilt transform set by
+     spring-tilt.js. Before this split, the inline tilt JS would
+     wipe the hover translateY on the same element — a visible
+     "lift disappears while hovered" bug. */
+  .service-card__tilt-inner {
+    display: block;
+    height: 100%;
+    transform-style: preserve-3d;
+    will-change: auto;
+  }
+
+  .service-card-border {
+    position: relative;
+    clip-path: var(--clip-card);
+    padding: 0;
+    height: 100%;
+    transform-style: preserve-3d;
+    /* will-change: transform is promoted only under hover-capable pointers and
+       only when the card is actually interacted with (hover / focus-within).
+       A static will-change kept dozens of idle cards on their own compositor
+       layer during scroll, wasting GPU memory and slowing page-wide repaints. */
+    transition: border-color 0.4s ease-out, box-shadow 0.4s ease-out, transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .service-card-wrapper:hover .service-card-border,
+    .service-card-wrapper:focus-within .service-card-border {
+      will-change: transform;
+    }
+  }
+
+  /* Transform lift only — border/shadow is now carried by the shared
+     `.panel-dossier--interactive:hover` rule in global.css so all five
+     dossier surfaces (about, ucim, service card, lane, proof) hover
+     with one unified cyan palette. The lift still triggers on the
+     wrapper (not the border itself) so pointer motion through the
+     outer perspective container still feels responsive. */
+  .service-card-wrapper:hover .service-card-border {
+    transform: translateY(-6px);
+  }
+
+  .service-card {
+    clip-path: var(--clip-card);
+    padding: 28px 32px 28px 36px;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    transform-style: preserve-3d;
+  }
+
+  .service-card__light {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      400px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+      rgba(0, 212, 255, 0.06),
+      transparent 60%
+    );
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .service-card-wrapper:hover .service-card__light {
+    opacity: 1;
+  }
+
+  /* --- Accent rail (left vertical gradient, dossier grammar) --- */
+  .service-card__accent {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(to bottom, var(--cyan-core), rgba(0, 212, 255, 0.2));
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .service-card-border[data-service-accent='intelligence'] .service-card__accent {
+    background: linear-gradient(
+      to bottom,
+      var(--cyan-core) 0%,
+      rgba(0, 212, 255, 0.45) 45%,
+      rgba(221, 184, 61, 0.55) 100%
+    );
+  }
+
+  .service-card-border[data-service-accent='digital'] .service-card__accent {
+    background: linear-gradient(
+      to bottom,
+      var(--cyan-bright) 0%,
+      var(--cyan-core) 55%,
+      rgba(0, 212, 255, 0.3) 100%
+    );
+  }
+
+  .service-card-border[data-service-accent='narrative'] .service-card__accent {
+    background: linear-gradient(
+      to bottom,
+      var(--sarif-gold) 0%,
+      rgba(221, 184, 61, 0.55) 50%,
+      var(--cyan-core) 100%
+    );
+  }
+
+  .service-card-border[data-service-accent='media'] .service-card__accent {
+    background: linear-gradient(
+      to bottom,
+      rgba(221, 184, 61, 0.85) 0%,
+      var(--cyan-core) 55%,
+      rgba(0, 212, 255, 0.2) 100%
+    );
+  }
+
+  /* --- Ghost numeral (top-right watermark) --- */
+  .service-card__num {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    font-family: var(--font-heading);
+    font-size: clamp(32px, 4vw, 42px);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: var(--sarif-gold);
+    opacity: 0.12;
+    pointer-events: none;
+    user-select: none;
+    z-index: 2;
+  }
+
+  .service-card__icon {
+    width: 32px;
+    height: 32px;
+    color: var(--sarif-gold);
+    margin-bottom: 16px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .service-card__icon :global(svg) {
+    width: 100%;
+    height: 100%;
+  }
+
+  h2.service-card__title {
+    margin: 0 0 14px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .service-card__desc {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    line-height: 1.72;
+    margin: 0 0 16px;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* --- Evidence list (diamond-marker highlights) --- */
+  .service-card__highlights {
+    list-style: none;
+    padding: 0;
+    margin: 16px 0 0;
+    padding-top: 14px;
+    border-top: 1px solid rgba(0, 212, 255, 0.12);
+    position: relative;
+    z-index: 2;
+  }
+
+  .service-card__highlights li {
+    position: relative;
+    padding-left: 16px;
+    margin-bottom: 8px;
+    text-align: left;
+    font-size: clamp(0.64rem, 1.3vw, 0.72rem);
+    line-height: 1.5;
+  }
+
+  .service-card__highlights li:last-child {
+    margin-bottom: 0;
+  }
+
+  .service-card__highlights li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.5em;
+    width: 4px;
+    height: 4px;
+    background: var(--gold-bright);
+    box-shadow: 0 0 6px rgba(221, 184, 61, 0.45);
+    transform: rotate(45deg);
+  }
+
+  .service-card__highlights li :global(strong) {
+    color: var(--gold-bright);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  @container (max-width: 280px) {
+    .service-card {
+      padding: 20px 20px 20px 24px;
+    }
+
+    .service-card__num {
+      font-size: 28px;
+      top: 8px;
+      right: 10px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .service-card-wrapper {
+      opacity: 1;
+      transform: none;
+      transition: none;
+      perspective: none;
+    }
+    .service-card-border {
+      transition: none;
+      transform: none !important;
+    }
+    .service-card__light {
+      display: none;
+    }
+    .service-card__highlights li::before {
+      box-shadow: none;
+    }
+  }
+</style>
+
+<script>
+/* Round-3 P8e — Tilt motion is now owned by src/scripts/spring-tilt.js
+ * via the shared `.tilt-inner` contract. This script retains only the
+ * per-card radial-sheen tracking (`--mouse-x` / `--mouse-y`) because
+ * those variables feed a background-gradient that is cosmetic and
+ * unrelated to the tilt transform. */
+function initCardSheen() {
+  const wrappers = document.querySelectorAll('.service-card-wrapper');
+  for (const wrapper of wrappers) {
+    const innerRaw = wrapper.querySelector('.service-card');
+    const inner = innerRaw instanceof HTMLElement ? innerRaw : null;
+    if (!inner) continue;
+    if (wrapper.hasAttribute('data-sheen-bound')) continue;
+    wrapper.setAttribute('data-sheen-bound', 'true');
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) continue;
+    wrapper.addEventListener('mousemove', (evt) => {
+      if (!(evt instanceof MouseEvent)) return;
+      const rect = wrapper.getBoundingClientRect();
+      const x = (evt.clientX - rect.left) / rect.width;
+      const y = (evt.clientY - rect.top) / rect.height;
+      inner.style.setProperty('--mouse-x', (x * 100) + '%');
+      inner.style.setProperty('--mouse-y', (y * 100) + '%');
+    }, { passive: true });
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCardSheen, { once: true });
+} else {
+  initCardSheen();
+}
+document.addEventListener('astro:page-load', initCardSheen);
+</script>

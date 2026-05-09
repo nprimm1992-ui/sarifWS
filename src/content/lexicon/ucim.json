@@ -1,0 +1,16 @@
+{
+  "num": "05",
+  "term": "UCIM",
+  "termDisplay": "UCIM — Universal Contextual Intelligence Matrix",
+  "category": "substrate",
+  "lastReviewed": "2026-04-18",
+  "aka": ["Universal Contextual Intelligence Matrix"],
+  "definition": "UCIM is the framework Jensen runs on. A living knowledge genome that ingests signals from documents, conversations, tool integrations and decision history, then organizes them into a contextual graph that evolves with use. Concepts are reinforced when they prove useful and decay when they fall out of relevance, so the matrix stays current without manual curation.",
+  "matters": "It separates Sarif from firms that claim \"AI-native methodology\" but actually run static prompts. UCIM is the technical substrate that makes continuous metabolism possible. It is also the quiet assertion that Sarif owns proprietary intelligence infrastructure.",
+  "appears": "About page (brief mention). Methodology essays (primary). Lexicon cross-references in Praxis posts. Internal workstation documentation.",
+  "related": [
+    { "id": "jensen", "label": "Jensen" },
+    { "id": "metabolic-knowledge", "label": "Metabolic Knowledge" },
+    { "id": "coherence-decay", "label": "Coherence Decay" }
+  ]
+}

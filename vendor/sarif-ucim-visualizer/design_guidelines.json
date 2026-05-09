@@ -1,0 +1,111 @@
+{
+  "project_type": "3d_experience",
+  "domain": "Strategic Consulting (sarifconsulting.ai)",
+  "theme": "DARK",
+  "archetype": "5_Jewel_and_Luxury_with_Archetype_7_Neon_Accents",
+  "aesthetic": "Cyber-Renaissance",
+  "colors": {
+    "background": {
+      "primary": "#0a0f1a",
+      "secondary": "#1a1a2e",
+      "gradient": "radial-gradient(circle at center, #1a1a2e 0%, #0a0f1a 100%)"
+    },
+    "primary": "#D4AF37",
+    "secondary": "#00d4ff",
+    "particles": "#D4AF37",
+    "text": {
+      "primary": "#ffffff",
+      "secondary": "#D4AF37",
+      "muted": "rgba(255,255,255,0.6)"
+    },
+    "border": "rgba(0, 212, 255, 0.2)"
+  },
+  "typography": {
+    "fonts": {
+      "labels": "Space Grotesk",
+      "fallback": "sans-serif"
+    },
+    "sizes": {
+      "label_desktop": "14px",
+      "label_mobile": "12px"
+    },
+    "weights": {
+      "label": "500"
+    },
+    "spacing": {
+      "letter_spacing": "0.05em"
+    }
+  },
+  "layout_and_geometry": {
+    "container": "aspect-video w-full max-w-7xl mx-auto relative overflow-hidden bg-gradient-to-br from-[#0a0f1a] to-[#1a1a2e]",
+    "border_radius": "0px",
+    "nodes": [
+      {
+        "id": "center",
+        "shape": "Icosahedron or Octahedron",
+        "color": "#D4AF37",
+        "role": "Core Strategy"
+      },
+      { "id": "1", "label": "Market Position", "shape": "Pyramid" },
+      { "id": "2", "label": "Competitive Landscape", "shape": "Octahedron" },
+      { "id": "3", "label": "Organizational Context", "shape": "Icosahedron" },
+      { "id": "4", "label": "Risk Architecture", "shape": "Pyramid" },
+      { "id": "5", "label": "Revenue Structure", "shape": "Octahedron" },
+      { "id": "6", "label": "Stakeholder Mapping", "shape": "Icosahedron" },
+      { "id": "7", "label": "Strategic Alignment", "shape": "Pyramid" },
+      { "id": "8", "label": "Operational Reality", "shape": "Octahedron" }
+    ]
+  },
+  "animation_loop": {
+    "duration_seconds": 16,
+    "phases": [
+      { "name": "Assemble", "time": "0s - 4s", "action": "Particles gather, central node scales up from 0 to 1, orbital nodes spawn and scale, cyan connection lines draw sequentially." },
+      { "name": "Hold", "time": "4s - 10s", "action": "Central node breathes/pulses (scale 1.0 to 1.05), slow rotation of the entire orbital system, drifting particles." },
+      { "name": "Dissolve", "time": "10s - 14s", "action": "Cyan lines retract, nodes shrink to 0 or shatter into particles, particles disperse." },
+      { "name": "Restart", "time": "14s - 16s", "action": "Empty void state, resetting for the next loop." }
+    ]
+  },
+  "webgl_requirements": {
+    "scene": "Three.js with GSAP for timelines",
+    "lighting": "Cinematic. Ambient light + strong directional light to highlight the Gold and Cyan. Maybe a PointLight inside the central node.",
+    "materials": "MeshStandardMaterial or MeshPhysicalMaterial for nodes (metalness: 0.8, roughness: 0.2). LineBasicMaterial for connections.",
+    "particles": "PointsMaterial with additive blending, moving via simple sine waves in render loop.",
+    "substrate": "A flat plane or grid helper with cyan color and low opacity (0.1) on the XZ plane below the nodes.",
+    "labels": "HTML/CSS overlays mapped to 3D coordinates (using manual projection of Vector3 to 2D screen space), styled with Space Grotesk, absolutely positioned."
+  },
+  "css_fallback": {
+    "trigger": "Mobile viewports (max-width: 768px) or if WebGL context fails.",
+    "visuals": {
+      "background": "CSS radial gradient (#1a1a2e to #0a0f1a).",
+      "central_node": "A sharp diamond/rhombus CSS shape (using transform rotate-45) in #D4AF37 with a pulsing box-shadow.",
+      "orbital_nodes": "Smaller sharp diamonds/squares with glowing cyan borders, positioned around the center using absolute positioning.",
+      "lines": "Faint 1px cyan CSS borders connecting nodes, possibly using SVG overlays.",
+      "particles": "A few small absolutely positioned <div> dots drifting slowly via CSS keyframes.",
+      "animations": "Simple CSS @keyframes for pulse, float, and opacity fades. Skip the complex 16s assemble/dissolve loop to save battery and performance."
+    }
+  },
+  "accessibility_and_testing": {
+    "aria": "Add aria-label to the container explaining it's a 3D visualization of the Universal Contextual Intelligence Matrix.",
+    "prefers_reduced_motion": "If (prefers-reduced-motion), pause the GSAP timeline and display the 'Hold' state statically.",
+    "test_ids": {
+      "container": "ucim-webgl-container",
+      "fallback": "ucim-css-fallback",
+      "labels": "ucim-node-label"
+    }
+  },
+  "instructions_to_main_agent": [
+    "1. Ensure 'three' and 'gsap' are installed (yarn add three gsap).",
+    "2. Create a React component 'UCIMVisualization' that acts as a wrapper for the vanilla Three.js class.",
+    "3. The Vanilla Three.js class should accept a container ref, initialize the scene, camera, renderer, lights, and start the render loop.",
+    "4. Implement the Hex Grid substrate as a flat plane with a hex texture or simply a GridHelper with cyan color, low opacity.",
+    "5. Add the Central Node (Solid Gold #D4AF37, angular geometry like Icosahedron) and 8 Orbital Nodes (mixed Pyramids, Octahedrons).",
+    "6. Draw connecting lines between the center and orbital nodes.",
+    "7. Implement the drifting Gold particle system using THREE.Points.",
+    "8. Implement HTML overlay labels using Space Grotesk font. Project the 3D position of each node to 2D screen coordinates in the render loop to position the HTML labels absolutely.",
+    "9. Create the 16-second GSAP Timeline for the assemble -> hold -> dissolve -> restart sequence.",
+    "10. Add Intersection Observer so the animation only plays when the container is in the viewport.",
+    "11. Build the CSS/HTML fallback inside the same component, conditionally rendered for mobile (e.g. window.innerWidth < 768) or WebGL failure.",
+    "12. The CSS fallback should be a clean, geometric layout with zero border-radius, floating dots, and a central pulsing element.",
+    "13. Add the required data-testid attributes to all key elements for testing."
+  ]
+}

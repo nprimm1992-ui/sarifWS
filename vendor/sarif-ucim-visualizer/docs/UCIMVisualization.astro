@@ -1,0 +1,58 @@
+---
+/**
+ * UCIMVisualization.astro
+ *
+ * Drop this file into your Astro project's src/components/ directory.
+ * It renders the UCIM WebGL visualization with automatic
+ * IntersectionObserver, mobile CSS fallback, and bloom post-processing.
+ *
+ * Prerequisites:
+ *   yarn add three gsap
+ *
+ * Copy these files into src/lib/:
+ *   - UCIMVisualization.js   (the core Three.js engine)
+ *   - UCIMWebComponent.js    (the <ucim-visualization> custom element)
+ *
+ * Usage in any .astro page:
+ *   ---
+ *   import UCIMVisualization from '../components/UCIMVisualization.astro';
+ *   ---
+ *   <UCIMVisualization />
+ */
+
+export interface Props {
+  /** Override bloom intensity (default 0.55). Lower = subtler glow. */
+  bloomStrength?: number;
+  /** Force the CSS fallback even on WebGL-capable devices. */
+  fallbackOnly?: boolean;
+  /** Additional CSS class on the outer wrapper. */
+  class?: string;
+}
+
+const { bloomStrength, fallbackOnly = false, class: className } = Astro.props;
+---
+
+<div class:list={['ucim-wrapper', className]}>
+  <ucim-visualization
+    {...(bloomStrength !== undefined ? { 'bloom-strength': String(bloomStrength) } : {})}
+    {...(fallbackOnly ? { 'fallback-only': '' } : {})}
+  />
+</div>
+
+<style>
+  .ucim-wrapper {
+    width: 100%;
+    max-width: 80rem;
+    margin: 0 auto;
+  }
+</style>
+
+<script>
+  /**
+   * This script tag runs once on the client.
+   * It dynamically imports the Web Component module which
+   * registers <ucim-visualization> and starts the visualization
+   * via IntersectionObserver when it enters the viewport.
+   */
+  import '../lib/UCIMWebComponent.js';
+</script>

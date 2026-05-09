@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /lexicon
+Disallow: /lexicon/
+
+Sitemap: https://sarifconsulting.ai/sitemap-index.xml

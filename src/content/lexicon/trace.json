@@ -1,0 +1,14 @@
+{
+  "num": "07",
+  "term": "Trace",
+  "category": "discipline",
+  "lastReviewed": "2026-04-18",
+  "definition": "The full record of how a conclusion was reached. For Sarif, every deliverable carries a trace: which sources were consulted, which concepts activated, which inferences were labeled as grounded, inferred or uncertain, and which risks were flagged along the way. Trace is not appendix material. It is the audit surface that makes the conclusion trustworthy.",
+  "matters": "It is Sarif's answer to the black-box critique of AI-augmented work. Every claim is inspectable. It also operationalizes intellectual honesty: the firm shows its reasoning, including where the reasoning was uncertain.",
+  "appears": "Engagements page (referenced as why Sarif's case outcomes are defensible). Methodology essays. Praxis posts (Jensen-annotated trace panel at footer). Portal interior (trace inspector).",
+  "related": [
+    { "id": "epistemic-mode", "label": "Epistemic Mode" },
+    { "id": "architectural-depth", "label": "Architectural Depth" },
+    { "id": "jensen", "label": "Jensen" }
+  ]
+}

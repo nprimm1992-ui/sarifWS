@@ -1,0 +1,1279 @@
+---
+/**
+ * LexiconTermLink — auto-linked lexicon term with a hybrid
+ * preview-plus-pinned popover.
+ *
+ * Two interaction modes, one element:
+ *
+ *   Preview  — hover or keyboard focus opens a compact, non-interactive
+ *              surface (term + category + definition + "more"
+ *              affordance). Non-interactive is declared via the `inert`
+ *              attribute, which lets us keep `role="tooltip"` honest to
+ *              the ARIA Authoring Practices Guide.
+ *
+ *   Pinned   — click, Enter/Space, or tap promotes the popover to a
+ *              `role="dialog"` with full metadata: related outgoing
+ *              links, incoming backlinks ("Referenced by"),
+ *              "Open in lexicon" link, and a close button. The pinned
+ *              popover owns focus via a trap, dismisses on Escape or
+ *              outside click, and closes on Astro route change.
+ *
+ * Progressive enhancement layers, top to bottom:
+ *   1. No JS  → CSS `:hover` / `:focus-within` still reveals the
+ *               preview content (pinned is JS-only by design).
+ *   2. JS but no Popover API (Safari < 17) → data-state attribute
+ *               drives visibility via CSS; z-index handles stacking.
+ *   3. Popover API present → we also call `showPopover()` which
+ *               promotes the element to the top layer, escaping any
+ *               ancestor stacking context or overflow clip.
+ *   4. CSS anchor-positioning → picked up by base CSS where supported
+ *               for position-refresh on scroll without JS repositioning.
+ *
+ * Data source: src/lib/lexicon-graph.ts — memoized build-time graph
+ * with computed incoming backlinks and category metadata. Per-component
+ * cost is an O(1) map lookup, not an N-pass scan.
+ */
+import { getLexiconGraph, LEXICON_CATEGORY_META } from '../../lib/lexicon-graph';
+import LexiconChip from '../lexicon/LexiconChip.astro';
+
+interface Props {
+  term: string;
+}
+
+const { term } = Astro.props;
+
+const graph = await getLexiconGraph();
+const normalized = term.trim().toLowerCase();
+
+/* Resolve the incoming display term to a corpus entry by (a) exact
+   term, (b) termDisplay full string, (c) termDisplay lead-in (part
+   before " — "), or (d) any configured `aka` alias. We scan the full
+   map rather than pre-building an alias index because the corpus is
+   small (≤ 20 entries) and readability of this match matters more
+   than a micro-optimization. */
+let match: ReturnType<typeof graph.flat.find> | undefined;
+for (const entry of graph.flat) {
+  const candidates = [entry.term, entry.termDisplay, ...(entry.aka ?? [])]
+    .filter((v): v is string => typeof v === 'string' && v.length > 0)
+    .map((t) => t.toLowerCase());
+  if (candidates.includes(normalized)) {
+    match = entry;
+    break;
+  }
+  const leadIn = entry.termDisplay?.split(' — ')[0]?.trim().toLowerCase();
+  if (leadIn && leadIn === normalized) {
+    match = entry;
+    break;
+  }
+}
+
+const slug = match?.id ?? '';
+const href = slug ? `/lexicon/#${slug}` : '/lexicon/';
+/* Random suffix keeps ids unique across manual authored dupes while
+   still being stable enough for a single SSR pass. */
+const popId = slug ? `lex-pop-${slug}-${Math.random().toString(36).slice(2, 8)}` : undefined;
+const titleId = popId ? `${popId}-title` : undefined;
+const categoryMeta = match && match.category !== 'uncategorized' ? LEXICON_CATEGORY_META[match.category] : undefined;
+const isDeprecated = match?.status === 'deprecated';
+const supersededBy = isDeprecated && match?.supersededBy ? graph.byId.get(match.supersededBy) : undefined;
+---
+
+<span class="lex-term" data-lex-term-id={slug || undefined}>
+  <a
+    class="lex-term__anchor"
+    href={href}
+    data-lex-anchor
+    data-lex-target={popId}
+    data-lexicon-term={slug || undefined}
+  >
+    <slot>{term}</slot>
+  </a>
+  {match && popId && titleId && (
+    // NOTE: every descendant of this element is deliberately a
+    // <span> (or <a>/<button>/<svg>, which don't close <p>). The
+    // HTML5 parser's "close <p> before start tag" rule fires for
+    // <div>, <header>, <section>, <footer>, <h1-6>, <p>, <ul>,
+    // <ol>, <hr>, and every other block-level tag — even when that
+    // tag is nested inside a <span> inside the <p>. Because this
+    // popover is rendered inline inside a lexicon term that lives
+    // inside a paragraph, any block element in here would rip the
+    // paragraph apart at parse time and drop the popover (and the
+    // stray trailing prose) as siblings of the <p> in the DOM. The
+    // visible symptom is paragraphs that appear split across two
+    // oddly-placed grid cells. All semantic intent is preserved
+    // via ARIA roles on these spans.
+    <span
+      class="lex-term__popover"
+      id={popId}
+      role="tooltip"
+      aria-labelledby={titleId}
+      data-state="closed"
+      data-lex-popover
+      inert
+    >
+      <span class="lex-term__head" role="group">
+        <span class="lex-term__meta-row">
+          <span class="lex-term__num">L-{match.num}</span>
+          {categoryMeta && (
+            <span class="lex-term__category" aria-label={`Category: ${categoryMeta.label}`}>
+              {categoryMeta.label}
+            </span>
+          )}
+          {isDeprecated && (
+            <span class="lex-term__status-deprecated" aria-label="Deprecated entry">
+              Deprecated
+            </span>
+          )}
+        </span>
+        <span class="lex-term__title" id={titleId} role="heading" aria-level="3">
+          {match.termDisplay ?? match.term}
+        </span>
+      </span>
+
+      <span class="lex-term__definition">{match.definition}</span>
+
+      {supersededBy && (
+        <span class="lex-term__superseded" data-pinned-only>
+          Superseded by {' '}
+          <a href={`/lexicon/#${supersededBy.id}`}>{supersededBy.termDisplay ?? supersededBy.term}</a>.
+        </span>
+      )}
+
+      {match.related.length > 0 && (
+        <span class="lex-term__section" role="group" data-pinned-only>
+          <span class="lex-term__section-label" role="heading" aria-level="4">Related</span>
+          <span class="lex-term__chip-list" role="list">
+            {match.related.map((r) => (
+              <span role="listitem"><LexiconChip href={`/lexicon/#${r.id}`}>{r.label}</LexiconChip></span>
+            ))}
+          </span>
+        </span>
+      )}
+
+      {match.incoming.length > 0 && (
+        <span class="lex-term__section" role="group" data-pinned-only>
+          <span class="lex-term__section-label" role="heading" aria-level="4">Referenced by</span>
+          <span class="lex-term__chip-list" role="list">
+            {match.incoming.map((r) => (
+              <span role="listitem"><LexiconChip href={`/lexicon/#${r.id}`} variant="muted">{r.label}</LexiconChip></span>
+            ))}
+          </span>
+        </span>
+      )}
+
+      <span class="lex-term__foot">
+        <a class="lex-term__open-link" href={href} data-pinned-only>
+          Open in lexicon <span aria-hidden="true">&rarr;</span>
+        </a>
+        <span class="lex-term__peek-hint" data-preview-only aria-hidden="true">
+          Click to expand
+        </span>
+        <button
+          type="button"
+          class="lex-term__close"
+          aria-label="Close definition"
+          data-lex-close
+          data-pinned-only
+        >
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </span>
+    </span>
+  )}
+</span>
+
+<style>
+  .lex-term {
+    position: relative;
+    display: inline;
+  }
+
+  .lex-term__anchor {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--cyan-core);
+    padding-bottom: 1px;
+    transition: color 0.2s ease, border-color 0.2s ease;
+    cursor: help;
+  }
+
+  .lex-term__anchor:hover,
+  .lex-term__anchor:focus-visible {
+    color: var(--cyan-bright);
+    border-bottom-color: var(--cyan-bright);
+  }
+
+  .lex-term__anchor:focus-visible {
+    outline: 2px solid var(--cyan-bright);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Anchor-positioning progressive enhancement.
+     Browsers that support it get automatic follow-on-scroll without
+     our rAF reposition loop. Fallback is the JS that sets
+     data-lex-flip attributes. */
+  @supports (anchor-name: --x) {
+    .lex-term {
+      anchor-name: --lex-anchor;
+    }
+  }
+
+  /* === Popover surface === */
+
+  .lex-term__popover {
+    /* Anchor to the .lex-term parent so position follows the anchor
+       even when promoted to the top layer by the Popover API. When
+       not promoted, this is the usual absolutely-positioned child. */
+    position: absolute;
+    left: 0;
+    top: calc(100% + 12px);
+    z-index: 50;
+
+    width: min(380px, calc(100vw - 24px));
+    /* Clamp the min-width to the available viewport so it can never
+       exceed the cap above on phones ≤ 308px. Without this clamp the
+       rigid 284px minimum pushes the popover off-screen at 320px minus
+       safe-area/gutter. */
+    min-width: min(284px, calc(100vw - 24px));
+    padding: 14px 18px 14px 18px;
+    margin: 0;
+
+    background:
+      linear-gradient(180deg, rgba(14, 26, 36, 0.97) 0%, rgba(6, 16, 24, 0.98) 100%);
+    border: 1px solid rgba(0, 212, 255, 0.34);
+    clip-path: var(--clip-sm, var(--clip-card));
+    box-shadow:
+      inset 0 1px 0 rgba(0, 212, 255, 0.22),
+      inset 0 -1px 0 rgba(0, 212, 255, 0.05),
+      0 24px 52px rgba(2, 10, 18, 0.6),
+      0 6px 18px rgba(0, 0, 0, 0.35),
+      0 0 32px rgba(0, 212, 255, 0.08);
+    backdrop-filter: blur(8px) saturate(1.12);
+    -webkit-backdrop-filter: blur(8px) saturate(1.12);
+
+    font-family: var(--font-body);
+    color: var(--text-primary);
+
+    /* Default hidden state. JS and/or :hover/:focus-within elevate us
+       into preview/pinned. */
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-6px) scale(0.98);
+    transform-origin: top left;
+    transition:
+      opacity 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+      transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* When promoted by the Popover API, UA styles set `display: none`
+     while closed and `display: block` while open. Reset our own
+     flex direction on top of that so children stack correctly once
+     the browser un-hides the element. */
+  .lex-term__popover:popover-open {
+    display: flex;
+  }
+
+  /* Smooth fade-in on browsers that support the Popover API. Without
+     @starting-style, the `display: none → flex` switch short-circuits
+     the opacity transition so the preview would pop in instantly the
+     moment showPopover() runs. @starting-style gives us a "before the
+     first paint" style layer that the real styles can transition from.
+     Supported: Chrome 117+, Safari 17.4+, Firefox 129+. Older browsers
+     simply get no fade-in animation on the top-layer path but still
+     see the full preview — graceful degradation, not a regression. */
+  @supports (transition-behavior: allow-discrete) {
+    .lex-term__popover {
+      /* Allow the `display` property to participate in transitions so
+         the element stays in the layout for the fade-out animation
+         before the UA removes it from the top layer. */
+      transition:
+        opacity 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+        transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+        overlay 0.18s allow-discrete,
+        display 0.18s allow-discrete;
+    }
+
+    @starting-style {
+      .lex-term__popover:popover-open {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.98);
+      }
+    }
+  }
+
+  /* No-JS fallback: show preview content on hover/focus-within. The
+     pinned-only sections are hidden via [data-pinned-only] below, so
+     this safely shows a compact preview only. */
+  .lex-term:hover > .lex-term__popover,
+  .lex-term:focus-within > .lex-term__popover {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+  }
+
+  /* JS-driven states override the hover/focus fallback. */
+  .lex-term__popover[data-state='preview'],
+  .lex-term__popover[data-state='pinned'] {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+  }
+
+  /* Pinned = full dialog with related / referenced-by sections. On
+     a 320×568 device those sections easily push past the viewport, so
+     cap height and allow internal scroll. overscroll-behavior: contain
+     stops the page behind from scrolling once the user hits the end of
+     the popover; safe-area-inset-bottom keeps the last control above
+     a homebar/notch. */
+  .lex-term__popover[data-state='pinned'] {
+    max-height: min(80vh, 540px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+
+  /* Relax the cross-component chip's default `white-space: nowrap` so
+     long "Related" / "Referenced by" labels wrap inside the popover
+     instead of overflowing its 284–380px width. `:global` escapes the
+     Astro scope hash since `.lex-chip` is styled in LexiconChip.astro.
+     `line-height: 1.2` gives wrapped two-line labels visible breathing
+     room (chip's default is 1.0, which crushes multi-line text). */
+  .lex-term__popover :global(.lex-chip) {
+    white-space: normal;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  .lex-term__popover[data-state='closed'] {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-6px) scale(0.98);
+  }
+
+  /* Show/hide the "preview-only" and "pinned-only" chunks per state.
+     Mobile no-JS sees only the preview-only chunk — no related lists,
+     no close button. */
+  .lex-term__popover [data-pinned-only] {
+    display: none;
+  }
+  .lex-term__popover[data-state='pinned'] [data-pinned-only] {
+    display: revert;
+  }
+  .lex-term__popover[data-state='pinned'] [data-preview-only] {
+    display: none;
+  }
+
+  /* === Header === */
+
+  .lex-term__head {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(221, 184, 61, 0.18);
+  }
+
+  .lex-term__meta-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .lex-term__num {
+    font-family: var(--font-heading);
+    font-size: 0.56rem;
+    font-weight: 600;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: rgba(221, 184, 61, 0.85);
+  }
+
+  .lex-term__num::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 1px;
+    margin-right: 8px;
+    vertical-align: middle;
+    background: var(--gold-bright);
+    box-shadow: 0 0 6px rgba(221, 184, 61, 0.55);
+  }
+
+  .lex-term__category {
+    font-family: var(--font-heading);
+    font-size: 0.54rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(0, 212, 255, 0.78);
+    padding: 2px 8px;
+    border: 1px solid rgba(0, 212, 255, 0.28);
+    background: rgba(0, 212, 255, 0.05);
+    clip-path: var(--clip-sm);
+  }
+
+  .lex-term__status-deprecated {
+    font-family: var(--font-heading);
+    font-size: 0.54rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(248, 180, 130, 0.95);
+    padding: 2px 8px;
+    border: 1px solid rgba(248, 180, 130, 0.4);
+    background: rgba(248, 180, 130, 0.08);
+    clip-path: var(--clip-sm);
+  }
+
+  /* All of the popover's block-level descendants are <span role="…">
+     so the HTML5 parser can't close the host <p>. The CSS below
+     restores block/flex layout and vertical rhythm on those spans. */
+
+  .lex-term__title {
+    display: block;
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 0.84rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1.35;
+    text-transform: uppercase;
+    color: var(--cyan-bright);
+    text-shadow: var(--cyan-glow-text);
+    /* Keep long UCIM-style hyphenated tokens inside the 296px-ish
+       popover at 320px wide. */
+    overflow-wrap: anywhere;
+  }
+
+  /* === Body === */
+
+  .lex-term__definition {
+    display: block;
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+  }
+
+  .lex-term__superseded {
+    display: block;
+    margin: 0;
+    font-size: 0.76rem;
+    line-height: 1.5;
+    color: rgba(248, 180, 130, 0.95);
+    padding: 8px 10px;
+    border: 1px dashed rgba(248, 180, 130, 0.4);
+    background: rgba(248, 180, 130, 0.04);
+    clip-path: var(--clip-sm);
+  }
+
+  .lex-term__superseded a {
+    color: inherit;
+    text-decoration: underline dotted;
+  }
+
+  .lex-term__section {
+    display: block;
+    padding-top: 10px;
+    border-top: 1px solid rgba(0, 212, 255, 0.12);
+  }
+
+  .lex-term__section-label {
+    display: block;
+    margin: 0 0 6px;
+    font-family: var(--font-heading);
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: rgba(221, 184, 61, 0.78);
+  }
+
+  .lex-term__chip-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* role="listitem" spans inside the chip list should behave as
+     inline-flex slots so the chips sit on the same baseline and
+     wrap as a group rather than individually. */
+  .lex-term__chip-list > [role='listitem'] {
+    display: inline-flex;
+  }
+
+  /* === Footer === */
+
+  .lex-term__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(0, 212, 255, 0.12);
+    min-height: 24px;
+  }
+
+  .lex-term__open-link {
+    font-family: var(--font-heading);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--cyan-core);
+    text-decoration: none;
+    border-bottom: 1px dotted transparent;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .lex-term__open-link:hover,
+  .lex-term__open-link:focus-visible {
+    color: var(--cyan-bright);
+    border-bottom-color: currentColor;
+  }
+
+  .lex-term__open-link:focus-visible {
+    outline: 2px solid var(--cyan-bright);
+    outline-offset: 2px;
+  }
+
+  .lex-term__peek-hint {
+    font-family: var(--font-heading);
+    font-size: 0.52rem;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    opacity: 0.7;
+  }
+
+  .lex-term__close {
+    background: transparent;
+    border: 1px solid rgba(200, 196, 190, 0.2);
+    color: var(--text-secondary);
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    clip-path: var(--clip-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .lex-term__close:hover,
+  .lex-term__close:focus-visible {
+    color: var(--cyan-bright);
+    border-color: rgba(0, 212, 255, 0.5);
+    background: rgba(0, 212, 255, 0.08);
+  }
+
+  .lex-term__close:focus-visible {
+    outline: 2px solid var(--cyan-bright);
+    outline-offset: 2px;
+  }
+
+  /* === Viewport collision flip (JS-driven attribute) === */
+
+  .lex-term__popover[data-lex-flip='right'] {
+    left: auto;
+    right: 0;
+  }
+
+  .lex-term__popover[data-lex-flip-v='up'] {
+    top: auto;
+    bottom: calc(100% + 12px);
+    transform-origin: bottom left;
+  }
+
+  .lex-term__popover[data-lex-flip='right'][data-lex-flip-v='up'] {
+    transform-origin: bottom right;
+  }
+
+  /* === Touch: skip hover preview, tap-only === */
+
+  @media (hover: none) {
+    .lex-term:hover > .lex-term__popover {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-6px) scale(0.98);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lex-term__popover {
+      transition: opacity 0.1s ease;
+      transform: none;
+    }
+    .lex-term__popover[data-state='preview'],
+    .lex-term__popover[data-state='pinned'],
+    .lex-term:hover > .lex-term__popover,
+    .lex-term:focus-within > .lex-term__popover {
+      transform: none;
+    }
+    .lex-term__popover[data-state='closed'] {
+      transform: none;
+    }
+    /* Skip the starting-style slide-in for reduced-motion users; the
+       opacity fade is short enough to remain acceptable. */
+    @supports (transition-behavior: allow-discrete) {
+      @starting-style {
+        .lex-term__popover:popover-open {
+          transform: none;
+        }
+      }
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .lex-term__popover {
+      background: rgba(8, 18, 28, 1);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+  }
+
+  @media (prefers-contrast: more) {
+    .lex-term__popover {
+      border-color: var(--cyan-bright);
+    }
+    .lex-term__anchor {
+      border-bottom-style: solid;
+    }
+  }
+
+  @media print {
+    .lex-term__popover {
+      display: none !important;
+    }
+    .lex-term__anchor {
+      border-bottom: none;
+      color: inherit;
+    }
+  }
+</style>
+
+<script>
+  /**
+   * Lexicon popover runtime — single document-scoped controller.
+   *
+   * Behaviors:
+   *   1. Hover-intent preview (open after 140 ms, close after 120 ms).
+   *      Skipped on touch / coarse pointer (matches `(hover: none)`
+   *      CSS guard).
+   *   2. Keyboard focus opens preview; Tab out closes it.
+   *   3. Click / Enter / Space on anchor → promotes to pinned
+   *      (role="dialog", focus-trap, Escape to close).
+   *   4. Outside click while pinned → close.
+   *   5. Route change (Astro ClientRouter) → close all.
+   *   6. Native Popover API when present: we also call showPopover()
+   *      to promote to the top layer. When absent, CSS + data-state
+   *      drive visibility. Either way the interaction surface is the
+   *      same.
+   *   7. Viewport-collision flip on show and resize via data-lex-flip
+   *      attributes read by the stylesheet.
+   *
+   * Delegation: a single set of document listeners handles all
+   * LexiconTermLink instances on the page. Per-instance listeners
+   * would be O(N) on a page with many auto-wrapped terms.
+   */
+  (function initLexiconPopovers() {
+    if (typeof document === 'undefined') return;
+
+    const OPEN_DELAY_MS = 140;
+    const CLOSE_DELAY_MS = 120;
+    const VIEWPORT_MARGIN_PX = 12;
+    const HAS_POPOVER_API =
+      typeof HTMLElement !== 'undefined' && 'showPopover' in HTMLElement.prototype;
+
+    /** @type {HTMLElement | null} */
+    let activePop = null;
+    /** @type {HTMLElement | null} */
+    let activeAnchor = null;
+    /** @type {'preview' | 'pinned' | null} */
+    let activeMode = null;
+    /** @type {number | null} */
+    let openTimer = null;
+    /** @type {number | null} */
+    let closeTimer = null;
+
+    function cancelTimers() {
+      if (openTimer !== null) {
+        clearTimeout(openTimer);
+        openTimer = null;
+      }
+      if (closeTimer !== null) {
+        clearTimeout(closeTimer);
+        closeTimer = null;
+      }
+    }
+
+    /** @param {HTMLElement} anchor */
+    function popoverFromAnchor(anchor) {
+      const targetId = anchor.dataset.lexTarget;
+      if (!targetId) return null;
+      const el = document.getElementById(targetId);
+      return el instanceof HTMLElement ? el : null;
+    }
+
+    /** @param {HTMLElement} pop */
+    function anchorFromPopover(pop) {
+      const wrap = pop.closest('.lex-term');
+      if (!(wrap instanceof HTMLElement)) return null;
+      const a = wrap.querySelector('[data-lex-anchor]');
+      return a instanceof HTMLElement ? a : null;
+    }
+
+    /** Walk ancestors up to <body> looking for an overflow-clipping
+     *  container (`overflow: hidden` / `clip` on any axis). When found,
+     *  the popover must escape via `position: fixed` rather than trust
+     *  `position: absolute`, which would otherwise render inside the
+     *  clipping container and get cropped.
+     *
+     *  Intentionally skipped: `overflow: auto` / `scroll`. Those produce
+     *  their own scrolling context but don't hard-clip descendants that
+     *  are promoted to the top layer (Popover API) or that we elevate
+     *  to `position: fixed`. We only care about the cases where the
+     *  popover would be invisible without escape.
+     *
+     *  @param {HTMLElement} pop
+     */
+    function hasClippingAncestor(pop) {
+      let el = pop.parentElement;
+      while (el && el !== document.body) {
+        const cs = window.getComputedStyle(el);
+        if (
+          cs.overflow === 'hidden' ||
+          cs.overflowX === 'hidden' ||
+          cs.overflowY === 'hidden' ||
+          cs.overflow === 'clip' ||
+          cs.overflowX === 'clip' ||
+          cs.overflowY === 'clip'
+        ) {
+          return true;
+        }
+        el = el.parentElement;
+      }
+      return false;
+    }
+
+    /** Measure popover against the viewport and place it.
+     *
+     *  Two placement paths depending on whether the popover is in the
+     *  top layer (Popover API promoted + :popover-open):
+     *
+     *    - Not in top layer:  CSS-driven `position: absolute` anchored
+     *      to `.lex-term`. We only toggle data-lex-flip / -flip-v so
+     *      the stylesheet can choose the opposite side on overflow.
+     *    - In top layer:      `position: absolute` would resolve
+     *      against the VIEWPORT (per top-layer containing-block rules),
+     *      not `.lex-term`, breaking every offset we declared in CSS.
+     *      Override with inline `position: fixed` + explicit top/left
+     *      computed from the anchor's viewport rect; handle horizontal
+     *      and vertical overflow by flipping / clamping.
+     *
+     *  Call AFTER the popover is visible (rAF after showPopover or
+     *  data-state change) so getBoundingClientRect() returns real
+     *  measurements. */
+    function positionPopover(anchor, pop) {
+      pop.removeAttribute('data-lex-flip');
+      pop.removeAttribute('data-lex-flip-v');
+
+      const inTopLayer = HAS_POPOVER_API && pop.matches(':popover-open');
+
+      if (!inTopLayer) {
+        /* Two sub-paths in the non-top-layer branch:
+             A. The popover's own stacking context is safe (normal
+                prose): lean on the stylesheet + data-lex-flip.
+             B. An ancestor clips (e.g. `.praxis-case { overflow: hidden }`)
+                — the popover must leave the clipping context. Promote
+                to `position: fixed` and compute viewport-clamped coords
+                here, mirroring the top-layer path so the popover still
+                appears under the anchor and stays within the viewport.
+           We detect (B) by walking ancestors for an `overflow: hidden`
+           clip (cheap — runs only on open/resize/scroll). */
+        pop.style.position = '';
+        pop.style.top = '';
+        pop.style.left = '';
+        pop.style.right = '';
+        pop.style.bottom = '';
+
+        const clipsBehind = hasClippingAncestor(pop);
+        const anchorRect = anchor.getBoundingClientRect();
+        const popRect = pop.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const GAP = VIEWPORT_MARGIN_PX;
+
+        if (clipsBehind) {
+          /* Mirror the top-layer placement math so a non-API Safari in
+             a clipping container still gets a fully-visible, viewport-
+             clamped popover. */
+          let top = anchorRect.bottom + GAP;
+          let left = anchorRect.left;
+          if (left + popRect.width + GAP > vw) {
+            left = anchorRect.right - popRect.width;
+          }
+          if (left < GAP) left = GAP;
+          if (left + popRect.width > vw - GAP) {
+            left = Math.max(GAP, vw - GAP - popRect.width);
+          }
+          if (top + popRect.height + GAP > vh) {
+            const above = anchorRect.top - GAP - popRect.height;
+            if (above > GAP) {
+              top = above;
+            } else {
+              top = Math.max(GAP, vh - popRect.height - GAP);
+            }
+          }
+          pop.style.position = 'fixed';
+          pop.style.top = `${top}px`;
+          pop.style.left = `${left}px`;
+          pop.style.right = 'auto';
+          pop.style.bottom = 'auto';
+          return;
+        }
+
+        if (anchorRect.left + popRect.width + GAP > vw) {
+          pop.setAttribute('data-lex-flip', 'right');
+        }
+        if (anchorRect.bottom + popRect.height + GAP > vh) {
+          pop.setAttribute('data-lex-flip-v', 'up');
+        }
+        /* Horizontal clamp parity with the top-layer path. The
+           stylesheet placement (via `left: 0` / `[data-lex-flip=right]
+           { right: 0 }`) computes to the effective left below. If that
+           effective-left pushes past either viewport edge, upgrade to
+           `position: fixed` with clamped coords so an inline term near
+           the right edge can't clip past the left after flipping. */
+        const effectiveLeft =
+          pop.getAttribute('data-lex-flip') === 'right'
+            ? anchorRect.right - popRect.width
+            : anchorRect.left;
+        if (effectiveLeft < GAP || effectiveLeft + popRect.width > vw - GAP) {
+          const clampedLeft = Math.max(
+            GAP,
+            Math.min(effectiveLeft, vw - GAP - popRect.width),
+          );
+          let top = anchorRect.bottom + GAP;
+          if (pop.getAttribute('data-lex-flip-v') === 'up') {
+            top = Math.max(GAP, anchorRect.top - GAP - popRect.height);
+          }
+          pop.style.position = 'fixed';
+          pop.style.top = `${top}px`;
+          pop.style.left = `${clampedLeft}px`;
+          pop.style.right = 'auto';
+          pop.style.bottom = 'auto';
+        }
+        return;
+      }
+
+      const anchorRect = anchor.getBoundingClientRect();
+      const popRect = pop.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const GAP = VIEWPORT_MARGIN_PX;
+
+      let top = anchorRect.bottom + GAP;
+      let left = anchorRect.left;
+
+      /* Horizontal: right-align with anchor if left-align would clip. */
+      if (left + popRect.width + GAP > vw) {
+        left = anchorRect.right - popRect.width;
+      }
+      /* Clamp to viewport so an anchor near the right edge can't push
+         the popover off-screen on the other side. */
+      if (left < GAP) left = GAP;
+      if (left + popRect.width > vw - GAP) {
+        left = Math.max(GAP, vw - GAP - popRect.width);
+      }
+
+      /* Vertical: flip above the anchor if below would clip, else
+         clamp. */
+      if (top + popRect.height + GAP > vh) {
+        const above = anchorRect.top - GAP - popRect.height;
+        if (above > GAP) {
+          top = above;
+        } else {
+          top = Math.max(GAP, vh - popRect.height - GAP);
+        }
+      }
+
+      pop.style.position = 'fixed';
+      pop.style.top = `${top}px`;
+      pop.style.left = `${left}px`;
+      pop.style.right = 'auto';
+      pop.style.bottom = 'auto';
+    }
+
+    /** @param {HTMLElement} anchor */
+    function openPreview(anchor) {
+      const pop = popoverFromAnchor(anchor);
+      if (!pop) return;
+      /* If a different popover is active, close it first (outside-
+         -click intent); if the same one is already active in preview
+         mode, just clear any pending close timer. */
+      if (activePop && activePop !== pop) closeActive(false);
+      cancelTimers();
+      activePop = pop;
+      activeAnchor = anchor;
+      activeMode = 'preview';
+      pop.setAttribute('data-state', 'preview');
+      pop.setAttribute('role', 'tooltip');
+      pop.setAttribute('inert', '');
+      anchor.setAttribute('aria-describedby', pop.id);
+      anchor.removeAttribute('aria-expanded');
+      if (HAS_POPOVER_API && !pop.matches(':popover-open')) {
+        try {
+          pop.showPopover();
+        } catch {
+          /* Already open, or popover attribute not set — fall back to
+             CSS only. */
+        }
+      }
+      requestAnimationFrame(() => positionPopover(anchor, pop));
+    }
+
+    /** @param {HTMLElement} anchor */
+    function openPinned(anchor) {
+      const pop = popoverFromAnchor(anchor);
+      if (!pop) return;
+      if (activePop && activePop !== pop) closeActive(false);
+      cancelTimers();
+      activePop = pop;
+      activeAnchor = anchor;
+      activeMode = 'pinned';
+      pop.setAttribute('data-state', 'pinned');
+      pop.setAttribute('role', 'dialog');
+      pop.setAttribute('aria-modal', 'false');
+      pop.removeAttribute('inert');
+      anchor.setAttribute('aria-expanded', 'true');
+      anchor.removeAttribute('aria-describedby');
+      if (HAS_POPOVER_API && !pop.matches(':popover-open')) {
+        try {
+          pop.showPopover();
+        } catch {
+          /* noop */
+        }
+      }
+      requestAnimationFrame(() => {
+        positionPopover(anchor, pop);
+        /* Focus the first actionable control so keyboard users can
+           navigate immediately. Close button is intentionally NOT
+           first: it would make "open, Enter → close" the keyboard
+           default, which is useless. */
+        const firstFocus = pop.querySelector(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        if (firstFocus instanceof HTMLElement) {
+          firstFocus.focus({ preventScroll: true });
+        }
+      });
+    }
+
+    function closeActive(returnFocus = true) {
+      if (!activePop) return;
+      const pop = activePop;
+      const anchor = activeAnchor;
+      const mode = activeMode;
+      pop.setAttribute('data-state', 'closed');
+      pop.setAttribute('inert', '');
+      pop.setAttribute('role', 'tooltip');
+      pop.removeAttribute('aria-modal');
+      if (HAS_POPOVER_API && pop.matches(':popover-open')) {
+        try {
+          pop.hidePopover();
+        } catch {
+          /* noop */
+        }
+      }
+      /* Clear any inline positioning we applied on the top-layer path
+         so the next open starts from the stylesheet defaults. */
+      pop.style.position = '';
+      pop.style.top = '';
+      pop.style.left = '';
+      pop.style.right = '';
+      pop.style.bottom = '';
+      if (anchor) {
+        anchor.removeAttribute('aria-describedby');
+        anchor.removeAttribute('aria-expanded');
+        if (returnFocus && mode === 'pinned') {
+          anchor.focus({ preventScroll: true });
+        }
+      }
+      activePop = null;
+      activeAnchor = null;
+      activeMode = null;
+      cancelTimers();
+    }
+
+    /** @param {HTMLElement} anchor */
+    function scheduleOpen(anchor) {
+      cancelTimers();
+      openTimer = window.setTimeout(() => {
+        openPreview(anchor);
+        openTimer = null;
+      }, OPEN_DELAY_MS);
+    }
+
+    function scheduleClose() {
+      cancelTimers();
+      closeTimer = window.setTimeout(() => {
+        closeActive(false);
+        closeTimer = null;
+      }, CLOSE_DELAY_MS);
+    }
+
+    /* Initial pass: promote eligible popover elements to the Popover
+       API top-layer without requiring authors to hand-set the HTML
+       attribute. Keeps SSR output smaller and prevents the UA
+       [popover]{display:none} rule from firing before our JS is ready
+       to manage it. */
+    function promotePopovers() {
+      if (!HAS_POPOVER_API) return;
+      const nodes = document.querySelectorAll('[data-lex-popover]');
+      nodes.forEach((el) => {
+        if (el instanceof HTMLElement && !el.hasAttribute('popover')) {
+          el.setAttribute('popover', 'manual');
+        }
+      });
+    }
+
+    /* === Event handlers (delegated) === */
+
+    document.addEventListener(
+      'pointerenter',
+      (e) => {
+        /* Skip touch/pen entirely; they reach us via `click` instead,
+           which goes directly to pinned (tap = intent to open). */
+        if (e.pointerType === 'touch' || e.pointerType === 'pen') return;
+        const target = e.target;
+        if (!(target instanceof Element)) return;
+
+        const popover = target.closest('[data-lex-popover]');
+        if (popover && popover === activePop) {
+          /* Re-entered the active popover before its close timer
+             elapsed — cancel the close. */
+          cancelTimers();
+          return;
+        }
+
+        const anchor = target.closest('[data-lex-anchor]');
+        if (!(anchor instanceof HTMLElement)) return;
+        if (activeMode === 'pinned') return;
+        if (activeAnchor === anchor && activeMode === 'preview') {
+          cancelTimers();
+          return;
+        }
+        scheduleOpen(anchor);
+      },
+      { capture: true },
+    );
+
+    document.addEventListener(
+      'pointerleave',
+      (e) => {
+        if (e.pointerType === 'touch' || e.pointerType === 'pen') return;
+        const target = e.target;
+        if (!(target instanceof Element)) return;
+        const anchor = target.closest('[data-lex-anchor]');
+        const popover = target.closest('[data-lex-popover]');
+        if (!anchor && !popover) return;
+        if (activeMode === 'pinned') return;
+        scheduleClose();
+      },
+      { capture: true },
+    );
+
+    document.addEventListener('focusin', (e) => {
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest('[data-lex-popover]')) {
+        /* Focus moved into the active popover — cancel any pending
+           close so Tab-into-dialog works. */
+        cancelTimers();
+        return;
+      }
+      const anchor = target.closest('[data-lex-anchor]');
+      if (!(anchor instanceof HTMLElement)) return;
+      if (activeMode === 'pinned' && activeAnchor === anchor) return;
+      openPreview(anchor);
+    });
+
+    document.addEventListener('focusout', (e) => {
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+      const relatedTarget =
+        /** @type {FocusEvent} */ (e).relatedTarget instanceof Element
+          ? /** @type {Element} */ (/** @type {FocusEvent} */ (e).relatedTarget)
+          : null;
+      const currentWrap = target.closest('.lex-term');
+      const nextWrap = relatedTarget ? relatedTarget.closest('.lex-term') : null;
+      if (currentWrap && currentWrap === nextWrap) return;
+      if (activeMode === 'pinned') return;
+      if (activeMode === 'preview') scheduleClose();
+    });
+
+    /* CAPTURE-PHASE click listener: Astro's ClientRouter also binds
+       a document-level click handler (bubble phase) that soft-navigates
+       any same-origin anchor unless `event.defaultPrevented` is already
+       true when it runs. Because the ClientRouter script ships earlier
+       in the page, its bubble listener would otherwise run before ours
+       and navigate to /lexicon/ instead of promoting to the pinned
+       popover. Running in the capture phase lets us preventDefault()
+       first, so ClientRouter bails. Same reasoning applies to the
+       pointerenter/pointerleave listeners above — those use capture
+       because they are non-bubbling events, but here we specifically
+       need capture to win the ordering race against ClientRouter. */
+    document.addEventListener(
+      'click',
+      (e) => {
+        const target = e.target;
+        if (!(target instanceof Element)) return;
+
+        /* In-popover close button */
+        const closeBtn = target.closest('[data-lex-close]');
+        if (closeBtn) {
+          e.preventDefault();
+          closeActive(true);
+          return;
+        }
+
+        /* Anchor primary-click → promote to pinned. Modified clicks
+           (Cmd/Ctrl/Shift) and middle/right clicks keep default
+           navigation so users can open the canonical lexicon entry in
+           a new tab. */
+        const anchor = target.closest('[data-lex-anchor]');
+        if (anchor instanceof HTMLElement) {
+          const me = /** @type {MouseEvent} */ (e);
+          if (me.metaKey || me.ctrlKey || me.shiftKey || me.altKey || me.button !== 0) return;
+          e.preventDefault();
+          if (activeMode === 'pinned' && activeAnchor === anchor) {
+            closeActive(true);
+          } else {
+            openPinned(anchor);
+          }
+          return;
+        }
+
+        /* Click inside popover → no-op (let nested chips/links work
+           and reach ClientRouter's bubble handler for soft nav). */
+        if (target.closest('[data-lex-popover]')) return;
+
+        /* Outside click while pinned → dismiss. */
+        if (activeMode === 'pinned') closeActive(false);
+      },
+      { capture: true },
+    );
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && activePop) {
+        e.preventDefault();
+        if (activeMode === 'pinned') {
+          closeActive(true);
+        } else {
+          const a = activeAnchor;
+          closeActive(false);
+          if (a) a.blur();
+        }
+        return;
+      }
+
+      /* Enter / Space on a focused anchor → open pinned. Let the
+         default dotted-anchor navigation still work with modifier
+         keys (handled upstream by the click handler, since browsers
+         synthesize a click for Enter on <a>). We only intercept
+         plain Enter here to avoid double-firing. */
+      if ((e.key === 'Enter' || e.key === ' ') && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+        const target = e.target;
+        if (!(target instanceof Element)) return;
+        const anchor = target.closest('[data-lex-anchor]');
+        if (
+          anchor instanceof HTMLElement &&
+          (activeMode !== 'pinned' || activeAnchor !== anchor)
+        ) {
+          /* For <a>, Enter fires click automatically — so we let the
+             click handler do the work. Space on <a> doesn't fire
+             click by default, so we intercept only Space. */
+          if (e.key === ' ') {
+            e.preventDefault();
+            openPinned(anchor);
+          }
+        }
+        return;
+      }
+
+      /* Focus trap inside pinned dialog. */
+      if (e.key === 'Tab' && activeMode === 'pinned' && activePop) {
+        const focusables = activePop.querySelectorAll(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusables.length === 0) return;
+        const first = /** @type {HTMLElement} */ (focusables[0]);
+        const last = /** @type {HTMLElement} */ (focusables[focusables.length - 1]);
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    });
+
+    window.addEventListener(
+      'resize',
+      () => {
+        if (activePop && activeAnchor) positionPopover(activeAnchor, activePop);
+      },
+      { passive: true },
+    );
+
+    /* Reposition on scroll while open. Required for the top-layer
+       path: `position: fixed` pins the popover to the viewport, so
+       without this the anchor would drift out from under it as the
+       user scrolls. Coalesced into a single rAF per frame to keep the
+       listener cheap on long articles and under Lenis smooth-scroll. */
+    let scrollRaf = 0;
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (!activePop || !activeAnchor) return;
+        if (scrollRaf) return;
+        scrollRaf = requestAnimationFrame(() => {
+          scrollRaf = 0;
+          if (activePop && activeAnchor) positionPopover(activeAnchor, activePop);
+        });
+      },
+      { passive: true, capture: true },
+    );
+
+    /* Close any open popover on Astro route change so a pinned
+       dialog doesn't leak across pages. */
+    document.addEventListener('astro:before-preparation', () => {
+      closeActive(false);
+    });
+
+    /* Re-run the popover-attribute promotion after a page swap so
+       popovers minted in the next view are API-eligible too. */
+    document.addEventListener('astro:page-load', () => {
+      closeActive(false);
+      promotePopovers();
+    });
+
+    promotePopovers();
+  })();
+</script>

@@ -1,0 +1,628 @@
+---
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import Base from '../layouts/Base.astro';
+import ServiceCard from '../components/ServiceCard.astro';
+import AboutDossierCard from '../components/AboutDossierCard.astro';
+import UcimBriefCard from '../components/UcimBriefCard.astro';
+
+const publicDir = fileURLToPath(new URL('../../public', import.meta.url));
+const aboutMediaDir = join(publicDir, 'media', 'about');
+
+/* Videos: Cursor/agent file search often omits large `public/*.mp4`; that does not mean they
+ * are absent on disk. `existsSync` here is authoritative at build time. Prefer on-disk root
+ * filenames (your shipped assets), then optional `public/media/about/` renames. */
+
+/** First on-disk match wins. */
+function pickAboutVideoUrl(
+  candidates: ReadonlyArray<{ readonly abs: string; readonly url: string }>,
+): string | undefined {
+  for (const c of candidates) {
+    if (existsSync(c.abs)) return c.url;
+  }
+  return undefined;
+}
+
+const aboutVideoMethodologySrc = pickAboutVideoUrl([
+  { abs: join(publicDir, 'Context flow.mp4'), url: '/Context flow.mp4' },
+  { abs: join(aboutMediaDir, 'context-flow.mp4'), url: '/media/about/context-flow.mp4' },
+]);
+
+const aboutVideoPrincipleSrc = pickAboutVideoUrl([
+  {
+    abs: join(
+      publicDir,
+      'Amber_Light_Network_In_a_cinematic_style_a_man_with_short_brown_hair_kY2lTZ1w.mp4',
+    ),
+    url: '/Amber_Light_Network_In_a_cinematic_style_a_man_with_short_brown_hair_kY2lTZ1w.mp4',
+  },
+  { abs: join(aboutMediaDir, 'amber-network.mp4'), url: '/media/about/amber-network.mp4' },
+]);
+
+const serviceCards = [
+  {
+    num: '01' as const,
+    accent: 'intelligence' as const,
+    title: 'Strategic Intelligence',
+    description:
+      'Complete strategic architectures for organizations at inflection points — every document supporting every other in a self-referencing system.',
+    highlights: [
+      '<strong>MARKET</strong> analysis &amp; competitive intelligence',
+      '<strong>FINANCIAL</strong> modeling &amp; implementation roadmaps',
+      '<strong>OPERATIONAL</strong> systems &amp; risk frameworks',
+    ],
+  },
+  {
+    num: '02' as const,
+    accent: 'digital' as const,
+    title: 'Digital Production',
+    description:
+      'Production-grade engineering with genuine UX depth, not templates configured but environments engineered.',
+    highlights: [
+      '<strong>IMMERSIVE</strong> web platforms &amp; applications',
+      '<strong>3D</strong> environments &amp; spatial design',
+      '<strong>DIGITAL</strong> twins &amp; interactive experiences',
+    ],
+  },
+  {
+    num: '03' as const,
+    accent: 'narrative' as const,
+    title: 'Narrative & Positioning',
+    description:
+      'Materials that reframe how organizations, products and ideas are perceived by the people who decide.',
+    highlights: [
+      '<strong>INVESTOR</strong> materials &amp; brand positioning',
+      '<strong>CAMPAIGN</strong> strategy &amp; creative direction',
+      '<strong>STORYBOARDS</strong> &amp; advertising creative',
+    ],
+  },
+  {
+    num: '04' as const,
+    accent: 'media' as const,
+    title: 'Content & Media',
+    description:
+      'Research-grade depth. Architectural structure. Built to compound.',
+    highlights: [
+      '<strong>THOUGHT</strong> leadership &amp; ghostwritten executive content',
+      '<strong>PODCAST</strong> production &amp; media packages',
+      '<strong>TECHNICAL</strong> documentation &amp; research reports',
+    ],
+  },
+];
+---
+
+<Base
+  title="About — Sarif Consulting"
+  description="Sarif is an intentionally compact Portland consulting firm. Every engagement runs through a single principal plus Jensen, the firm's persistent intelligence layer, from first transmission to final deliverable."
+>
+  <!-- Augmented By Design -->
+  <section class="about-section section" aria-labelledby="augmented-heading">
+    <div class="container about-inner">
+      <p class="section-label reveal-on-scroll">Who We Are</p>
+      <h1 id="augmented-heading" class="section-header connector-line reveal-on-scroll">Augmented By Design</h1>
+      <AboutDossierCard
+        accent="practice"
+        statValue="The Praxis"
+        statLabel="Engage · build · deliver"
+        leads={[
+          'Sarif Consulting is a Portland-based strategic and creative production firm. We build complete strategic architectures, digital platforms, positioning systems and media assets for organizations navigating complexity.',
+          'The practice was founded by a strategist–builder with roots in applied ethics, organizational systems, user experience architecture and operational design — a cross-disciplinary spine that carries one engagement from market research to implementation roadmap without coherence decay.',
+        ]}
+        highlights={[
+          '<strong>FOUNDERS</strong> entering new markets',
+          '<strong>INSTITUTIONS</strong> facing operational crisis',
+          '<strong>COALITIONS</strong> building civic campaigns',
+          '<strong>ENTERPRISES</strong> that need what they build next to feel like the future',
+        ]}
+      />
+    </div>
+  </section>
+
+  <div class="section-threshold reveal-on-scroll" aria-hidden="true">
+    <div class="threshold-line"></div>
+  </div>
+
+  <!-- What We Build (overview cards) -->
+  <section class="what-we-build section cv-auto" data-cv-size="lg" aria-labelledby="what-we-build-heading">
+    <div class="container">
+      <h2 id="what-we-build-heading" class="section-header connector-line reveal-on-scroll">
+        What We Build
+      </h2>
+    </div>
+
+    <div class="container">
+      <div class="what-we-build__grid" data-reveal-group>
+        {serviceCards.map((service) => (
+          <ServiceCard
+            num={service.num}
+            accent={service.accent}
+            title={service.title}
+            description={service.description}
+            highlights={service.highlights}
+          />
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <div class="section-threshold reveal-on-scroll" aria-hidden="true">
+    <div class="threshold-line"></div>
+  </div>
+
+  <!-- SECTION 2: THE METHODOLOGY -->
+  <section class="about-section section cv-auto" data-cv-size="xl" aria-labelledby="methodology-heading" data-lobby-subpose="about-dossier">
+    <div class="container about-inner">
+      <h2 id="methodology-heading" class="section-header connector-line reveal-on-scroll">The Methodology</h2>
+      <AboutDossierCard
+        accent="methodology"
+        statValue="In Parallel"
+        statLabel="Research · model · design · risk · content"
+        leads={[
+          'Most consulting runs sequentially. Research phase. Strategy phase. Implementation phase. Each waiting on the last. Timelines stretch. Context degrades between handoffs.',
+          `AI meta-orchestration collapses that sequence. Research, financial modeling, implementation design, risk analysis, content production and systems architecture run in parallel — each informing the others in real time, within Sarif's Universal Contextual Intelligence Matrix (UCIM). This living knowledge substrate holds every engagement's evidence and reasoning as one continuous structure.`,
+        ]}
+        highlights={[
+          '<strong>MARKET</strong> insight reshapes the financial model <strong>the same day</strong>',
+          '<strong>RISK</strong> identified in operational review redirects the roadmap <strong>before it ships</strong>',
+          '<strong>EVERY</strong> deliverable carries a trace behind every claim',
+        ]}
+        videoSrc={aboutVideoMethodologySrc}
+        videoAlt="Context flow visualization — one operator, one intelligence layer"
+      />
+
+      <UcimBriefCard />
+
+      <div
+        class="about-ucim about-ucim--flush reveal-on-scroll"
+        aria-label="UCIM visualization"
+        transition:persist="about-ucim-embed"
+      >
+        <figure class="about-ucim-frame content-back-panel">
+          <div
+            class="about-ucim-shell about-ucim-shell--loading"
+            id="about-ucim-shell"
+            aria-busy="true"
+            aria-live="polite"
+          >
+            <div class="about-ucim-skeleton" aria-hidden="true"></div>
+            <iframe
+              id="about-ucim-iframe"
+              class="about-ucim-iframe cv-auto"
+              data-cv-size="md"
+              title="Universal Contextual Intelligence Matrix — interactive visualization"
+              data-src="/ucim-visualizer/index.html?embed=1"
+              loading="lazy"
+              referrerpolicy="strict-origin-when-cross-origin"
+              {...{ credentialless: '' }}
+            ></iframe>
+          </div>
+          <figcaption class="about-ucim-actions">
+            <a
+              class="btn-gold cyan-gold-label lane-cta about-ucim-open-cta"
+              href="/ucim-visualizer/index.html?embed=1"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open UCIM visualization in a new tab"
+            >
+              <span class="sarif-hover-sheen">Open UCIM in a new tab</span>
+            </a>
+          </figcaption>
+        </figure>
+      </div>
+
+      <AboutDossierCard
+        class="about-dossier--after-ucim"
+        accent="principle"
+        statValue="Zero Handoff Decay"
+        statLabel="Compact by choice"
+        leads={[
+          'Sarif is an intentionally compact consulting practice. The principal orchestrates every engagement; Jensen provides the analytical infrastructure. This division exists to eliminate the degradation that occurs when work passes through too many hands, too many summaries, too many translation layers.',
+        ]}
+        highlights={[
+          '<strong>THE METHODOLOGY</strong> is the constant; the firm scales around it',
+          '<strong>AI AUGMENTATION</strong> is operational structure, not marketing surface',
+          '<strong>EVERY</strong> engagement inherits the full intelligence of the practice',
+        ]}
+        videoSrc={aboutVideoPrincipleSrc}
+        videoAlt="The principal at the center of the intelligence network"
+      />
+    </div>
+  </section>
+
+  <div class="section-threshold reveal-on-scroll" aria-hidden="true">
+    <div class="threshold-line"></div>
+  </div>
+
+  <!-- CTA -->
+  <section class="about-cta section cv-auto" data-cv-size="sm" aria-label="Contact">
+    <div class="container about-cta-inner">
+      <a href="/contact/" class="btn-gold cyan-gold-label lane-cta"><span class="sarif-hover-sheen">Initiate Contact</span></a>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .about-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    max-width: 800px;
+    margin-inline: auto;
+  }
+
+  .about-ucim {
+    width: 100%;
+    max-width: min(960px, 100%);
+    margin-top: 40px;
+    margin-inline: auto;
+  }
+
+  /* Flush-attached variant — when the UCIM frame sits directly below the
+     UcimBriefCard, drop the top gap and square off the iframe's top corners
+     so brief's bottom seam and iframe's top edge read as one instrument panel.
+     The 1px gold border-top lines up with the gold hairline the brief paints
+     at the bottom of its cue row, yielding a single seam, not two stacked ones. */
+  .about-ucim--flush {
+    margin-top: 0;
+  }
+
+  .about-ucim--flush .about-ucim-frame {
+    clip-path: polygon(
+      0 0,
+      100% 0,
+      100% calc(100% - 16px),
+      calc(100% - 16px) 100%,
+      16px 100%,
+      0 calc(100% - 16px)
+    );
+    border-top: 1px solid rgba(221, 184, 61, 0.35);
+    box-shadow: 0 -1px 8px rgba(221, 184, 61, 0.12);
+  }
+
+  /* Methodology stack: imported card roots need :global — scoped CSS does not
+     pierce child components. Space dossier → brief, and iframe → dossier.
+     Brief → iframe stays flush (--flush / seam design). */
+  :global(.about-dossier) + :global(.ucim-brief) {
+    margin-top: clamp(32px, 5vw, 52px);
+  }
+
+  .about-ucim + :global(.about-dossier.about-dossier--after-ucim) {
+    margin-top: clamp(48px, 6vw, 72px);
+  }
+
+  .about-ucim-frame {
+    margin: 0;
+    padding: clamp(12px, 2vw, 20px);
+    border-radius: 0;
+  }
+
+  /* Persistent "open in new tab" affordance — not a failure fallback.
+     Always visible so viewers can choose a full-screen / unsandboxed view.
+     Centered beneath the frame, mirrors the spacing language of the CTA section. */
+  .about-ucim-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: clamp(16px, 2.5vw, 24px);
+  }
+
+  .about-ucim-open-cta {
+    flex-shrink: 0;
+  }
+
+  .about-ucim-iframe {
+    width: 100%;
+    min-height: 480px;
+    height: min(62vh, 720px);
+    border: 0;
+    display: block;
+    background: rgba(255, 255, 255, 0.02);
+    color-scheme: dark;
+  }
+
+  @media (max-width: 640px) {
+    .about-ucim-iframe {
+      min-height: 420px;
+      height: 55vh;
+    }
+
+    /* Mobile flush: square both top corners fully so the seam extends edge
+       to edge, matching the full-width bottom seam of the brief card. */
+    .about-ucim--flush .about-ucim-frame {
+      clip-path: polygon(
+        0 0,
+        100% 0,
+        100% calc(100% - 12px),
+        calc(100% - 12px) 100%,
+        12px 100%,
+        0 calc(100% - 12px)
+      );
+    }
+  }
+
+  .what-we-build__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    max-width: 1000px;
+    margin-inline: auto;
+  }
+
+  @media (max-width: 640px) {
+    .what-we-build__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* CTA section */
+  .about-cta {
+    padding-block: 80px;
+  }
+
+  .about-cta-inner {
+    text-align: center;
+  }
+
+  /* Section threshold */
+  .section-threshold {
+    position: relative;
+    height: 1px;
+    overflow: visible;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Page override: compositor-friendly scaleX reveal (matches
+     engagements.astro). Target width fixed; transform drives the
+     visible sweep. */
+  .threshold-line {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%) scaleX(0);
+    width: min(80%, 600px);
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan-core), transparent);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.25);
+    transform-origin: center;
+    will-change: transform;
+  }
+
+  .section-threshold.is-visible .threshold-line {
+    transform: translateX(-50%) scaleX(var(--threshold-scale, 1));
+    transition: transform 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .section-threshold .threshold-line { transition: none !important; }
+  }
+
+  .about-ucim-shell {
+    position: relative;
+    min-height: 480px;
+  }
+
+  .about-ucim-shell--loading .about-ucim-iframe {
+    opacity: 0.35;
+  }
+
+  .about-ucim-skeleton {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background: linear-gradient(
+      110deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(0, 212, 255, 0.08) 40%,
+      rgba(255, 255, 255, 0.04) 80%
+    );
+    background-size: 200% 100%;
+    animation: about-ucim-shimmer 1.4s ease-in-out infinite;
+  }
+
+  @keyframes about-ucim-shimmer {
+    0% {
+      background-position: 100% 0;
+    }
+    100% {
+      background-position: -100% 0;
+    }
+  }
+
+  .about-ucim-shell:not(.about-ucim-shell--loading) .about-ucim-skeleton {
+    display: none;
+  }
+
+
+  @media (prefers-reduced-motion: reduce) {
+    .about-ucim-skeleton {
+      animation: none;
+      background: rgba(255, 255, 255, 0.06);
+    }
+  }
+</style>
+
+<script is:inline>
+  (function () {
+    const UCIM_SRC = '/ucim-visualizer/index.html?embed=1';
+    const READY_TIMEOUT_MS = 10000;
+
+    function onAboutPath() {
+      const p = location.pathname.replace(/\/+$/, '') || '/';
+      return p === '/about';
+    }
+
+    function postToUcim(type) {
+      const iframe = document.getElementById('about-ucim-iframe');
+      if (!iframe || !iframe.contentWindow) return;
+      try {
+        iframe.contentWindow.postMessage({ type }, location.origin);
+      } catch (_) {
+        /* cross-origin or detached: ignore */
+      }
+    }
+
+    /* Exposed so the ready-timer can start only after `src` is actually assigned (lazy path). */
+    let _startUcimReadyTimer = () => {};
+
+    function bindUcimEmbed() {
+      const shell = document.getElementById('about-ucim-shell');
+      const iframe = document.getElementById('about-ucim-iframe');
+      const fallback = document.getElementById('about-ucim-fallback');
+      if (!shell || !iframe) return;
+
+      if (shell.dataset.ucimBound === '1') return;
+      shell.dataset.ucimBound = '1';
+
+      let readyTimeoutId = null;
+      let ready = false;
+
+      /* Remove only the loading skeleton. The ready timer is intentionally NOT cleared here —
+         the iframe `load` event fires when HTML is parsed but before React renders its first WebGL
+         frame, so only the `ucim:ready` handshake is strong enough to dismiss the fallback safety net. */
+      const clearLoading = () => {
+        shell.classList.remove('about-ucim-shell--loading');
+        shell.setAttribute('aria-busy', 'false');
+      };
+
+      const cancelReadyTimer = () => {
+        if (readyTimeoutId !== null) {
+          clearTimeout(readyTimeoutId);
+          readyTimeoutId = null;
+        }
+      };
+
+      const showFallback = () => {
+        if (ready) return;
+        clearLoading();
+        cancelReadyTimer();
+        /* Only hide the iframe if there is a visible fallback to swap in. Without one,
+           keeping the iframe mounted is preferable to a silent blank panel — a late
+           `ucim:ready` can still dismiss the skeleton and reveal the visualization. */
+        if (fallback) {
+          iframe.style.visibility = 'hidden';
+          fallback.hidden = false;
+        }
+      };
+
+      /* Idempotent "it really rendered" path — also recovers gracefully if `ucim:ready` arrives
+         after the fallback has been shown (slow network, WebGL warm-up on low-tier GPUs). */
+      const markReady = () => {
+        ready = true;
+        cancelReadyTimer();
+        clearLoading();
+        iframe.style.visibility = '';
+        if (fallback && !fallback.hidden) fallback.hidden = true;
+      };
+
+      iframe.addEventListener('load', clearLoading);
+      iframe.addEventListener('error', showFallback);
+
+      /* `ucim:ready` from child confirms first WebGL paint actually happened. Defense-in-depth:
+         same-origin check + source identity check. The iframe is served from our own origin. */
+      window.addEventListener('message', (ev) => {
+        if (ev.origin !== location.origin) return;
+        if (ev.source !== iframe.contentWindow) return;
+        const d = ev && ev.data;
+        if (!d || typeof d !== 'object' || d.type !== 'ucim:ready') return;
+        markReady();
+      });
+
+      /* Safety: if `ucim:ready` never arrives within the timeout, surface fallback.
+         Deferred to `setIframeSrcIfNeeded()` so the timer does not count down while the iframe
+         is still below the fold waiting on the IntersectionObserver to assign `src`. */
+      _startUcimReadyTimer = () => {
+        if (readyTimeoutId !== null || ready) return;
+        readyTimeoutId = setTimeout(() => {
+          if (!ready) showFallback();
+        }, READY_TIMEOUT_MS);
+      };
+
+      /* If iframe src was assigned synchronously (already scrolled into view on boot), arm timer now. */
+      if (iframe.src) _startUcimReadyTimer();
+
+      const clearIfAlreadyComplete = () => {
+        try {
+          const doc = iframe.contentDocument;
+          if (doc && doc.readyState === 'complete') clearLoading();
+        } catch (_) {
+          /* cross-origin: rely on `load` / `ucim:ready` */
+        }
+      };
+      clearIfAlreadyComplete();
+      queueMicrotask(clearIfAlreadyComplete);
+    }
+
+    let _ucimObserver = null;
+
+    function setIframeSrcIfNeeded() {
+      const iframe = document.getElementById('about-ucim-iframe');
+      if (!iframe) return;
+      const desired = iframe.dataset.src || UCIM_SRC;
+      const want = new URL(desired, location.origin).href;
+      if (iframe.src !== want) iframe.src = desired;
+      _startUcimReadyTimer();
+    }
+
+    function observeUcimLazy() {
+      if (!onAboutPath()) return;
+      const figure = document.getElementById('about-ucim-shell');
+      if (!figure) return;
+      if (_ucimObserver) {
+        _ucimObserver.disconnect();
+        _ucimObserver = null;
+      }
+      if (typeof IntersectionObserver !== 'function') {
+        setIframeSrcIfNeeded();
+        return;
+      }
+      _ucimObserver = new IntersectionObserver((entries, obs) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setIframeSrcIfNeeded();
+            obs.disconnect();
+            _ucimObserver = null;
+            break;
+          }
+        }
+      }, { rootMargin: '200px 0px', threshold: 0.01 });
+      _ucimObserver.observe(figure);
+    }
+
+    function refreshIframeIfAbout() {
+      if (!onAboutPath()) return;
+      const iframe = document.getElementById('about-ucim-iframe');
+      if (!iframe) return;
+      if (iframe.src) {
+        const want = new URL(iframe.dataset.src || UCIM_SRC, location.origin).href;
+        if (iframe.src !== want) iframe.src = iframe.dataset.src || UCIM_SRC;
+      } else {
+        observeUcimLazy();
+      }
+    }
+
+    function bootUcimEmbed() {
+      bindUcimEmbed();
+      refreshIframeIfAbout();
+      if (onAboutPath()) postToUcim('ucim:resume');
+    }
+
+    function pauseUcimOnLeave() {
+      if (!onAboutPath()) postToUcim('ucim:pause');
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootUcimEmbed);
+    } else {
+      bootUcimEmbed();
+    }
+
+    /* Guard against listener stacking across view transitions. */
+    if (!window.__ucimAboutHooksBound) {
+      window.__ucimAboutHooksBound = true;
+      document.addEventListener('astro:page-load', bootUcimEmbed);
+      document.addEventListener('astro:before-swap', pauseUcimOnLeave);
+    }
+  })();
+</script>

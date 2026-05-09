@@ -1,0 +1,341 @@
+---
+/**
+ * UcimBriefCard — "Live Instrument" caption plate sitting directly above the
+ * UCIM visualizer iframe on /about.
+ *
+ * Purpose: orient the reader to the UCIM (substrate) / Jensen (intelligence)
+ * pairing, compress "what Jensen produces per engagement" into four scannable
+ * diamond points with a human-in-the-loop callback, and visually fuse with
+ * the iframe below via a flush bottom edge + gold hairline seam so brief + viz
+ * read as one instrument panel.
+ *
+ * Purpose-built, one-off on /about only (no props). Sibling to
+ * AboutDossierCard / ProofEntry — borrows the same dossier grammar tokens
+ * (panel-frost-base, hero headline matching dossier stat-value, ui-eyebrow,
+ * accent rail, diamond highlights), a two-column split below the headline, and a
+ * squared bottom edge for flush attachment.
+ *
+ * Tokens reused (zero new tokens introduced): panel-frost-base,
+ * sarif-gold-cap-line (highlights only), ui-eyebrow, reveal-on-scroll, --sarif-gold,
+ * --gold-bright, --gold-glow-soft, --cyan-core, --cyan-bright,
+ * --glass-border-hover.
+ *
+ * Highlights render with set:html for author-controlled inline <strong> —
+ * compile-time-static copy only. Any literal < > & in plain copy must be
+ * escaped (&lt; &gt; &amp;) or they will be interpreted as markup.
+ */
+
+const HIGHLIGHTS = [
+  '<strong>40&ndash;60 CONCEPTS</strong> mapped per engagement, with verified claims and evidence chains',
+  '<strong>CHAT GROUNDED</strong> in the client&rsquo;s graph &mdash; real-time web research and evidence checking on demand',
+  '<strong>FULL AUDIT</strong> of every concept activated, source cited, claim verified, and dollar spent',
+  '<strong>HUMAN-IN-THE-LOOP</strong> &mdash; the principal provides judgment; Jensen provides analytical infrastructure',
+];
+---
+
+<article class="ucim-brief panel-frost-base panel-dossier panel-dossier--interactive reveal-on-scroll" aria-labelledby="ucim-brief-kicker">
+  <div class="ucim-brief__accent" aria-hidden="true"></div>
+
+  <p id="ucim-brief-kicker" class="ucim-brief__kicker">Augmented Tools</p>
+
+  <div class="ucim-brief__split">
+    <div class="ucim-brief__cell ucim-brief__cell--left">
+      <h3 class="ucim-brief__cell-label ui-eyebrow">UCIM &mdash; The Substrate</h3>
+      <p class="ucim-brief__cell-body">
+        A living metabolic concept graph. Every document, claim and source lives as one continuous structure that compounds across engagements.
+      </p>
+    </div>
+    <div class="ucim-brief__divider" aria-hidden="true"></div>
+    <div class="ucim-brief__cell ucim-brief__cell--right">
+      <h3 class="ucim-brief__cell-label ui-eyebrow">Jensen &mdash; The Intelligence</h3>
+      <p class="ucim-brief__cell-body">
+        The orchestration layer that reasons across UCIM &mdash; mapping concepts, cross-referencing, gathering evidence, keeping the audit trail honest.
+      </p>
+    </div>
+  </div>
+
+  <p class="ucim-brief__lead">
+    Every Sarif engagement begins grounded in the client&rsquo;s specific concept graph, supplemented by real-time web research when needed, with evidence checks on demand.
+  </p>
+
+  <ul class="ucim-brief__highlights" role="list">
+    {HIGHLIGHTS.map((line) => (
+      <li class="sarif-gold-cap-line" set:html={line} />
+    ))}
+  </ul>
+
+  <div class="ucim-brief__cue" aria-hidden="true">
+    <span class="ucim-brief__cue-text ui-eyebrow">&darr; Explore the live graph</span>
+  </div>
+</article>
+
+<style>
+  /* --- Shell --- */
+  .ucim-brief {
+    --ucim-brief-clip: polygon(
+      16px 0,
+      calc(100% - 16px) 0,
+      100% 16px,
+      100% 100%,
+      0 100%,
+      0 16px
+    );
+    position: relative;
+    overflow: hidden;
+    clip-path: var(--ucim-brief-clip);
+    padding: clamp(24px, 3.2vw, 36px) clamp(24px, 3.5vw, 40px) 0 clamp(32px, 4vw, 48px);
+    text-align: left;
+    width: 100%;
+    max-width: min(960px, 100%);
+    margin-inline: auto;
+    margin-bottom: 0;
+    transform: translateY(20px);
+    opacity: 0;
+    transition:
+      transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      box-shadow 0.3s ease,
+      border-color 0.3s ease;
+    /* Squared bottom so the brief's floor becomes a flat seam, not a clipped corner,
+       for flush docking against the iframe wrapper below. */
+    border-bottom: 0;
+  }
+
+  .ucim-brief.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+      opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      box-shadow 0.3s ease,
+      border-color 0.3s ease;
+  }
+
+  /* Hover lift only — border/shadow is unified by the shared
+     `.panel-dossier--interactive:hover` in global.css. The UCIM
+     brief's top-only chamfer (`--ucim-brief-clip`) is intentionally
+     preserved: component-scoped clip-path at line ~85 has higher
+     specificity than `.panel-dossier` and remains the brief's
+     identity silhouette. */
+  .ucim-brief:hover {
+    transform: translateY(-4px);
+  }
+
+  /* --- Accent rail (cyan -> gold, matches methodology dossier) --- */
+  .ucim-brief__accent {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(
+      to bottom,
+      var(--cyan-bright) 0%,
+      var(--cyan-core) 55%,
+      rgba(221, 184, 61, 0.55) 100%
+    );
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* --- Hero headline — mirrors AboutDossierCard .about-dossier__stat-value --- */
+  .ucim-brief__kicker {
+    margin: 10px 0 24px;
+    max-width: 100%;
+    font-family: var(--font-heading);
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.08;
+    color: var(--gold-bright);
+    text-shadow: var(--gold-glow-soft);
+    filter: brightness(1.08);
+    text-transform: none;
+  }
+
+  /* --- Two-column split (UCIM | Jensen) --- */
+  .ucim-brief__split {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr;
+    column-gap: clamp(20px, 3vw, 32px);
+    row-gap: 16px;
+    margin-bottom: 22px;
+  }
+
+  .ucim-brief__cell {
+    min-width: 0;
+  }
+
+  /* Cell titles: same ui-eyebrow + sheen as ServiceCard — size/letter-spacing from global.css */
+  h3.ucim-brief__cell-label.ui-eyebrow {
+    margin: 0 0 10px;
+  }
+
+  .ucim-brief__cell-body {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    line-height: 1.7;
+    margin: 0;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .ucim-brief__divider {
+    align-self: stretch;
+    width: 1px;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(0, 212, 255, 0.22) 20%,
+      rgba(0, 212, 255, 0.22) 80%,
+      transparent 100%
+    );
+  }
+
+  /* --- Centered lead --- */
+  .ucim-brief__lead {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    line-height: 1.72;
+    margin: 0 0 20px;
+    max-width: 720px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  /* --- Diamond highlights (dossier grammar) --- */
+  .ucim-brief__highlights {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 18px;
+  }
+
+  .ucim-brief__highlights li {
+    position: relative;
+    padding-left: 16px;
+    margin-bottom: 8px;
+    text-align: left;
+    font-size: clamp(0.66rem, 1.3vw, 0.74rem);
+    line-height: 1.55;
+  }
+
+  .ucim-brief__highlights li:last-child {
+    margin-bottom: 0;
+  }
+
+  .ucim-brief__highlights li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 4px;
+    height: 4px;
+    background: var(--gold-bright);
+    box-shadow: 0 0 6px rgba(221, 184, 61, 0.45);
+    transform: rotate(45deg);
+  }
+
+  .ucim-brief__highlights li :global(strong) {
+    color: var(--gold-bright);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  /* --- Cue row / seam (flush bottom) ---
+     The ::before paints a gold hairline that spans the full width of the card
+     and visually meets the iframe's border-top below, so reader sees one seam,
+     not two stacked edges. */
+  .ucim-brief__cue {
+    position: relative;
+    margin: 14px calc(-1 * clamp(24px, 3.5vw, 40px)) 0 calc(-1 * clamp(32px, 4vw, 48px));
+    padding: 10px clamp(24px, 3.5vw, 40px) 12px clamp(32px, 4vw, 48px);
+    text-align: right;
+  }
+
+  .ucim-brief__cue::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(221, 184, 61, 0.45) 25%,
+      rgba(221, 184, 61, 0.6) 50%,
+      rgba(221, 184, 61, 0.45) 75%,
+      transparent 100%
+    );
+    box-shadow: 0 0 10px rgba(221, 184, 61, 0.18);
+    pointer-events: none;
+  }
+
+  /* --- Mobile --- */
+  @media (max-width: 640px) {
+    .ucim-brief {
+      /* Squared full-width bottom extends the flush seam across narrow screens */
+      --ucim-brief-clip: polygon(
+        12px 0,
+        calc(100% - 12px) 0,
+        100% 12px,
+        100% 100%,
+        0 100%,
+        0 12px
+      );
+      padding-left: 24px;
+      padding-right: 20px;
+    }
+
+    .ucim-brief__split {
+      grid-template-columns: 1fr;
+      row-gap: 18px;
+    }
+
+    .ucim-brief__divider {
+      width: auto;
+      height: 1px;
+      background: linear-gradient(
+        to right,
+        transparent 0%,
+        rgba(0, 212, 255, 0.22) 20%,
+        rgba(0, 212, 255, 0.22) 80%,
+        transparent 100%
+      );
+    }
+
+    .ucim-brief__cue {
+      margin-left: -24px;
+      margin-right: -20px;
+      padding-left: 24px;
+      padding-right: 20px;
+      text-align: center;
+    }
+  }
+
+  /* --- Reduced motion --- */
+  @media (prefers-reduced-motion: reduce) {
+    .ucim-brief {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+
+    .ucim-brief:hover {
+      transform: none;
+    }
+
+    .ucim-brief__kicker {
+      filter: none;
+    }
+
+    .ucim-brief__highlights li::before {
+      box-shadow: none;
+    }
+
+    .ucim-brief__cue::before {
+      box-shadow: none;
+    }
+  }
+</style>

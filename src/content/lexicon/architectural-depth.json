@@ -1,0 +1,14 @@
+{
+  "num": "06",
+  "term": "Architectural Depth",
+  "category": "discipline",
+  "lastReviewed": "2026-04-18",
+  "definition": "The degree to which a deliverable connects surface recommendations to underlying system structure. Shallow work gives clients what to do. Deep work gives them why, how the components interact, what breaks first, and what follow-on decisions the current one triggers. Architectural depth is the signature Sarif applies to every engagement, regardless of domain.",
+  "matters": "It is the quality bar. It also explains why Sarif's deliverables look different from standard consulting output: every page is load-bearing, every recommendation is traceable to a system-level insight.",
+  "appears": "Services page (as the output standard across all four practice areas). Engagements page (as the connective thread across diverse case studies). Methodology essays.",
+  "related": [
+    { "id": "coherence-decay", "label": "Coherence Decay" },
+    { "id": "trace", "label": "Trace" },
+    { "id": "ucim", "label": "UCIM" }
+  ]
+}

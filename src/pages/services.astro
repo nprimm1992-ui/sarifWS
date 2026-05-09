@@ -1,0 +1,394 @@
+---
+import Base from '../layouts/Base.astro';
+
+const lanes = [
+  {
+    id: 'strategic-intelligence',
+    title: 'Strategic Intelligence',
+    summary: 'Complete strategic architectures for organizations at every level.',
+    capabilities: [
+      'Strategic blueprints and transformation architectures',
+      'Market research and competitive landscape analysis',
+      'Financial modeling, projection and scenario analysis',
+      'Operational systems design and hidden-cost quantification',
+      'Implementation roadmaps with week-by-week execution specificity',
+      'Metrics dashboards with decision triggers and scenario protocols',
+      'Risk management frameworks',
+      'Policy playbooks and advocacy documents',
+      'Forensic document and regulatory analysis',
+      'Grant strategy and institutional development',
+      'Due diligence research packages',
+    ],
+    timeline: '7-21 days depending on scope',
+    starting: '$5,000',
+  },
+  {
+    id: 'digital-production',
+    title: 'Digital Production',
+    summary: 'Engineered digital environments and interactive experiences.',
+    capabilities: [
+      'Immersive web platforms and applications',
+      'Interactive dashboards and data visualization',
+      '3D modeling and spatial design',
+      'Personal and organizational digital twins',
+      'Product visualization and concept rendering',
+      'Interactive presentations and experiential design',
+      'WebGL and Three.js environments',
+      'Performance-optimized responsive architecture',
+    ],
+    timeline: '7-28 days depending on scope',
+    starting: '$5,000',
+  },
+  {
+    id: 'narrative-positioning',
+    title: 'Narrative & Positioning',
+    summary: 'Materials that reframe perception for the people who decide.',
+    capabilities: [
+      'Investor pitch decks and fundraising packages',
+      'Brand positioning and competitive framing',
+      'Campaign strategy and advocacy materials',
+      'Storyboarding and visual narrative development',
+      'Advertisement creative (digital, social, video)',
+      'One-pagers, executive briefs and leave-behinds',
+      'Competitive positioning packages',
+    ],
+    timeline: '3-10 days',
+    starting: '$2,500',
+  },
+  {
+    id: 'content-media',
+    title: 'Content & Media',
+    summary: 'Production-grade content built to compound.',
+    capabilities: [
+      'Long-form articles and thought leadership series',
+      'Podcast production (concept through distribution)',
+      'Technical documentation and white papers',
+      'Ghostwritten executive content',
+      'Media pitch packages and press materials',
+      'Video scripting and production direction',
+      'Social media content strategy and production',
+    ],
+    timeline: '3-14 days per deliverable',
+    starting: '$1,500',
+  },
+];
+---
+
+<Base
+  title="Services — Sarif Consulting"
+  description="Four practice areas. One methodology. Strategic intelligence, digital production, narrative positioning and content — produced through AI meta-orchestration."
+>
+  <!-- Page Header -->
+  <section class="services-hero section" aria-labelledby="services-heading">
+    <div class="container services-hero-inner">
+      <p class="section-label reveal-on-scroll">Choose Your Augment</p>
+      <h1 id="services-heading" class="section-header connector-line reveal-on-scroll">Augmented Services</h1>
+    </div>
+    <div class="container services-hero-inner">
+      <p class="services-intro content-back-panel reveal-on-scroll">
+        <span class="services-intro__lead sarif-gold-cap-line">Four practice areas. One methodology.</span>
+        Every engagement is produced through the same AI meta-orchestration framework. The output type changes. The architectural depth does not.
+      </p>
+    </div>
+  </section>
+
+  <!-- Service Lanes -->
+  <section class="lanes section" aria-label="Service details">
+    <div class="container">
+      <div class="lanes-grid" data-reveal-group>
+        {lanes.map((lane) => (
+          <details
+            class="lane panel-frost-base panel-dossier panel-dossier--interactive"
+            data-reveal-item
+            id={`lane-${lane.id}`}
+            data-lobby-subpose="services-deep"
+          >
+            <summary class="lane-summary">
+              <div class="lane-header">
+                <h2 class="lane-title ui-eyebrow">{lane.title}</h2>
+                <p class="lane-desc">{lane.summary}</p>
+              </div>
+              <span class="lane-toggle" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <line x1="8" y1="2" x2="8" y2="14" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" class="lane-toggle-vert" />
+                  <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" />
+                </svg>
+              </span>
+            </summary>
+            <div class="lane-content">
+              <div class="lane-capabilities">
+                <h2 class="lane-section-title">Capabilities</h2>
+                <ul class="lane-list">
+                  {lane.capabilities.map((cap) => (
+                    <li class="lane-list-item sarif-gold-cap-line">{cap}</li>
+                  ))}
+                </ul>
+              </div>
+              <div class="lane-meta">
+                <div class="lane-meta-item">
+                  <span class="lane-meta-label">Typical Timeline</span>
+                  <span class="lane-meta-value">{lane.timeline}</span>
+                </div>
+                <div class="lane-meta-item">
+                  <span class="lane-meta-label">Starting At</span>
+                  <span class="lane-meta-value lane-meta-value--gold">{lane.starting}</span>
+                </div>
+              </div>
+              <a href="/contact/" class="btn-primary cyan-gold-label btn-cta-hero-footprint"><span class="sarif-hover-sheen">Request Briefing</span></a>
+            </div>
+          </details>
+        ))}
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .services-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .services-hero-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .services-intro {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    max-width: 600px;
+    line-height: 1.75;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .services-intro__lead {
+    display: block;
+    margin-bottom: 0.5em;
+  }
+
+  /* Lanes */
+  .lanes {
+    padding-top: 0;
+  }
+
+  .lanes-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 900px;
+    margin-inline: auto;
+  }
+
+  /* clip-path + paint chrome come from `.panel-dossier` in global.css
+     (same `--clip-card` octagon the other dossier surfaces use).
+
+     IMPORTANT: Do not set `transform` on `.lane` — it breaks
+     `backdrop-filter` on `.btn-primary` inside `.lane-content`.
+     Reveal is opacity-only; hover / open use border + shadow only. */
+  .lane {
+    opacity: 0;
+    transform: none;
+    transition: opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                border-color 0.4s ease-out,
+                box-shadow 0.4s ease-out;
+  }
+
+  .lane.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  .lane:hover {
+    transform: none;
+  }
+
+  /* Expanded-reading state — deeper cyan; no transform (backdrop-safe). */
+  .lane[open] {
+    border-color: rgba(0, 212, 255, 0.55);
+    transform: none;
+    box-shadow:
+      inset 0 1px 0 rgba(0, 212, 255, 0.28),
+      inset 0 0 0 1px rgba(0, 212, 255, 0.08),
+      0 30px 72px rgba(6, 18, 28, 0.42),
+      0 0 40px rgba(0, 212, 255, 0.16);
+  }
+
+  .lane-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 32px 40px;
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cline x1='12' y1='2' x2='12' y2='8' stroke='%2300d4ff' stroke-width='1.5' stroke-linecap='square'/%3E%3Cline x1='12' y1='16' x2='12' y2='22' stroke='%2300d4ff' stroke-width='1.5' stroke-linecap='square'/%3E%3Cline x1='2' y1='12' x2='8' y2='12' stroke='%2300d4ff' stroke-width='1.5' stroke-linecap='square'/%3E%3Cline x1='16' y1='12' x2='22' y2='12' stroke='%2300d4ff' stroke-width='1.5' stroke-linecap='square'/%3E%3Crect x='10' y='10' width='4' height='4' stroke='%2300d4ff' stroke-width='1' fill='none'/%3E%3C/svg%3E") 12 12, crosshair;
+    list-style: none;
+    gap: 24px;
+    /* Defensive wrap: lane-header (title + description) is flex:1 so
+       the non-wrapping row normally works, but on 320px widths the
+       description can create an intrinsic min-width that exceeds the
+       available space and pushes the 16px toggle off the right edge.
+       `flex-wrap: wrap` + `min-width: 0` on the header lets the
+       description reflow; the toggle stays vertically centred via the
+       flex default and moves to its own row only as a last resort. */
+    flex-wrap: wrap;
+    row-gap: 12px;
+  }
+
+  .lane-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .lane-summary::marker {
+    content: '';
+  }
+
+  .lane-header {
+    flex: 1 1 0;
+    /* min-width: 0 lets the header shrink below its intrinsic content
+       width when the summary row gets cramped, so the lane-desc can
+       wrap instead of pushing the 16px toggle off-row. */
+    min-width: 0;
+  }
+
+  h2.lane-title {
+    margin: 0 0 8px;
+  }
+
+  .lane-desc {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .lane-toggle {
+    color: var(--cyan-core);
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+  }
+
+  .lane[open] .lane-toggle {
+    transform: rotate(45deg);
+  }
+
+  .lane-toggle-vert {
+    transition: opacity 0.3s ease;
+  }
+
+  .lane[open] .lane-toggle-vert {
+    opacity: 0;
+  }
+
+  .lane-content {
+    padding: 0 40px 40px;
+    border-top: 1px solid rgba(0, 212, 255, 0.1);
+    margin-top: 0;
+    padding-top: 32px;
+  }
+
+  h2.lane-section-title {
+    font-family: var(--font-heading);
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    line-height: 1.3;
+    margin: 0 0 16px;
+  }
+
+  .lane-list {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px 32px;
+    margin-bottom: 32px;
+  }
+
+  /* Lane bullets: marker + inset (gold ink via global .sarif-gold-cap-line) */
+  .lane-list-item {
+    padding-left: 16px;
+    position: relative;
+  }
+
+  .lane-list-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 4px;
+    height: 4px;
+    background: var(--gold-bright);
+    box-shadow: 0 0 6px rgba(221, 184, 61, 0.45);
+    transform: rotate(45deg);
+  }
+
+  .lane-meta {
+    display: flex;
+    gap: 48px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+
+  .lane-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .lane-meta-label {
+    font-family: var(--font-heading);
+    font-size: 0.6rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--text-muted);
+  }
+
+  .lane-meta-value {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+  }
+
+  /* Starting-at price: cyan sheen in global.css (.lanes .lane-meta-value--gold) */
+
+  @media (max-width: 640px) {
+    .lane-summary {
+      padding: 24px;
+    }
+
+    .lane-content {
+      padding: 0 24px 24px;
+    }
+
+    .lane-list {
+      grid-template-columns: 1fr;
+    }
+
+    .lane-meta {
+      gap: 24px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lane {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+
+    .lane-toggle {
+      transition: none;
+    }
+
+    .lane-list-item::before {
+      box-shadow: none;
+    }
+  }
+</style>

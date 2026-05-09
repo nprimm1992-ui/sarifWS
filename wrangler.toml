@@ -1,0 +1,53 @@
+# Cloudflare Pages — build output and Functions at ./functions
+name = "sarif-consulting"
+compatibility_date = "2024-09-23"
+pages_build_output_dir = "dist"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# D1 — transmissions store (Phase A, scope B)
+#
+# The `database_id` below is a placeholder until `wrangler d1 create` is run.
+# After provisioning, replace the placeholder with the UUID returned by
+# Cloudflare. The binding name `DB` is consumed by functions/api/transmit.js,
+# functions/api/pickup.js, and functions/api/admin/purge.js via `context.env.DB`.
+# ─────────────────────────────────────────────────────────────────────────────
+[[d1_databases]]
+binding = "DB"
+database_name = "sarif-transmissions"
+database_id = "241371f5-cdd6-4cf7-9ac1-cea637816af3"
+migrations_dir = "migrations"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Non-secret config (versioned in repo).
+# `CONSENT_VERSION` is stamped onto every transmission so we can prove which
+# retention-line wording the prospect actually agreed to, even after copy edits.
+# Bump this value when the consent line on /contact changes.
+# ─────────────────────────────────────────────────────────────────────────────
+[vars]
+CONSENT_VERSION = "2026-04-v1"
+
+# Cloudflare Access application binding (F4). These values identify which
+# Access application guards /admin/* and /api/admin/*. They are intentionally
+# empty in the repo — production values are set via the Pages dashboard
+# (Settings → Environment Variables) or `wrangler pages secret put`. When
+# unset, the admin middleware refuses traffic outright (fail closed).
+#
+#   CF_ACCESS_TEAM_DOMAIN — e.g. "sarif.cloudflareaccess.com"
+#   CF_ACCESS_AUD         — 64-char hex AUD tag copied from the Access app
+#
+# See docs/admin-access.md for dashboard setup.
+CF_ACCESS_TEAM_DOMAIN = ""
+CF_ACCESS_AUD = ""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Secrets (NOT committed — set in Cloudflare Pages → Settings → Environment
+# variables, or via `wrangler pages secret put <NAME>`). Reference only:
+#
+#   JENSEN_PICKUP_TOKEN   — 64-char hex; bearer for GET/POST /api/pickup/*
+#   ADMIN_PURGE_TOKEN     — 64-char hex; bearer for POST /api/admin/purge
+#   GOOGLE_SCRIPT_URL     — existing; mail relay endpoint
+#   GOOGLE_SCRIPT_SECRET  — existing; relay shared secret
+#   PUBLIC_CF_BEACON_TOKEN — existing; Cloudflare Web Analytics (optional)
+#
+# Generate tokens with: `openssl rand -hex 32` (or equivalent).
+# ─────────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,147 @@
+---
+/**
+ * Cta — unified CTA component with discriminated-union props.
+ *
+ * Kinds:
+ *   - primary     → .btn-gold  (the dominant conversion path)
+ *   - secondary   → text link with underline (de-emphasized support path)
+ *   - form-submit → .btn-gold inside a <form>; emits a type="submit"
+ *
+ * All kinds emit a `data-cta-id` attribute that the telemetry hook in
+ * src/scripts/cta-telemetry.js picks up on click. The hook posts to
+ * /api/_internal/log with type: 'cta_click'. Server persists to D1
+ * `cta_clicks` (migration 0009).
+ *
+ * Accessibility:
+ *   - primary/secondary render as <a href>; the browser's default semantics
+ *     are preserved.
+ *   - form-submit renders as <button>; caller is responsible for form context.
+ *   - aria-label is forwardable via `ariaLabel`.
+ *
+ * Visual regression:
+ *   - primary uses the existing `.btn-gold.cyan-gold-label.lane-cta` chain
+ *     and wraps label in `.sarif-hover-sheen` so the sheen animation is
+ *     preserved site-wide.
+ */
+
+type CtaPrimary = {
+  kind: 'primary';
+  href: string;
+  label: string;
+  analyticsId: string;
+  ariaLabel?: string;
+  audioClick?: boolean;
+  external?: boolean;
+  magnetic?: boolean;
+  class?: string;
+};
+
+type CtaSecondary = {
+  kind: 'secondary';
+  href: string;
+  label: string;
+  analyticsId: string;
+  ariaLabel?: string;
+  external?: boolean;
+  magnetic?: boolean;
+  class?: string;
+};
+
+type CtaFormSubmit = {
+  kind: 'form-submit';
+  label: string;
+  analyticsId: string;
+  ariaLabel?: string;
+  disabled?: boolean;
+  form?: string;
+  magnetic?: boolean;
+  class?: string;
+};
+
+type Props = CtaPrimary | CtaSecondary | CtaFormSubmit;
+
+const props = Astro.props as Props;
+const analyticsId = props.analyticsId;
+/* P8e — primary and form-submit CTAs default to magnetic (they are
+ * the dominant conversion surface). Secondary defaults off. Callers
+ * can override either way via `magnetic` prop. Disabled form submits
+ * never magnetise — the control shouldn't "lean toward" a pointer
+ * that can't activate it. */
+const defaultMagnetic = props.kind !== 'secondary';
+const magneticOn =
+  props.magnetic === undefined ? defaultMagnetic : Boolean(props.magnetic);
+const disabledForm = props.kind === 'form-submit' && props.disabled === true;
+const applyMagnetic = magneticOn && !disabledForm;
+const commonAttrs = {
+  'data-cta-id': analyticsId,
+  'data-cta-variant': props.kind,
+  'data-cta-magnetic': applyMagnetic ? '' : undefined,
+  'aria-label': props.ariaLabel,
+};
+---
+
+{props.kind === 'primary' && (
+  <a
+    href={props.href}
+    class:list={['btn-gold', 'cyan-gold-label', 'lane-cta', 'cta-primary', props.class]}
+    target={props.external ? '_blank' : undefined}
+    rel={props.external ? 'noopener noreferrer' : undefined}
+    {...commonAttrs}
+  >
+    <span class="sarif-hover-sheen">{props.label}</span>
+  </a>
+)}
+
+{props.kind === 'secondary' && (
+  <a
+    href={props.href}
+    class:list={['cta-secondary', props.class]}
+    target={props.external ? '_blank' : undefined}
+    rel={props.external ? 'noopener noreferrer' : undefined}
+    {...commonAttrs}
+  >
+    <span>{props.label}</span>
+  </a>
+)}
+
+{props.kind === 'form-submit' && (
+  <button
+    type="submit"
+    form={props.form}
+    disabled={props.disabled}
+    class:list={['btn-gold', 'cyan-gold-label', 'cta-primary', 'cta-form-submit', props.class]}
+    {...commonAttrs}
+  >
+    <span class="sarif-hover-sheen">{props.label}</span>
+  </button>
+)}
+
+<style>
+  .cta-secondary {
+    font-family: var(--font-heading);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(200, 196, 190, 0.25);
+    padding-bottom: 2px;
+    transition: color 0.25s ease, border-color 0.25s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cta-secondary:hover,
+  .cta-secondary:focus-visible {
+    color: var(--cyan-core);
+    border-color: var(--cyan-core);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cta-secondary {
+      transition: none;
+    }
+  }
+</style>

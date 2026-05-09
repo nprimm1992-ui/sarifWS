@@ -1,0 +1,19 @@
+{
+  "num": "001",
+  "classification": "Engagement 001 — Policy Infrastructure",
+  "sector": "Civic policy",
+  "accent": "policy",
+  "statValue": "$106M",
+  "statLabel": "Deployment matrix scope",
+  "leads": [
+    "A major metropolitan area faced a systemic crisis with no shortage of proposals but no deployment architecture connecting real funding to validated interventions. We built the bridge between policy intent and fiscal execution."
+  ],
+  "highlights": [
+    "9-chapter policy playbook anchored to RCT-validated intervention mathematics",
+    "$106M deployment matrix mapping 8 funding sources to 17 endpoints",
+    "Three rounds of adversarial stress-testing — every assumption challenged, every number pressure-tested",
+    "Three production-grade infographics translating complex fiscal flows into decision-ready visuals",
+    "Delivered to elected officials in 10 days."
+  ],
+  "sort": 1
+}

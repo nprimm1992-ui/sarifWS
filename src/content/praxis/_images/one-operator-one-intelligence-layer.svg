@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title">
+  <title id="title">One Operator, One Intelligence Layer</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1016"/>
+      <stop offset="1" stop-color="#17242e"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00d4ff" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#00d4ff" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#00d4ff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#bfa364" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#bfa364" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#bfa364" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g opacity="0.55">
+    <line x1="0" y1="220" x2="1600" y2="220" stroke="url(#cyan)" stroke-width="1"/>
+    <line x1="0" y1="260" x2="1600" y2="260" stroke="url(#cyan)" stroke-width="0.5"/>
+    <line x1="0" y1="620" x2="1600" y2="620" stroke="url(#gold)" stroke-width="1"/>
+    <line x1="0" y1="660" x2="1600" y2="660" stroke="url(#gold)" stroke-width="0.5"/>
+  </g>
+  <g transform="translate(120,400)" font-family="Orbitron,sans-serif" fill="#00d4ff" opacity="0.85">
+    <text font-size="14" letter-spacing="4">PRAXIS NO. 01</text>
+  </g>
+  <g transform="translate(120,450)" font-family="Orbitron,sans-serif" fill="#e4e6eb">
+    <text font-size="54" font-weight="700" letter-spacing="2">ONE OPERATOR,</text>
+  </g>
+  <g transform="translate(120,520)" font-family="Orbitron,sans-serif" fill="#e4e6eb">
+    <text font-size="54" font-weight="700" letter-spacing="2">ONE INTELLIGENCE LAYER</text>
+  </g>
+  <g transform="translate(120,580)" font-family="Orbitron,sans-serif" fill="#bfa364" opacity="0.8">
+    <text font-size="20" letter-spacing="3">FIELD OBSERVATION / APRIL 2026</text>
+  </g>
+</svg>

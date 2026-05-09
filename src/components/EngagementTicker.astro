@@ -1,0 +1,193 @@
+---
+const items: Array<{ text: string; stat: boolean }> = [
+  { text: 'POLICY INFRASTRUCTURE', stat: false },
+  { text: 'CIVIC CAMPAIGN STRATEGY', stat: false },
+  { text: 'VENTURE CAPITAL MATERIALS', stat: false },
+  { text: 'BUSINESS TRANSFORMATION ARCHITECTURE', stat: false },
+  { text: 'INSTITUTIONAL TURNAROUND STRATEGY', stat: false },
+  { text: 'DIGITAL PLATFORM & SPATIAL DESIGN', stat: false },
+  { text: '$106M DEPLOYMENT MATRIX', stat: true },
+  { text: '6 SECTORS', stat: true },
+  { text: '47+ DOCUMENTS DELIVERED', stat: true },
+];
+---
+
+<div class="eng-ticker" aria-hidden="true">
+  <div class="eng-ticker__track">
+    {[0, 1].map(() => (
+      <span class="eng-ticker__set">
+        {items.map((item) => (
+          <>
+            <span class:list={['eng-ticker__item', { 'eng-ticker__item--stat': item.stat }]}>
+              {item.text}
+            </span>
+            <span class="eng-ticker__sep">&#9670;</span>
+          </>
+        ))}
+      </span>
+    ))}
+  </div>
+</div>
+
+<style>
+  .eng-ticker {
+    width: 100%;
+    height: 52px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    position: relative;
+
+    background: rgba(8, 16, 24, 0.6);
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+
+    border-top: 1px solid rgba(0, 212, 255, var(--ticker-glow));
+    border-bottom: 1px solid rgba(0, 212, 255, var(--ticker-glow));
+    animation: engBorderPulse 8s ease-in-out infinite;
+
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 100px, black calc(100% - 100px), transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0%, black 100px, black calc(100% - 100px), transparent 100%);
+
+    /* Establish an inline-size query container so the scan-sweep
+       pseudo-element can express its travel distance in `cqw`
+       (container-query width) units. Required because
+       `transform: translateX(%)` resolves against the element's own
+       width, not the container's — and the band needs to sweep the
+       ticker's full inline axis regardless of how wide the parent is. */
+    container-type: inline-size;
+  }
+
+  /* Noise grain texture */
+  .eng-ticker::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--noise-texture-url);
+    pointer-events: none;
+    z-index: 1;
+    mix-blend-mode: soft-light;
+  }
+
+  /* Scan line sweep — offset timing from CapabilityTicker.
+     60px narrow band, positioned at left: 0, translated into place
+     via `transform: translateX()`. Using `cqw` (container-query width)
+     units preserves the original travel distance exactly — band
+     starts at -60px (one width off left of the ticker) and ends at
+     100cqw (right edge of the ticker). Container-type on .eng-ticker
+     enables the cqw resolution. The whole animation runs on the
+     compositor; no layout or paint per frame. */
+  .eng-ticker::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 60px;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(0, 212, 255, 0.06),
+      rgba(0, 212, 255, 0.10),
+      rgba(0, 212, 255, 0.06),
+      transparent
+    );
+    animation: engScanSweep 12s ease-in-out infinite 3s;
+    pointer-events: none;
+    z-index: 2;
+    transform: translateX(-60px);
+    will-change: transform;
+  }
+
+  .eng-ticker__track {
+    display: flex;
+    white-space: nowrap;
+    animation: engTickerScroll 55s linear infinite;
+    will-change: transform;
+    position: relative;
+    z-index: 1;
+  }
+
+  .eng-ticker__set {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .eng-ticker__item {
+    font-family: var(--font-ticker);
+    font-size: 13px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--sarif-gold);
+    flex-shrink: 0;
+    padding-inline: 8px;
+  }
+
+  .eng-ticker__item--stat {
+    color: var(--cyan-bright);
+    text-shadow: 0 0 14px rgba(0, 212, 255, 0.25);
+    font-weight: 600;
+  }
+
+  .eng-ticker__sep {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 6px;
+    color: var(--sarif-gold);
+    opacity: 0.4;
+    flex-shrink: 0;
+    padding-inline: 10px;
+    text-shadow: 0 0 8px rgba(201, 162, 39, 0.35);
+  }
+
+  @keyframes engTickerScroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  @keyframes engBorderPulse {
+    0%, 100% { --ticker-glow: 0.08; }
+    50% { --ticker-glow: 0.22; }
+  }
+
+  @keyframes engScanSweep {
+    0% { transform: translateX(-60px); opacity: 0; }
+    5% { opacity: 1; }
+    95% { opacity: 1; }
+    100% { transform: translateX(100cqw); opacity: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .eng-ticker__track {
+      animation: none;
+    }
+    .eng-ticker::after {
+      display: none;
+    }
+    .eng-ticker {
+      animation: none;
+      --ticker-glow: 0.15;
+    }
+  }
+
+  @media (prefers-contrast: more) {
+    .eng-ticker {
+      border-color: rgba(0, 212, 255, 0.4);
+      animation: none;
+    }
+    .eng-ticker::before,
+    .eng-ticker::after {
+      display: none;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .eng-ticker {
+      -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 48px, black calc(100% - 48px), transparent 100%);
+      mask-image: linear-gradient(90deg, transparent 0%, black 48px, black calc(100% - 48px), transparent 100%);
+    }
+  }
+</style>

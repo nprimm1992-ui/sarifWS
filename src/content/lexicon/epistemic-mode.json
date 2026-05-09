@@ -1,0 +1,14 @@
+{
+  "num": "08",
+  "term": "Epistemic Mode",
+  "category": "discipline",
+  "lastReviewed": "2026-04-18",
+  "definition": "The honesty layer on every Sarif output. Every substantive claim is tagged as grounded (directly supported by source material), inferred (reasoned from evidence but not explicitly stated) or uncertain (Sarif's best read, flagged as such). Clients never have to guess which is which. Ambiguity is surfaced, not hidden behind confident prose.",
+  "matters": "It is the discipline that separates serious intelligence work from polished speculation. It also protects the client: when a recommendation is uncertain, the client knows to stress-test it rather than execute it.",
+  "appears": "Engagements page (as the standard across all deliverables). Methodology essays. Ask Sarif reading room (labels visible inline on every response). Signed deliverable PDFs.",
+  "related": [
+    { "id": "trace", "label": "Trace" },
+    { "id": "architectural-depth", "label": "Architectural Depth" },
+    { "id": "transmission", "label": "Transmission" }
+  ]
+}

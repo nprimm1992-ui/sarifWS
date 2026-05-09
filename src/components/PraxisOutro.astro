@@ -1,0 +1,212 @@
+---
+/**
+ * PraxisOutro — the close-the-loop surface on every Praxis article.
+ *
+ * Two zones:
+ *   1. Intent-matched CTA  — `read` | `reach` (frontmatter-driven).
+ *      - read:  encourages onward reading (primary CTA = next related article).
+ *      - reach: encourages contact (primary CTA = /contact).
+ *   2. Related-article suggestions (up to 2, provided by the slug route).
+ *
+ * The email-capture ("Notify on publish") block previously rendered here
+ * and the `retain` intent that targeted it have been removed. Praxis does
+ * not surface newsletter signup from article pages; /contact/ is the
+ * canonical channel for inbound operator contact.
+ *
+ * Accessibility:
+ *   - Keyboard contract matches the site primary button pattern.
+ *   - Heading + container labelled via aria-labelledby for AT.
+ */
+import Cta from './Cta.astro';
+
+type Intent = 'read' | 'reach';
+
+interface RelatedArticle {
+  id: string;
+  title: string;
+  summary: string;
+  lens: string;
+}
+
+interface Props {
+  slug: string;
+  title: string;
+  intent: Intent;
+  related: RelatedArticle[];
+}
+
+const { slug, title: _title, intent, related } = Astro.props;
+const _unusedSlug = slug;
+const primaryArticleHref = related[0] ? `/praxis/${related[0].id}/` : '/praxis/';
+---
+
+<section class="praxis-outro" aria-labelledby="praxis-outro-heading" data-intent={intent}>
+  <slot name="seal" />
+  <header class="praxis-outro__header">
+    <p class="praxis-outro__eyebrow ui-eyebrow">Continue</p>
+    <h2 id="praxis-outro-heading" class="praxis-outro__heading">
+      {intent === 'read' && 'Keep reading.'}
+      {intent === 'reach' && 'Signal the firm.'}
+    </h2>
+  </header>
+
+  <div class="praxis-outro__ctas">
+    {intent === 'read' && (
+      <Cta kind="primary" href={primaryArticleHref} label="Next piece" analyticsId={`praxis-outro-${slug}-next`} />
+    )}
+    {intent === 'reach' && (
+      <Cta kind="primary" href="/contact/" label="Initiate Contact" analyticsId={`praxis-outro-${slug}-contact`} />
+    )}
+    <Cta kind="secondary" href="/praxis/" label="All Praxis" analyticsId={`praxis-outro-${slug}-all`} />
+  </div>
+
+  {related.length > 0 && (
+    <div class="praxis-outro__related" aria-label="Related Praxis articles">
+      <p class="praxis-outro__related-eyebrow ui-eyebrow">Related</p>
+      <ul class="praxis-outro__related-list" role="list">
+        {related.map((r) => (
+          <li class="praxis-outro__related-item">
+            <a href={`/praxis/${r.id}/`} class="praxis-outro__related-link">
+              <span class="praxis-outro__related-lens">{r.lens}</span>
+              <span class="praxis-outro__related-title">{r.title}</span>
+              <span class="praxis-outro__related-summary">{r.summary}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
+</section>
+
+<style>
+  .praxis-outro {
+    position: relative;
+    margin-top: clamp(60px, 8vw, 100px);
+    padding: clamp(32px, 4vw, 48px);
+    border-top: 1px solid rgba(191, 163, 100, 0.25);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(24px, 3vw, 40px);
+  }
+
+  /* Reserve horizontal space when the dossier seal is slotted (Praxis article). */
+  .praxis-outro:has(:global(.praxis-case__seal)) .praxis-outro__header {
+    padding-right: clamp(100px, 26vw, 168px);
+  }
+
+  .praxis-outro__header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .praxis-outro__eyebrow {
+    font-family: var(--font-heading);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--gold-bright);
+    text-shadow: var(--gold-glow-soft);
+  }
+
+  .praxis-outro__heading {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: clamp(1.4rem, 3vw, 1.8rem);
+    font-weight: 500;
+    color: var(--cyan-bright);
+    text-shadow: var(--cyan-glow-text);
+  }
+
+  .praxis-outro__ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+  }
+
+  .praxis-outro__related-eyebrow {
+    font-family: var(--font-heading);
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+  }
+
+  .praxis-outro__related-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+
+  .praxis-outro__related-item { margin: 0; }
+
+  .praxis-outro__related-link {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 18px 20px;
+    text-decoration: none;
+    border: 1px solid rgba(0, 212, 255, 0.18);
+    clip-path: var(--clip-sm);
+    background: rgba(255, 255, 255, 0.03);
+    transition: border-color 0.25s ease, background 0.25s ease, transform 0.25s ease;
+  }
+
+  .praxis-outro__related-link:hover,
+  .praxis-outro__related-link:focus-visible {
+    border-color: rgba(0, 212, 255, 0.5);
+    background: rgba(0, 212, 255, 0.06);
+    transform: translateY(-2px);
+  }
+
+  .praxis-outro__related-lens {
+    font-family: var(--font-heading);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--sarif-gold);
+  }
+
+  .praxis-outro__related-title {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--cyan-bright);
+    letter-spacing: 0.02em;
+    line-height: 1.3;
+  }
+
+  .praxis-outro__related-summary {
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .praxis-outro__related-link {
+      transition: none;
+    }
+    .praxis-outro__related-link:hover,
+    .praxis-outro__related-link:focus-visible {
+      transform: none;
+    }
+  }
+
+  [dir='rtl'] .praxis-outro:has(:global(.praxis-case__seal)) .praxis-outro__header {
+    padding-right: 0;
+    padding-left: clamp(100px, 26vw, 168px);
+  }
+</style>

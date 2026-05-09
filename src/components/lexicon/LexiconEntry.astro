@@ -1,0 +1,541 @@
+---
+/**
+ * LexiconEntry — a single lexicon entry as a dense, disclosable row.
+ *
+ * Layout:
+ *   • A `<details>` element gives us native accessibility: summary is
+ *     keyboard-focusable, Enter/Space toggles open/close, screen
+ *     readers announce "button, collapsed/expanded". No-JS users get
+ *     the full toggle behavior for free.
+ *   • Summary is a flex row: num + term + chevron.
+ *   • Panel (details[open]) expands with definition, related,
+ *     referenced-by, aka, and revision metadata — no row lead, matters,
+ *     appears, or citation chrome in the UI.
+ *
+ * Visual grammar matches the tooltip (same gradient chrome, clip-path,
+ * gold cap line, cyan/gold palette) so hovering a term inline feels
+ * like a preview of *this* panel, literally.
+ *
+ * Accessibility:
+ *   • <details>/<summary> native semantics; no ARIA gymnastics.
+ *   • Deprecated entries render a prominent badge and an "ancestor"
+ *     chip pointing at `supersededBy` when set.
+ */
+import type { EnrichedLexiconEntry } from '../../lib/lexicon-graph';
+import { LEXICON_CATEGORY_META, formatIsoDay } from '../../lib/lexicon-graph';
+import LexiconChip from './LexiconChip.astro';
+
+export interface Props {
+  entry: EnrichedLexiconEntry;
+}
+
+const { entry } = Astro.props;
+const categoryMeta =
+  entry.category !== 'uncategorized' ? LEXICON_CATEGORY_META[entry.category] : undefined;
+const isDeprecated = entry.status === 'deprecated';
+const revised = formatIsoDay(entry.lastReviewed);
+---
+
+<details
+  class="lex-entry"
+  id={entry.id}
+  data-lex-entry
+  data-lex-id={entry.id}
+  data-lex-category={entry.category}
+  data-lex-status={entry.status}
+  data-lex-num={entry.num}
+  data-lex-term={entry.term.toLowerCase()}
+>
+  <summary class="lex-entry__row">
+    <span class="lex-entry__row-num" aria-label={`Entry L-${entry.num}`}>L-{entry.num}</span>
+    <span class="lex-entry__row-term">
+      {entry.termDisplay ?? entry.term}
+      {isDeprecated && <span class="lex-entry__badge-deprecated" aria-label="Deprecated">Deprecated</span>}
+    </span>
+    <span class="lex-entry__row-chev" aria-hidden="true">
+      <svg viewBox="0 0 14 14" width="12" height="12" role="presentation" focusable="false">
+        <path d="M3 6 L7 10 L11 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </span>
+  </summary>
+
+  <div class="lex-entry__panel">
+    <header class="lex-entry__identity">
+      <span class="lex-entry__id-num">L-{entry.num}</span>
+      <h3 class="lex-entry__id-term">{entry.termDisplay ?? entry.term}</h3>
+      <div class="lex-entry__id-meta">
+        {categoryMeta && (
+          <span class="lex-entry__id-category">{categoryMeta.label}</span>
+        )}
+        <span class={`lex-entry__id-status lex-entry__id-status--${entry.status}`}>
+          {entry.status === 'active' ? 'Active' : 'Deprecated'}
+        </span>
+        {revised && (
+          <span class="lex-entry__id-revised">
+            <abbr title="Last semantically reviewed">Revised</abbr> {revised}
+          </span>
+        )}
+      </div>
+    </header>
+
+    {isDeprecated && entry.supersededBy && (
+      <p class="lex-entry__superseded">
+        This entry is retained for citation stability. Current vocabulary:{' '}
+        <a href={`/lexicon/#${entry.supersededBy}`}>see its replacement</a>.
+      </p>
+    )}
+
+    {entry.aka && entry.aka.length > 0 && (
+      <p class="lex-entry__aka">
+        <span class="lex-entry__aka-label">Also known as</span>
+        {entry.aka.map((a, i) => (
+          <>{i > 0 && <span aria-hidden="true"> · </span>}<span class="lex-entry__aka-term">{a}</span></>
+        ))}
+      </p>
+    )}
+
+    <div class="lex-entry__blocks">
+      <section class="lex-entry__block">
+        <h4 class="lex-entry__block-label">Definition</h4>
+        <p class="lex-entry__block-body">{entry.definition}</p>
+      </section>
+    </div>
+
+    <div class="lex-entry__edges">
+      {entry.related.length > 0 && (
+        <section class="lex-entry__edge-block">
+          <h4 class="lex-entry__edge-label">Related</h4>
+          <ul class="lex-entry__chip-list" role="list">
+            {entry.related.map((r) => (
+              <li><LexiconChip href={`/lexicon/#${r.id}`}>{r.label}</LexiconChip></li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {entry.incoming.length > 0 && (
+        <section class="lex-entry__edge-block">
+          <h4 class="lex-entry__edge-label">Referenced by</h4>
+          <ul class="lex-entry__chip-list" role="list">
+            {entry.incoming.map((r) => (
+              <li><LexiconChip href={`/lexicon/#${r.id}`} variant="muted">{r.label}</LexiconChip></li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  </div>
+</details>
+
+<style>
+  .lex-entry {
+    position: relative;
+    border: 1px solid rgba(0, 212, 255, 0.1);
+    background: linear-gradient(180deg, rgba(14, 26, 36, 0.45) 0%, rgba(6, 16, 24, 0.55) 100%);
+    clip-path: var(--clip-card);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  }
+
+  /* Opened + targeted states strengthen the chrome (raised dossier).
+     Fill is now ~82-88% opaque (up from 65/70%) + backdrop blur, so
+     the expanded panel reads as a crisp dossier over the brighter
+     About-style diorama. Closed state stays translucent so the list
+     still feels like a corpus rather than a wall of boxes. */
+  .lex-entry[open] {
+    border-color: rgba(0, 212, 255, 0.36);
+    background: linear-gradient(180deg, rgba(14, 26, 36, 0.82) 0%, rgba(6, 16, 24, 0.88) 100%);
+    backdrop-filter: blur(14px) saturate(1.12);
+    -webkit-backdrop-filter: blur(14px) saturate(1.12);
+    box-shadow:
+      inset 0 1px 0 rgba(0, 212, 255, 0.18),
+      0 18px 44px rgba(2, 10, 18, 0.55),
+      0 0 28px rgba(0, 212, 255, 0.07);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .lex-entry[open] {
+      background: rgba(4, 10, 18, 0.96);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+  }
+
+  .lex-entry:target,
+  .lex-entry.lex-pulse-target {
+    animation: lex-target-pulse 1.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) 1;
+  }
+
+  @keyframes lex-target-pulse {
+    0% {
+      border-color: rgba(0, 212, 255, 0.9);
+      box-shadow:
+        inset 0 1px 0 rgba(0, 212, 255, 0.3),
+        0 0 0 0 rgba(0, 212, 255, 0.55),
+        0 0 48px rgba(0, 212, 255, 0.25);
+    }
+    100% {
+      border-color: rgba(0, 212, 255, 0.28);
+      box-shadow:
+        inset 0 1px 0 rgba(0, 212, 255, 0.14),
+        0 0 0 0 rgba(0, 212, 255, 0),
+        0 0 24px rgba(0, 212, 255, 0.05);
+    }
+  }
+
+  /* === Row (summary) === */
+
+  .lex-entry__row {
+    list-style: none;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    column-gap: 16px;
+    padding: 14px clamp(16px, 2vw, 24px);
+    cursor: pointer;
+    min-height: 56px;
+    color: var(--text-primary);
+    transition: background 0.15s ease;
+  }
+
+  .lex-entry__row::-webkit-details-marker {
+    display: none;
+  }
+  .lex-entry__row::marker {
+    display: none;
+    content: '';
+  }
+
+  .lex-entry__row:hover {
+    background: rgba(0, 212, 255, 0.035);
+  }
+
+  .lex-entry__row:focus-visible {
+    outline: 2px solid var(--cyan-bright);
+    outline-offset: -2px;
+  }
+
+  .lex-entry__row-num {
+    font-family: var(--font-heading);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: rgba(221, 184, 61, 0.85);
+    white-space: nowrap;
+    min-width: 3.5ch;
+  }
+
+  .lex-entry__row-term {
+    font-family: var(--font-heading);
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--cyan-bright);
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    /* Flex child inside a 1fr grid track; without min-width:0 a long
+       uppercase term ("AUGMENT YOUR INTELLIGENCE") can't shrink to the
+       track and gets clipped by body{overflow-x:hidden}. overflow-wrap
+       lets the token wrap before the track overflows at 320px. */
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .lex-entry__badge-deprecated {
+    font-family: var(--font-heading);
+    font-size: 0.52rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(248, 180, 130, 0.95);
+    padding: 2px 6px;
+    border: 1px solid rgba(248, 180, 130, 0.4);
+    background: rgba(248, 180, 130, 0.08);
+    clip-path: var(--clip-sm);
+  }
+
+  .lex-entry__row-chev {
+    color: var(--cyan-core);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: 1px solid rgba(0, 212, 255, 0.25);
+    clip-path: var(--clip-sm);
+    transition: transform 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .lex-entry[open] .lex-entry__row-chev {
+    transform: rotate(180deg);
+    color: var(--cyan-bright);
+    border-color: rgba(0, 212, 255, 0.5);
+  }
+
+  /* === Panel === */
+
+  .lex-entry__panel {
+    padding: 4px clamp(16px, 2vw, 24px) clamp(20px, 3vw, 28px);
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    border-top: 1px solid rgba(0, 212, 255, 0.1);
+    margin-top: 2px;
+  }
+
+  .lex-entry__identity {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: 12px 16px;
+    padding: 16px 0 14px;
+    border-bottom: 1px solid rgba(221, 184, 61, 0.2);
+  }
+
+  .lex-entry__id-num {
+    font-family: var(--font-heading);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    color: rgba(221, 184, 61, 0.9);
+  }
+
+  .lex-entry__id-term {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: clamp(1.15rem, 2.2vw, 1.4rem);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    line-height: 1.25;
+    text-transform: uppercase;
+    color: var(--cyan-bright);
+    text-shadow: var(--cyan-glow-text);
+    /* Long multi-word terms would otherwise clip at 320px because the
+       h3 sits inside a 1fr grid track that can't shrink its content. */
+    min-width: 0;
+    overflow-wrap: anywhere;
+    hyphens: auto;
+  }
+
+  .lex-entry__id-meta {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    font-family: var(--font-heading);
+    font-size: 0.56rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .lex-entry__id-category {
+    color: rgba(0, 212, 255, 0.82);
+    padding: 2px 8px;
+    border: 1px solid rgba(0, 212, 255, 0.28);
+    background: rgba(0, 212, 255, 0.05);
+    clip-path: var(--clip-sm);
+    letter-spacing: 0.22em;
+  }
+
+  .lex-entry__id-status--active {
+    color: rgba(112, 210, 160, 0.9);
+  }
+  .lex-entry__id-status--active::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background: rgba(112, 210, 160, 0.85);
+    box-shadow: 0 0 6px rgba(112, 210, 160, 0.65);
+    vertical-align: middle;
+  }
+
+  .lex-entry__id-status--deprecated {
+    color: rgba(248, 180, 130, 0.95);
+  }
+  .lex-entry__id-status--deprecated::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background: rgba(248, 180, 130, 0.85);
+    vertical-align: middle;
+  }
+
+  .lex-entry__id-revised abbr {
+    text-decoration: none;
+    border-bottom: 1px dotted currentColor;
+    cursor: help;
+  }
+
+  .lex-entry__superseded {
+    margin: 0;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    color: rgba(248, 180, 130, 0.95);
+    border: 1px dashed rgba(248, 180, 130, 0.4);
+    background: rgba(248, 180, 130, 0.04);
+    clip-path: var(--clip-sm);
+  }
+
+  .lex-entry__superseded a {
+    color: inherit;
+    text-decoration: underline dotted;
+  }
+
+  .lex-entry__aka {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    color: var(--text-secondary);
+  }
+
+  .lex-entry__aka-label {
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    font-size: 0.58rem;
+    color: rgba(221, 184, 61, 0.78);
+    margin-right: 8px;
+  }
+
+  .lex-entry__aka-term {
+    font-family: var(--font-body);
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  /* === Blocks === */
+
+  .lex-entry__blocks {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .lex-entry__block-label {
+    margin: 0 0 8px;
+    font-family: var(--font-heading);
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: rgba(221, 184, 61, 0.85);
+    position: relative;
+    padding-left: 14px;
+  }
+
+  .lex-entry__block-label::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 1px;
+    background: var(--gold-bright);
+    box-shadow: 0 0 6px rgba(221, 184, 61, 0.55);
+  }
+
+  .lex-entry__block-body {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    line-height: 1.7;
+    color: var(--text-primary);
+    /* Safety net for long unbroken tokens (URLs, typographic terms,
+       UCIM variants) that would otherwise force horizontal overflow. */
+    overflow-wrap: anywhere;
+  }
+
+  /* === Edge sections (related / referenced-by) === */
+
+  .lex-entry__edges {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(0, 212, 255, 0.12);
+  }
+
+  .lex-entry__edge-label {
+    margin: 0 0 8px;
+    font-family: var(--font-heading);
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: rgba(221, 184, 61, 0.78);
+  }
+
+  .lex-entry__chip-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lex-entry,
+    .lex-entry__row,
+    .lex-entry__row-chev {
+      transition: none;
+    }
+    .lex-entry:target,
+    .lex-entry.lex-pulse-target {
+      animation: none;
+      /* Static arrival cue instead of an animated one. */
+      border-color: rgba(0, 212, 255, 0.6);
+    }
+  }
+
+  @media (prefers-contrast: more) {
+    .lex-entry {
+      border-color: rgba(0, 212, 255, 0.5);
+    }
+    .lex-entry[open] {
+      border-color: var(--cyan-bright);
+    }
+    .lex-entry__row-term,
+    .lex-entry__id-term {
+      text-shadow: none;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .lex-entry {
+      background: rgba(8, 18, 28, 1);
+    }
+    .lex-entry[open] {
+      background: rgba(10, 22, 34, 1);
+    }
+  }
+
+  @media print {
+    .lex-entry {
+      break-inside: avoid;
+      page-break-inside: avoid;
+      border: 1px solid #333;
+      background: none !important;
+      box-shadow: none !important;
+      clip-path: none !important;
+      margin-block: 12pt;
+    }
+    .lex-entry__panel {
+      display: block !important;
+    }
+    .lex-entry__row-chev {
+      display: none;
+    }
+  }
+</style>

@@ -1,0 +1,14 @@
+{
+  "num": "02",
+  "term": "Coherence Decay",
+  "category": "doctrine",
+  "lastReviewed": "2026-04-18",
+  "definition": "The degradation that occurs when work passes through too many hands, too many meetings or too many translation layers. Every handoff strips context. Every summary compresses nuance. By the time a strategy reaches execution, or a diagnosis reaches the decision-maker, most of the original signal has been lost. Coherence decay is why large firms produce thick decks with thin insight.",
+  "matters": "It is Sarif's adversary and also its differentiator. The firm is structured specifically to eliminate the conditions that produce coherence decay. Naming the phenomenon lets every other claim — architectural depth, one-operator model, Jensen as continuity layer — click into place.",
+  "appears": "About page (as the problem Sarif was built to solve). Methodology essay number one. Contact page subtext. Homepage tagline candidate for future iteration.",
+  "related": [
+    { "id": "architectural-depth", "label": "Architectural Depth" },
+    { "id": "jensen", "label": "Jensen" },
+    { "id": "metabolic-knowledge", "label": "Metabolic Knowledge" }
+  ]
+}

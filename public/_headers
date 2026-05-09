@@ -1,0 +1,92 @@
+# Cloudflare Pages response headers.
+#
+# The Content-Security-Policy on `/*` is REWRITTEN at build time by
+# scripts/inject-csp-hashes.mjs to replace the 'unsafe-inline' token on
+# script-src with a list of sha256 hashes for the exact inline scripts
+# Astro emits into dist/*.html. Do not add inline scripts after that step;
+# the post-build rewrite scans only dist/ and would miss them.
+#
+# style-src still allows 'unsafe-inline' because Astro emits per-component
+# scoped <style> blocks. Moving those to external stylesheets requires a
+# different build pipeline — tracked in docs/audit-2026-04-phase-b.md.
+#
+# Three CSP tokens are required and MUST remain:
+#   1. script-src 'wasm-unsafe-eval'
+#      The MeshoptDecoder (three/addons/libs/meshopt_decoder.module.js) uses
+#      WebAssembly.instantiate() to decode EXT_meshopt_compression geometry.
+#      All 4 lobby GLBs ship with Meshopt-packed vertex/index buffers, so
+#      without this token WASM instantiation is refused by CSP and every
+#      planter mesh fails silently — verified live at sarifconsulting.ai
+#      before the fix. 'wasm-unsafe-eval' is narrower than 'unsafe-eval':
+#      it authorises WASM only, not eval()/new Function().
+#   2. connect-src blob:
+#      THREE.GLTFLoader extracts embedded textures from the GLB binary chunk
+#      by wrapping the byte range in a Blob, minting a blob: URL, and
+#      fetch()-ing it back as an <img> source. Same-origin blob URLs still
+#      require 'blob:' in connect-src under strict CSP; without it every
+#      GLB texture load is refused and the emblem renders as an untextured
+#      wireframe.
+#   3. script-src / script-src-elem 'inline-speculation-rules'
+#      Astro's ClientRouter injects <script type="speculationrules"> JSON
+#      blocks at runtime to hint the browser to prefetch/prerender likely
+#      next navigations. The build-time hash injector intentionally skips
+#      these (scripts/inject-csp-hashes.mjs) because they're runtime-only
+#      and the content varies per navigation. The CSP3 source keyword
+#      'inline-speculation-rules' allows inline speculation rules WITHOUT
+#      allowing arbitrary inline <script> (which 'unsafe-inline' would).
+#      Baseline 2024 support: Chrome 114+, Edge 114+; Safari/Firefox
+#      ignore speculation rules entirely (graceful fallback to normal nav).
+
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(self), autoplay=(self), camera=(), clipboard-read=(), clipboard-write=(self), cross-origin-isolated=(self), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(self), hid=(), identity-credentials-get=(), idle-detection=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(self), publickey-credentials-create=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), storage-access=(self), usb=(), web-share=(self), window-management=(), xr-spatial-tracking=()
+  X-XSS-Protection: 1; mode=block
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  Report-To: {"group":"csp","max_age":10886400,"endpoints":[{"url":"https://sarifconsulting.ai/api/csp-report"}]}
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' 'inline-speculation-rules' https://static.cloudflareinsights.com https://challenges.cloudflare.com; script-src-elem 'self' 'unsafe-inline' 'inline-speculation-rules' https://static.cloudflareinsights.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' blob: https://cloudflareinsights.com https://static.cloudflareinsights.com https://challenges.cloudflare.com; frame-src 'self' https://challenges.cloudflare.com; frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; worker-src 'self' blob:; manifest-src 'self'; media-src 'self'; upgrade-insecure-requests; report-uri /api/csp-report; report-to csp
+
+# UCIM visualizer embed: relax COEP so the iframe can load its own assets.
+# X-Frame-Options is already SAMEORIGIN above; frame-ancestors matches.
+/ucim-visualizer/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: cross-origin
+
+/*.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.css
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.svg
+  Cache-Control: public, max-age=86400
+
+/*.glb
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.jpg
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.png
+  Cache-Control: public, max-age=2592000
+
+# Colour LUTs (Pillar 2 / 4a). Content-addressable by hashed filename
+# after Astro's asset pipeline processes the import (or stable URL when
+# referenced from /luts/). WebP lossless output from scripts/generate-lut.mjs;
+# regenerated deterministically, so immutable-cache is safe.
+/*.webp
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.woff2
+  Cache-Control: public, max-age=31536000, immutable
+
+# HDR environment maps (lobby scene IBL). Hashed by build; content-addressable
+# and safe to immutable-cache for a year.
+/*.hdr
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate

@@ -1,0 +1,14 @@
+{
+  "num": "01",
+  "term": "Augment Your Intelligence",
+  "category": "doctrine",
+  "lastReviewed": "2026-04-18",
+  "definition": "Sarif's operating principle. A consulting engagement should not hand a client an artifact and walk away. It should install an intelligence layer that persists, adapts and compounds. Every deliverable, every session, every decision flows through an augmented cognitive substrate that the client can reason against long after the engagement ends.",
+  "matters": "It is the firm's thesis in four words, and it defines the difference between consulting as service delivery and consulting as system installation.",
+  "appears": "Homepage hero (already present). About page header. Contact page framing. Praxis masthead. First anchor citation in most lexicon entries.",
+  "related": [
+    { "id": "ucim", "label": "UCIM" },
+    { "id": "jensen", "label": "Jensen" },
+    { "id": "architectural-depth", "label": "Architectural Depth" }
+  ]
+}

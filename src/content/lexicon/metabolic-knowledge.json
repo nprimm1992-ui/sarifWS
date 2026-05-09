@@ -1,0 +1,14 @@
+{
+  "num": "03",
+  "term": "Metabolic Knowledge",
+  "category": "doctrine",
+  "lastReviewed": "2026-04-18",
+  "definition": "Knowledge that an organization actively digests rather than passively stores. A wiki is not metabolic. A Slack archive is not metabolic. Knowledge becomes metabolic when it feeds back into decisions, gets reinforced by outcomes and decays when it stops being useful. Sarif's engagements install this metabolism; Jensen is the organ that performs it.",
+  "matters": "It reframes the entire category of \"AI consulting\" from tooling sale to organizational nervous system. It also gives clients language for what they actually want, which most of them cannot articulate before the engagement.",
+  "appears": "Methodology essays. Praxis posts on organizational intelligence. Standing Order positioning language.",
+  "related": [
+    { "id": "ucim", "label": "UCIM" },
+    { "id": "coherence-decay", "label": "Coherence Decay" },
+    { "id": "trace", "label": "Trace" }
+  ]
+}

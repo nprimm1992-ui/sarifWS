@@ -1,0 +1,97 @@
+/* Space Grotesk font is loaded conditionally from index.html — only when UCIM runs standalone.
+   Embedded on the parent site the outer document already provides the font, so we avoid the duplicate fetch. */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  background: #0a0f1a;
+  color: #ffffff;
+  overflow-x: hidden;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+/* Tailwind layer overrides */
+@layer base {
+  :root {
+    --background: 222 47% 7%;
+    --foreground: 0 0% 100%;
+    --card: 222 47% 7%;
+    --card-foreground: 0 0% 100%;
+    --popover: 222 47% 7%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 45 64% 52%;
+    --primary-foreground: 222 47% 7%;
+    --secondary: 195 100% 50%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 222 30% 15%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 195 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 222 30% 18%;
+    --input: 222 30% 18%;
+    --ring: 195 100% 50%;
+    --radius: 0rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer base {
+  [data-debug-wrapper="true"] {
+    display: contents !important;
+  }
+
+  [data-debug-wrapper="true"] > * {
+    margin-left: inherit;
+    margin-right: inherit;
+    margin-top: inherit;
+    margin-bottom: inherit;
+    padding-left: inherit;
+    padding-right: inherit;
+    padding-top: inherit;
+    padding-bottom: inherit;
+    column-gap: inherit;
+    row-gap: inherit;
+    gap: inherit;
+    border-left-width: inherit;
+    border-right-width: inherit;
+    border-top-width: inherit;
+    border-bottom-width: inherit;
+    border-left-style: inherit;
+    border-right-style: inherit;
+    border-top-style: inherit;
+    border-bottom-style: inherit;
+    border-left-color: inherit;
+    border-right-color: inherit;
+    border-top-color: inherit;
+    border-bottom-color: inherit;
+  }
+}

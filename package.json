@@ -1,0 +1,61 @@
+{
+  "name": "sarif-consulting",
+  "type": "module",
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev --host 0.0.0.0 --port 3456",
+    "build:ucim": "npm install --prefix vendor/sarif-ucim-visualizer/frontend --no-audit --no-fund --legacy-peer-deps && npm run build --prefix vendor/sarif-ucim-visualizer/frontend",
+    "sync:ucim": "node scripts/sync-ucim-visualizer.mjs",
+    "build:assets": "node scripts/optimize-favicon.mjs && node scripts/generate-og-image.mjs && node scripts/generate-lut.mjs && node scripts/downsize-hdr.mjs",
+    "generate:lut": "node scripts/generate-lut.mjs",
+    "downsize:hdr": "node scripts/downsize-hdr.mjs",
+    "check:lexicon-version": "node scripts/check-lexicon-version-parity.mjs",
+    "check:types": "astro check",
+    "check:meta": "node scripts/check-meta-descriptions.mjs",
+    "check:budgets": "node scripts/check-html-budget.mjs && node scripts/check-bundle-budget.mjs",
+    "check:praxis-layout": "node scripts/check-praxis-layout.mjs",
+    "check:all": "npm run check:lexicon-version && npm run lint && npm run check:types",
+    "lint": "eslint \"src/**/*.{js,astro}\" \"functions/**/*.js\" \"scripts/**/*.mjs\" \"*.{js,mjs,cjs}\"",
+    "prebuild": "npm run check:lexicon-version",
+    "build": "npm run build:ucim && npm run sync:ucim && npm run build:assets && astro build",
+    "postbuild": "node scripts/inject-csp-hashes.mjs && node scripts/check-html-budget.mjs && node scripts/check-bundle-budget.mjs && node scripts/check-meta-descriptions.mjs && node scripts/check-praxis-layout.mjs",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name sarif-consulting",
+    "verify:sitemap": "node scripts/verify-sitemap.mjs",
+    "optimize:favicon": "node scripts/optimize-favicon.mjs",
+    "optimize:glbs": "node scripts/optimize-glbs.mjs",
+    "generate:og": "node scripts/generate-og-image.mjs",
+    "preview": "astro preview",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "^5.0.3",
+    "astro": "^6.1.5",
+    "lenis": "^1.3.23",
+    "three": "^0.183.2",
+    "web-vitals": "^4.2.4"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.8",
+    "@astrojs/sitemap": "^3.7.2",
+    "@eslint/js": "^10.0.1",
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/orbitron": "^5.2.8",
+    "@fontsource/space-grotesk": "^5.2.10",
+    "@gltf-transform/cli": "^4.3.0",
+    "@playwright/test": "^1.59.1",
+    "@types/three": "^0.183.1",
+    "@typescript-eslint/parser": "^8.58.2",
+    "astro-eslint-parser": "^1.4.0",
+    "eslint": "^10.2.1",
+    "eslint-plugin-astro": "^1.7.0",
+    "sharp": "^0.34.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.58.2",
+    "wrangler": "^4.78.0"
+  }
+}

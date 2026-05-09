@@ -1,0 +1,159 @@
+---
+import Base from '../layouts/Base.astro';
+import EngagementCarousel from '../components/EngagementCarousel.astro';
+import { getCollection } from 'astro:content';
+
+// Engagements are sourced from src/content/engagements/*.json (see
+// src/content/config.ts). Filename-less `id` is the carousel anchor, e.g.
+// eng-001. We keep downstream shape identical to the previous inline array
+// so EngagementCarousel.astro did not need a signature change.
+const engagementEntries = await getCollection('engagements');
+const engagements = engagementEntries
+  .map((entry) => ({
+    id: entry.id,
+    num: entry.data.num,
+    classification: entry.data.classification,
+    sector: entry.data.sector,
+    accent: entry.data.accent,
+    statValue: entry.data.statValue,
+    statLabel: entry.data.statLabel,
+    leads: entry.data.leads,
+    highlights: entry.data.highlights,
+    _sort: entry.data.sort ?? Number.parseInt(entry.data.num, 10),
+  }))
+  .sort((a, b) => a._sort - b._sort || a.num.localeCompare(b.num))
+  .map(({ _sort: _unused, ...rest }) => rest);
+
+---
+
+<Base
+  title="Engagements — Sarif Consulting"
+  description="Six engagements across six sectors: civic, crisis response, founder strategy, enterprise positioning, AI architecture, coalition. Production-grade deliverables in days, not months."
+>
+  <section class="eng-hero section" aria-labelledby="eng-heading">
+    <div class="container eng-hero-inner">
+      <p class="section-label reveal-on-scroll">What We Have Done</p>
+      <h1 id="eng-heading" class="section-header connector-line reveal-on-scroll">Engagements</h1>
+      <p class="eng-intro content-back-panel reveal-on-scroll sarif-gold-cap-line">
+        Six engagements across six sectors.
+      </p>
+    </div>
+
+    <div class="container eng-carousel-wrap" data-lobby-subpose="engagements-carousel">
+      <EngagementCarousel items={engagements} />
+    </div>
+  </section>
+
+  <div class="section-threshold reveal-on-scroll" aria-hidden="true">
+    <div class="threshold-line"></div>
+  </div>
+
+  <section class="eng-cta section cv-auto" data-cv-size="sm" aria-label="Next steps">
+    <div class="container eng-cta-inner">
+      <a href="/contact/" class="btn-gold cyan-gold-label lane-cta"><span class="sarif-hover-sheen">Initiate Contact</span></a>
+      <a href="/services/" class="eng-services-link">View Services</a>
+    </div>
+  </section>
+</Base>
+
+<style>
+  /* Single column: hero copy and carousel stack with normal .section top padding (clears fixed nav) */
+  .eng-hero.section {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .eng-hero-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    width: 100%;
+    max-width: 1000px;
+    margin-inline: auto;
+  }
+
+  .eng-intro {
+    max-width: 540px;
+    margin-top: 8px;
+  }
+
+  .eng-carousel-wrap {
+    margin-top: 32px;
+    width: 100%;
+  }
+
+  .eng-cta {
+    padding-block: 56px;
+  }
+
+  .eng-cta-inner {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    text-align: center;
+  }
+
+  @media (max-width: 480px) {
+    .eng-cta-inner {
+      flex-direction: column;
+      gap: 20px;
+    }
+  }
+
+  .eng-services-link {
+    font-family: var(--font-heading);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(200, 196, 190, 0.25);
+    padding-bottom: 2px;
+    transition: color 0.25s ease, border-color 0.25s ease;
+  }
+
+  .eng-services-link:hover,
+  .eng-services-link:focus-visible {
+    color: var(--cyan-core);
+    border-color: var(--cyan-core);
+  }
+
+  .section-threshold {
+    position: relative;
+    height: 1px;
+    overflow: visible;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Page override: match global threshold-line but with a slower 1.5s
+     sweep. Animates `transform: scaleX()` instead of `width` so the
+     reveal runs on the compositor. Target width lives in `width`;
+     scale drives the visual growth. */
+  .threshold-line {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%) scaleX(0);
+    width: min(80%, 600px);
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan-core), transparent);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.25);
+    transform-origin: center;
+    will-change: transform;
+  }
+
+  .section-threshold.is-visible .threshold-line {
+    transform: translateX(-50%) scaleX(var(--threshold-scale, 1));
+    transition: transform 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .section-threshold .threshold-line { transition: none !important; }
+    .eng-services-link { transition: none; }
+  }
+</style>

@@ -1,0 +1,52 @@
+---
+/**
+ * MDX Stat — large numeric display with secondary label.
+ *
+ * Usage:
+ *   <Stat value="$106M" label="Deployment matrix scope" />
+ *
+ * Typography borrows the numeric weight of .error-code from 404/500 pages,
+ * but lives under its own class so visual regressions are scoped.
+ */
+interface Props {
+  value: string;
+  label?: string;
+  class?: string;
+}
+
+const { value, label, class: className } = Astro.props;
+---
+
+<p class:list={['mdx-stat', className]}>
+  <span class="mdx-stat__value" aria-label={label ? `${value}, ${label}` : value}>{value}</span>
+  {label && <span class="mdx-stat__label" aria-hidden="true">{label}</span>}
+</p>
+
+<style>
+  .mdx-stat {
+    margin: clamp(24px, 3vw, 36px) 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+  }
+
+  .mdx-stat__value {
+    font-family: var(--font-heading);
+    font-size: clamp(2.4rem, 6vw, 3.8rem);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: var(--cyan-bright);
+    text-shadow: var(--cyan-glow-text);
+  }
+
+  .mdx-stat__label {
+    font-family: var(--font-heading);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+</style>

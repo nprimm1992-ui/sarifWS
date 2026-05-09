@@ -1,0 +1,2652 @@
+---
+import Base from '../layouts/Base.astro';
+
+// Signal-first intake (Contact Transmission Rebuild, Phase A, scope B).
+// The public surface deliberately does not reference Jensen. Every field
+// serves the single goal of letting a prospect state the actual signal
+// and giving Nicholas a clean readout to respond to.
+//
+// P7b — Cloudflare Turnstile (invisible). The site key is a PUBLIC_* env
+// so it's safe to emit into markup. When unset (local dev, preview
+// without Access to the Turnstile app), we degrade gracefully: the
+// honeypot + server-side rate limit remain in force, and the server
+// skips verification. Fail-closed in the opposite direction — if the
+// secret is present server-side but the key is missing client-side —
+// is surfaced via the structured error shape (`verification_missing`).
+const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
+
+/** Intake line copy — signal panel TX ref (channel-status pill). */
+const intakeChannelOpen = 'Channel open';
+const intakeChannelBrand = 'Sarif connected';
+---
+
+<Base
+  title="Contact — Sarif Consulting"
+  description="Open a transmission with Sarif. Every inbound signal is read by the principal and answered with a reply — the first artifact of a Briefing or deeper engagement."
+>
+  <!-- Page Header -->
+  <section class="contact-hero section" aria-labelledby="contact-heading">
+    <div class="container contact-hero-inner">
+      <p class="section-label reveal-on-scroll">Augment Your Intelligence</p>
+      <h1 id="contact-heading" class="section-header connector-line reveal-on-scroll">Establish Contact</h1>
+    </div>
+  </section>
+
+  <!-- Contact Form -->
+  <section class="contact-form-section section" aria-label="Contact form">
+    <div class="container">
+      <div class="contact-grid">
+        <!-- Form -->
+        <form
+          id="contact-form"
+          class="contact-form"
+          action="/api/transmit"
+          method="POST"
+          novalidate
+        >
+          <!-- Honeypot — hidden from humans, catches bots -->
+          <div class="form-group" style="position:absolute;left:-9999px;opacity:0;height:0;overflow:hidden;" aria-hidden="true">
+            <label for="contact-website">Website</label>
+            <input type="text" id="contact-website" name="website" tabindex="-1" autocomplete="off" />
+          </div>
+
+          {turnstileSiteKey && (
+            /* Turnstile mount (explicit render, not auto-scan).
+               Class is `turnstile-mount`, NOT `cf-turnstile` — we do not
+               want api.js's auto-scanner to claim the node, because:
+                 1. Auto-scan only fires once per api.js load. On Astro
+                    ClientRouter soft-nav back to /contact/, a fresh
+                    mount node appears in the DOM but api.js is already
+                    loaded and never re-scans. The widget would never
+                    initialize, no token ever lands, and the submit
+                    would 400 with `verification_missing`.
+                 2. Explicit render returns a widget ID that we keep
+                    around for `turnstile.reset(id)` after the server
+                    consumes a token (tokens are single-use). Without
+                    the ID, retry flows can't recover without a page
+                    reload. Observed in field-reports on mobile Chrome
+                    141 / Android throttled (see contact-form 400 RCA
+                    in docs/audit-2026-04-phase-b.md).
+               The data-* attributes below are read by ensureTurnstileRendered
+               so the widget config stays declarative (easier to audit). */
+            <div
+              class="turnstile-mount"
+              data-sitekey={turnstileSiteKey}
+              data-appearance="interaction-only"
+              data-response-field-name="cf-turnstile-response"
+              data-theme="dark"
+              data-retry="auto"
+              aria-label="Security challenge"
+            ></div>
+          )}
+
+          <!-- Signal panel: the operator console. Dark-glass inset against
+               the light page gives the signal textarea unmistakable visual
+               hierarchy without implying an AI chatbot is on the other end.
+               Header shows a format-only TX preview and a live HUD counter;
+               placeholder opens with an operator-prompt glyph. -->
+          <div class="signal-panel-group">
+            <div class="signal-panel">
+              <div class="signal-panel__header" aria-hidden="true">
+                <span class="signal-panel__ref">
+                  <span class="signal-panel__ref-prefix">TX-</span><span class="signal-panel__ref-date">YYYY-MM</span><span class="signal-panel__ref-sep">·</span>
+                  <!-- Channel-status pill (shared styles below). -->
+                  <span class="channel-status channel-status--signal" aria-hidden="true">
+                    <span class="channel-status__dot" aria-hidden="true"></span>
+                    <span class="channel-status__text">
+                      <span class="channel-status__item">{intakeChannelOpen}</span>
+                      <span class="channel-status__sep" aria-hidden="true">·</span>
+                      <span class="channel-status__item channel-status__item--brand">{intakeChannelBrand}</span>
+                    </span>
+                  </span>
+                </span>
+                <span class="signal-panel__hud">
+                  <span id="signal-chars" class="signal-panel__hud-count">0</span><span class="signal-panel__hud-sep">/</span><span class="signal-panel__hud-max">10,000</span>
+                  <!-- Minimum-length badge: the server rejects any signal
+                       shorter than 20 chars with a 400. We surface that
+                       threshold here rather than letting a failed submit
+                       round-trip the rule. State classes:
+                         signal-panel__hud-min--need    → len < 20 (cyan)
+                         signal-panel__hud-min--met     → len ≥ 20 (dim)
+                       Driven by initSignalCounter on every input event. -->
+                  <span id="signal-min-badge" class="signal-panel__hud-min signal-panel__hud-min--need" aria-hidden="true">
+                    <span class="signal-panel__hud-min-dot" aria-hidden="true"></span>
+                    <span class="signal-panel__hud-min-text">20 min</span>
+                  </span>
+                </span>
+              </div>
+              <label for="contact-signal" class="signal-panel__label ui-eyebrow">Contact us</label>
+              <textarea
+                id="contact-signal"
+                name="signal"
+                rows="8"
+                required
+                minlength="20"
+                maxlength="10000"
+                class="signal-panel__input"
+                placeholder="▸ What are you facing? Enough context for a clean read — at least 20 characters."
+                aria-describedby="consent-line signal-hud-live signal-min-hint"
+              ></textarea>
+              <!-- Min-length error surface. Empty in the resting state —
+                   the HUD badge ("20 min" / "3 more" / "min met") carries
+                   the live signal so we don't double-narrate the rule.
+                   The pre-submit guard populates this element with a
+                   specific "${n} more character(s) needed…" message when
+                   the user tries to transmit under the floor; cleared on
+                   next valid input. -->
+              <p id="signal-min-hint" class="signal-panel__min-hint" aria-live="polite"></p>
+              <div id="signal-hud-live" class="visually-hidden" aria-live="polite"></div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="contact-name" class="form-label ui-eyebrow">Name</label>
+            <input
+              type="text"
+              id="contact-name"
+              name="name"
+              required
+              autocomplete="name"
+              class="form-input"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="contact-email" class="form-label ui-eyebrow">Email</label>
+            <input
+              type="email"
+              id="contact-email"
+              name="email"
+              required
+              autocomplete="email"
+              class="form-input"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="contact-org" class="form-label ui-eyebrow">Organization <span class="form-optional">(optional)</span></label>
+            <input
+              type="text"
+              id="contact-org"
+              name="organization"
+              autocomplete="organization"
+              class="form-input"
+            />
+          </div>
+
+          <div class="form-submit-wrap">
+            <button
+              type="submit"
+              class="btn-gold cyan-gold-label form-submit form-submit--digitize"
+              id="submit-btn"
+              aria-label="Transmit signal"
+            >
+              <span class="form-submit__label sarif-hover-sheen" aria-hidden="true">Transmit</span>
+            </button>
+
+            {turnstileSiteKey && (
+              /* Turnstile prelock hint.
+                 Shown while the invisible Turnstile widget is still
+                 resolving the challenge (usually 1–3s on desktop,
+                 3–6s on throttled mobile). During this window the
+                 submit button is disabled; without this hint the
+                 user sees a dim button and no explanation, which
+                 historically led to `verification_missing` 400s
+                 because users pressed submit before the token was
+                 ready (and the interaction-only widget is literally
+                 invisible).
+
+                 Initially visible (no `hidden` attr). The client
+                 script hides it the moment the token lands. If the
+                 script fails to load at all (CSP, extension),
+                 keeping the hint visible is better than a silent
+                 disabled button — the user still has the mailto
+                 fallback below the form. */
+              <div id="tx-prelock" class="tx-prelock" role="status" aria-live="polite">
+                <span class="tx-prelock__dot" aria-hidden="true"></span>
+                <span class="tx-prelock__text">Verifying connection…</span>
+              </div>
+            )}
+
+            <!-- Sequencer: macro-feedback during the submit fetch. The button's
+                 digitize is the micro-press; this is the phase ticker. Phases
+                 are mutually exclusive via data-active on the container. Live
+                 region is polite so it doesn't interrupt screen readers. -->
+            <div
+              id="tx-sequencer"
+              class="tx-sequencer"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              hidden
+            >
+              <span class="tx-sequencer__rail" aria-hidden="true"></span>
+              <span class="tx-sequencer__phase" data-phase="encoding">
+                <span class="tx-sequencer__dot" aria-hidden="true"></span>
+                <span class="tx-sequencer__label">Encoding signal</span>
+              </span>
+              <span class="tx-sequencer__phase" data-phase="relaying">
+                <span class="tx-sequencer__dot" aria-hidden="true"></span>
+                <span class="tx-sequencer__label">Relaying to principal</span>
+              </span>
+              <span class="tx-sequencer__phase" data-phase="acknowledged">
+                <span class="tx-sequencer__dot" aria-hidden="true"></span>
+                <span class="tx-sequencer__label">Transmission received</span>
+              </span>
+              <span class="tx-sequencer__phase" data-phase="failed">
+                <span class="tx-sequencer__dot" aria-hidden="true"></span>
+                <span class="tx-sequencer__label">Relay failed · signal preserved</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Success receipt: the input surface is an operator console, and
+               the response renders as a transmission receipt whose chrome
+               deliberately mirrors the signal-panel header — dark glass,
+               TX reference prefix, channel-status pill, monospace HUD — so
+               the page never flips into an unrelated design language after
+               submit. Two bubbles carry the thread: the prospect's signal
+               (outgoing, operator-console styling) and Sarif's receipt
+               confirmation (reply, gold-accented dark glass). The chat
+               metaphor appears ONLY after submit, so prospects are never
+               misled into thinking a live AI is on the other end. -->
+          <div id="form-success" class="tx-receipt" role="status" aria-live="polite" hidden tabindex="-1">
+            <div class="tx-receipt__header">
+              <span class="tx-receipt__ref">
+                <span class="tx-receipt__ref-prefix">TX-</span><span class="tx-receipt__ref-date" id="tx-receipt-ref-date">YYYY-MM</span><span class="tx-receipt__ref-sep">·</span>
+                <!-- Channel-status pill mirrors the one in the signal-panel
+                     header, with a state-change variant (`--delivered`) that
+                     shifts the dot/accent from cyan to gold to signal
+                     transmission success semantically, not just chromatically. -->
+                <span class="channel-status channel-status--receipt channel-status--delivered" aria-hidden="true">
+                  <span class="channel-status__dot" aria-hidden="true"></span>
+                  <span class="channel-status__text">
+                    <span class="channel-status__item">Signal delivered</span>
+                    <span class="channel-status__sep" aria-hidden="true">·</span>
+                    <span class="channel-status__item channel-status__item--brand">Sarif acknowledged</span>
+                  </span>
+                </span>
+              </span>
+              <span class="tx-receipt__timestamp" id="tx-receipt-timestamp" aria-hidden="true"></span>
+            </div>
+            <div class="tx-receipt__thread">
+              <div class="tx-bubble tx-bubble--outgoing">
+                <span class="tx-bubble__meta" aria-hidden="true">You · transmitted</span>
+                <p class="tx-bubble__body" id="tx-receipt-signal"></p>
+              </div>
+              <div class="tx-bubble tx-bubble--reply">
+                <span class="tx-bubble__meta" aria-hidden="true">Sarif · received</span>
+                <p class="tx-bubble__body">
+                  Your signal is in front of the principal. A reply will arrive at <span class="tx-bubble__email" id="form-success-email">your email</span>.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Error receipt: same visual family as the success receipt (dark
+               glass + TX-ref header + channel-status pill) so the page
+               never flips between two unrelated design languages on
+               failure. The pill carries the static "relay failed / signal
+               preserved" reassurance; the dynamic server-error summary
+               gets its own prominent line below the header so long error
+               copy doesn't break the pill's tight typography. -->
+          <div id="form-error" class="tx-receipt tx-receipt--error" role="alert" aria-live="assertive" hidden tabindex="-1">
+            <div class="tx-receipt__header">
+              <span class="tx-receipt__ref tx-receipt__ref--error">
+                <span class="tx-receipt__ref-prefix">TX-</span><span class="tx-receipt__ref-date" data-tx-ref-date>YYYY-MM</span><span class="tx-receipt__ref-sep">·</span>
+                <span class="channel-status channel-status--receipt channel-status--error" aria-hidden="true">
+                  <span class="channel-status__dot" aria-hidden="true"></span>
+                  <span class="channel-status__text">
+                    <span class="channel-status__item">Relay failed</span>
+                    <span class="channel-status__sep" aria-hidden="true">·</span>
+                    <span class="channel-status__item channel-status__item--brand">Signal preserved</span>
+                  </span>
+                </span>
+              </span>
+            </div>
+            <p class="tx-receipt__error-summary" id="form-error-summary"></p>
+            <div class="form-fallback-actions">
+              <button type="button" class="form-fallback-btn form-fallback-btn--primary" id="form-retry">
+                Try again
+              </button>
+              <button type="button" class="form-fallback-btn" id="copy-contact-email">
+                Copy info@sarifconsulting.ai
+              </button>
+              <a class="form-fallback-btn form-fallback-btn--link" id="mailto-fallback" href="mailto:info@sarifconsulting.ai">
+                Open email app
+              </a>
+            </div>
+            <p id="form-copy-status" class="form-copy-status" role="status" aria-live="polite"></p>
+          </div>
+        </form>
+
+        <!-- Contact Info Sidebar -->
+        <aside class="contact-info reveal-on-scroll" aria-label="Contact information">
+          <div class="info-block">
+            <h2 class="info-label ui-eyebrow">Direct</h2>
+            <a
+              href="mailto:info@sarifconsulting.ai"
+              class="info-value info-value--link ui-eyebrow ui-eyebrow--natural-case"
+            >
+              info@sarifconsulting.ai
+            </a>
+          </div>
+
+          <div class="info-block">
+            <h2 class="info-label ui-eyebrow">Location</h2>
+            <p class="info-value">Portland, Oregon</p>
+          </div>
+
+          <div class="info-divider" aria-hidden="true"></div>
+
+          <p class="info-note">
+            All communications are treated as confidential. Project details are never shared or referenced publicly without explicit authorization.
+          </p>
+
+          <!-- Passive-disclosure consent; aria-describedby on the signal textarea points here. -->
+          <p id="consent-line" class="info-note">
+            Your transmission is stored for 90 days unless we engage, encrypted at rest, and never used to train external models. See <a href="/privacy#retention">Privacy</a>.
+          </p>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  {turnstileSiteKey && (
+    /* Turnstile script: explicit-render + onload callback.
+       - `render=explicit` disables api.js's auto-scan of `.cf-turnstile`
+         nodes. We render the widget ourselves via `turnstile.render()`
+         so ClientRouter soft-navs can re-initialize on re-entry and
+         we retain the widget ID for `turnstile.reset()` after the
+         server consumes a token.
+       - `onload=sarifTurnstileOnload` gives us a deterministic signal
+         when api.js is ready, independent of script load-event timing
+         (which is unreliable under bfcache + speculation-rules prerender).
+       The callback is defined in the module script below and no-ops if
+       called more than once (idempotent). */
+    <script
+      is:inline
+      async
+      defer
+      src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=sarifTurnstileOnload&render=explicit"
+    ></script>
+  )}
+</Base>
+
+<style>
+  .contact-hero-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .contact-form-section {
+    padding-top: 0;
+  }
+
+  .contact-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 80px;
+    max-width: 960px;
+    margin-inline: auto;
+    align-items: start;
+  }
+
+  /* Form — no reveal-on-scroll here; the form must never be hidden behind a
+     transition that would make a returning tab feel unresponsive. Per plan:
+     "Reduced-motion: no reveal transitions on the form." We generalize that
+     to "no reveal transitions on the form at any motion preference." */
+  .contact-form {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-label {
+    display: block;
+  }
+
+  .form-optional {
+    color: var(--text-muted);
+    opacity: 0.5;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0.05em;
+  }
+
+  /* Envelope inputs (name / email / organization) inherit the operator-console
+     treatment: dark glass surface, monospaced text, cyan caret. Signal panel
+     still dominates via mass + chrome header, not via contrast. */
+  .form-input,
+  .form-textarea {
+    background: linear-gradient(
+      180deg,
+      rgba(8, 22, 34, 0.94) 0%,
+      rgba(6, 18, 28, 0.96) 100%
+    );
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border: 1px solid rgba(0, 212, 255, 0.22);
+    clip-path: var(--clip-button);
+    padding: 14px 20px;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.88rem;
+    color: rgba(240, 248, 255, 0.94);
+    caret-color: var(--cyan-core);
+    letter-spacing: 0.01em;
+    outline: none;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    width: 100%;
+    box-shadow:
+      inset 0 1px 0 rgba(0, 212, 255, 0.08),
+      0 8px 20px rgba(6, 18, 28, 0.18),
+      0 2px 6px rgba(0, 0, 0, 0.08);
+  }
+
+  .form-input:focus,
+  .form-textarea:focus {
+    border-color: rgba(0, 212, 255, 0.55);
+    box-shadow:
+      inset 0 1px 0 rgba(0, 212, 255, 0.18),
+      0 0 0 1px rgba(221, 184, 61, 0.18),
+      0 10px 26px rgba(6, 18, 28, 0.28),
+      0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .form-input::placeholder,
+  .form-textarea::placeholder {
+    color: rgba(0, 212, 255, 0.38);
+    opacity: 1;
+  }
+
+  /* Defeat Chrome/Safari autofill yellow — it clashes with the dark surface.
+     The long transition pins the inset background swap so the dark fill holds. */
+  .form-input:-webkit-autofill,
+  .form-input:-webkit-autofill:hover,
+  .form-input:-webkit-autofill:focus,
+  .form-textarea:-webkit-autofill {
+    -webkit-text-fill-color: rgba(240, 248, 255, 0.94);
+    -webkit-box-shadow: 0 0 0 1000px rgba(8, 22, 34, 0.96) inset;
+    caret-color: var(--cyan-core);
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  .form-textarea {
+    resize: vertical;
+    min-height: 140px;
+    line-height: 1.6;
+  }
+
+  /* ────────────────────────────────────────────────────────────────────
+     Channel status — below the hero intro. Operator-channel cue: dot +
+     two discrete labels (Channel open · Sarif connected).
+     Dot pulses cyan under full motion; static under reduced-motion.
+     Deliberately small and restrained so it reads as status, not banner.
+     ──────────────────────────────────────────────────────────────────── */
+  .channel-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+    padding: 6px 14px;
+    background: rgba(0, 212, 255, 0.04);
+    border: 1px solid rgba(0, 212, 255, 0.16);
+    clip-path: var(--clip-sm);
+    font-family: var(--font-heading);
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .channel-status__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--cyan-core);
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.55);
+    flex-shrink: 0;
+    animation: channel-pulse 2.4s ease-in-out infinite;
+  }
+
+  .channel-status__item {
+    color: var(--text-primary);
+  }
+
+  /* Brand item ("Sarif connected") carries the same always-on gold sheen used by
+     the sidebar info-labels (see global.css .contact-info .info-label.ui-eyebrow).
+     Re-declared locally rather than reusing .ui-eyebrow because that token's
+     gold gradient is gated behind `.contact-info` ancestor scope. Shares the
+     same CSS variables + keyframe name, so motion/theme tuning stays
+     centralized. */
+  .channel-status__item--brand {
+    color: transparent;
+    background-image: var(--sarif-sheen-text-gradient-gold);
+    background-size: 200% 100%;
+    background-position: 0% 50%;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+    filter: var(--sarif-sheen-filter-gold-text);
+    animation: sarif-gold-sheen-loop var(--sarif-sheen-leg) linear infinite reverse;
+  }
+
+  .channel-status__sep {
+    color: var(--text-muted);
+    opacity: 0.6;
+    margin: 0 4px;
+  }
+
+  /* Hero pill embedded in TX header: identical chrome; ink for dark glass. */
+  .signal-panel__header .channel-status {
+    margin-top: 0;
+    flex-shrink: 0;
+    align-self: center;
+    font-family: var(--font-heading);
+  }
+
+  .signal-panel__header .channel-status.channel-status--signal {
+    color: rgba(0, 212, 255, 0.5);
+  }
+
+  .signal-panel__header .channel-status .channel-status__item:not(.channel-status__item--brand) {
+    color: rgba(240, 248, 255, 0.92);
+  }
+
+  .signal-panel__header .channel-status .channel-status__sep {
+    color: rgba(0, 212, 255, 0.42);
+    opacity: 0.85;
+    margin: 0 4px;
+  }
+
+  @keyframes channel-pulse {
+    0%, 100% {
+      opacity: 1;
+      box-shadow: 0 0 8px rgba(0, 212, 255, 0.55);
+    }
+    50% {
+      opacity: 0.45;
+      box-shadow: 0 0 4px rgba(0, 212, 255, 0.25);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .channel-status {
+      font-size: 0.58rem;
+      padding: 5px 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .signal-panel__header .channel-status {
+      max-width: 100%;
+    }
+  }
+
+  /* ────────────────────────────────────────────────────────────────────
+     Signal panel — dark-glass operator console against the page's light
+     theme. Maximum visual hierarchy: monospace, cyan caret, ref/HUD row
+     in the header, single subtle gold hairline on focus. This is where
+     the page earns its on-brand, bleeding-edge feel.
+     ──────────────────────────────────────────────────────────────────── */
+  .signal-panel-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .signal-panel {
+    position: relative;
+    background:
+      linear-gradient(180deg, rgba(8, 22, 34, 0.97) 0%, rgba(6, 18, 28, 0.98) 100%);
+    border: 1px solid rgba(0, 212, 255, 0.28);
+    clip-path: var(--clip-card);
+    padding: 18px 22px 22px;
+    box-shadow:
+      inset 0 1px 0 rgba(0, 212, 255, 0.12),
+      inset 0 0 0 1px rgba(0, 212, 255, 0.04),
+      0 16px 40px rgba(6, 18, 28, 0.22),
+      0 4px 16px rgba(0, 0, 0, 0.12);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  .signal-panel:focus-within {
+    border-color: rgba(0, 212, 255, 0.55);
+    box-shadow:
+      inset 0 1px 0 rgba(0, 212, 255, 0.2),
+      inset 0 0 0 1px rgba(221, 184, 61, 0.12),
+      0 20px 52px rgba(6, 18, 28, 0.3),
+      0 4px 16px rgba(0, 0, 0, 0.14),
+      0 0 0 1px rgba(221, 184, 61, 0.18);
+  }
+
+  .signal-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    /* flex-wrap lets the TX-ref / channel-status cluster drop onto a
+       second row before colliding with the HUD counter on phone widths
+       (≤414px). row-gap re-establishes vertical rhythm once wrapped. */
+    flex-wrap: wrap;
+    gap: 12px;
+    row-gap: 8px;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.12);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(0, 212, 255, 0.72);
+    user-select: none;
+  }
+
+  .signal-panel__ref {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    /* Allow this flex child to shrink below its intrinsic content
+       width so the channel-status pill inside it can wrap on narrow
+       screens instead of pushing the sibling HUD off the row. */
+    min-width: 0;
+    color: rgba(0, 212, 255, 0.62);
+  }
+
+  .signal-panel__ref-prefix,
+  .signal-panel__ref-date {
+    display: inline-block;
+  }
+
+  .signal-panel__ref-sep {
+    color: rgba(255, 255, 255, 0.2);
+    margin: 0 8px;
+  }
+
+  .signal-panel__hud {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-variant-numeric: tabular-nums;
+    color: rgba(255, 255, 255, 0.5);
+    transition: color 0.2s ease;
+  }
+
+  .signal-panel__hud-sep {
+    color: rgba(255, 255, 255, 0.22);
+    margin: 0 2px;
+  }
+
+  .signal-panel__hud-count--warn {
+    color: rgba(221, 184, 61, 0.92);
+  }
+
+  .signal-panel__hud-count--danger {
+    color: #ff9070;
+  }
+
+  /* Min-length badge — lives next to the count. Two visual modes:
+     "need" (user has not yet met the 20-char floor) pulses cyan to draw
+     the eye; "met" fades to a muted check-like dim state so the HUD
+     doesn't keep shouting after the bar's been cleared. The dot doubles
+     as a state indicator; the text stays stable for screen-zoom users. */
+  .signal-panel__hud-min {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    padding: 2px 6px;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
+  }
+  .signal-panel__hud-min-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    display: inline-block;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .signal-panel__hud-min--need {
+    color: rgba(0, 212, 255, 0.85);
+    background: rgba(0, 212, 255, 0.08);
+  }
+  .signal-panel__hud-min--need .signal-panel__hud-min-dot {
+    background: var(--cyan-core);
+    box-shadow: 0 0 6px rgba(0, 212, 255, 0.6);
+    animation: signalMinPulse 1.6s ease-in-out infinite;
+  }
+  .signal-panel__hud-min--met {
+    color: rgba(255, 255, 255, 0.32);
+    background: transparent;
+  }
+  .signal-panel__hud-min--met .signal-panel__hud-min-dot {
+    background: rgba(255, 255, 255, 0.32);
+    box-shadow: none;
+    animation: none;
+  }
+  @keyframes signalMinPulse {
+    0%, 100% { opacity: 0.55; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.35); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .signal-panel__hud-min--need .signal-panel__hud-min-dot {
+      animation: none;
+      opacity: 0.85;
+    }
+  }
+
+  /* Min-length hint surface. Intentionally zero-height in the resting
+     state — the HUD badge carries the live "20 min / N more / min met"
+     signal, so a second visible line below the textarea would be
+     redundant. Populated on pre-submit rejection; cleared on valid
+     input. `:empty` collapses the vertical margin so the layout
+     doesn't jump when the message appears/disappears. */
+  .signal-panel__min-hint {
+    margin: 10px 0 0;
+    padding: 0 2px;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.38);
+    transition: color 0.2s ease;
+  }
+  .signal-panel__min-hint:empty {
+    margin: 0;
+  }
+  .signal-panel__min-hint--active {
+    color: rgba(0, 212, 255, 0.78);
+  }
+  .signal-panel__min-hint--error {
+    color: #ff9070;
+  }
+
+  .signal-panel__label {
+    display: block;
+    margin-bottom: 10px;
+    color: rgba(0, 212, 255, 0.72);
+  }
+
+  .signal-panel__input {
+    width: 100%;
+    min-height: 200px;
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 0;
+    resize: vertical;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.92rem;
+    line-height: 1.75;
+    color: rgba(240, 248, 255, 0.96);
+    caret-color: var(--cyan-core);
+    letter-spacing: 0.01em;
+  }
+
+  .signal-panel__input::placeholder {
+    color: rgba(0, 212, 255, 0.42);
+    font-style: normal;
+  }
+
+  /* Scrollbar styling inside the panel stays dark so it doesn't break
+     the terminal aesthetic when the textarea overflows. */
+  .signal-panel__input::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .signal-panel__input::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .signal-panel__input::-webkit-scrollbar-thumb {
+    background: rgba(0, 212, 255, 0.18);
+    border-radius: 999px;
+  }
+  .signal-panel__input::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 212, 255, 0.3);
+  }
+
+  @media (max-width: 480px) {
+    .signal-panel {
+      padding: 14px 16px 18px;
+    }
+    .signal-panel__header {
+      font-size: 0.6rem;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+    }
+    .signal-panel__input {
+      min-height: 220px;
+      font-size: 0.9rem;
+    }
+  }
+
+  /* Small-phone tier (≤380px). The "TX- YYYY-MM · CHANNEL OPEN · SARIF
+     CONNECTED" string with the HUD counter is already wrapped to two
+     rows by the base `flex-wrap: wrap`; at this width we further tighten
+     type, drop the mid-pill "·" separator (keeps CHANNEL OPEN / SARIF
+     CONNECTED readable without wrapping inside the chip), and shrink
+     the TX-ref trailing separator so both rows fit the panel cleanly. */
+  @media (max-width: 380px) {
+    .signal-panel__header {
+      font-size: 0.55rem;
+      letter-spacing: 0.04em;
+    }
+    .signal-panel__ref-sep {
+      margin: 0 4px;
+    }
+    .signal-panel__header .channel-status {
+      padding: 4px 8px;
+      gap: 6px;
+      letter-spacing: 0.08em;
+    }
+    .signal-panel__header .channel-status .channel-status__sep {
+      display: none;
+    }
+    /* Separate the two status items with whitespace now that the "·"
+       is gone; keeps them on one line inside the pill. */
+    .signal-panel__header .channel-status .channel-status__item--brand {
+      margin-left: 4px;
+    }
+  }
+
+  /* Visually hidden utility (local; avoids global.css churn). */
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Submit — sizing + label rhythm: global.css (.form-submit, .lane-cta, .form-submit__label) */
+  .form-submit-wrap {
+    padding-top: 8px;
+  }
+
+  /* Turnstile prelock hint — shown while the invisible challenge is still
+     resolving. Sits below the submit button, above the sequencer. Uses
+     the same monospaced eyebrow system as the rest of the form so it
+     reads as operator status, not a modal error. */
+  .tx-prelock[hidden] {
+    display: none !important;
+  }
+  .tx-prelock {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 6px 10px;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(0, 212, 255, 0.78);
+    background: linear-gradient(
+      90deg,
+      rgba(0, 212, 255, 0.06) 0%,
+      rgba(0, 212, 255, 0.02) 100%
+    );
+    border-left: 1px solid rgba(0, 212, 255, 0.35);
+  }
+  .tx-prelock__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cyan-core);
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.55);
+    /* GPU-composited pulse; no layout/paint thrash. */
+    animation: txPrelockPulse 1.4s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+  @keyframes txPrelockPulse {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.35); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tx-prelock__dot {
+      animation: none;
+      opacity: 0.8;
+    }
+  }
+  /* Disabled submit button (gate-locked state). `:disabled` covers both
+     our `turnstileToken`-absent lock and `submitDigitize.setBusy(true)`.
+     Visual intent: clearly non-interactive without looking broken —
+     muted cyan bracket still suggests "will be ready soon". */
+  #submit-btn:disabled,
+  #submit-btn[aria-disabled='true'] {
+    opacity: 0.55;
+    cursor: progress;
+    filter: saturate(0.7);
+  }
+
+  .form-submit__label--scrambling {
+    letter-spacing: 0.18em;
+    text-shadow:
+      0 0 10px rgba(0, 212, 255, 0.35),
+      0 0 22px rgba(0, 212, 255, 0.12);
+  }
+
+  /* ────────────────────────────────────────────────────────────────────
+     TX Sequencer — macro-feedback during submit. Four mutually-exclusive
+     phases toggled via [data-active] on the container. Dot scales +
+     glows on the active phase; label colour shifts accordingly. Rail is
+     a thin cyan line under the phases for operator-console feel.
+     ──────────────────────────────────────────────────────────────────── */
+  /* Explicit [hidden] guards: our .tx-sequencer / .tx-receipt rules set
+     display: flex / block which would otherwise override the browser's
+     user-agent [hidden] { display: none } and leak the elements visually
+     when they should be off-screen. Keep these rules near the top of
+     each component block so specificity always wins. */
+  .tx-sequencer[hidden],
+  .tx-receipt[hidden] {
+    display: none !important;
+  }
+
+  .tx-sequencer {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 22px;
+    margin-top: 18px;
+    padding: 10px 14px;
+    background: rgba(8, 22, 34, 0.04);
+    border: 1px solid rgba(0, 212, 255, 0.12);
+    clip-path: var(--clip-sm);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .tx-sequencer__rail {
+    position: absolute;
+    inset: auto 14px 6px 14px;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      rgba(0, 212, 255, 0) 0%,
+      rgba(0, 212, 255, 0.28) 50%,
+      rgba(0, 212, 255, 0) 100%
+    );
+    pointer-events: none;
+  }
+
+  .tx-sequencer__phase {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(0, 212, 255, 0.38);
+    transition: color 0.3s ease;
+  }
+
+  .tx-sequencer__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(0, 212, 255, 0.35);
+    box-shadow: none;
+    flex-shrink: 0;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+  }
+
+  /* Active-phase highlight */
+  .tx-sequencer[data-active="encoding"] .tx-sequencer__phase[data-phase="encoding"],
+  .tx-sequencer[data-active="relaying"] .tx-sequencer__phase[data-phase="relaying"],
+  .tx-sequencer[data-active="acknowledged"] .tx-sequencer__phase[data-phase="acknowledged"] {
+    color: var(--cyan-core);
+  }
+
+  .tx-sequencer[data-active="encoding"] .tx-sequencer__phase[data-phase="encoding"] .tx-sequencer__dot,
+  .tx-sequencer[data-active="relaying"] .tx-sequencer__phase[data-phase="relaying"] .tx-sequencer__dot,
+  .tx-sequencer[data-active="acknowledged"] .tx-sequencer__phase[data-phase="acknowledged"] .tx-sequencer__dot {
+    background: var(--cyan-core);
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.7);
+    transform: scale(1.35);
+  }
+
+  /* In-flight sheen: the currently-active processing phase's label carries
+     the cyan text-clip sheen to signal "system working". Scoped to the two
+     in-flight phases only — the acknowledged / failed terminals hold
+     static color since movement would contradict a settled outcome. */
+  .tx-sequencer[data-active="encoding"] .tx-sequencer__phase[data-phase="encoding"] .tx-sequencer__label,
+  .tx-sequencer[data-active="relaying"] .tx-sequencer__phase[data-phase="relaying"] .tx-sequencer__label {
+    display: inline-block;
+    color: transparent;
+    background-image: var(--sarif-sheen-text-gradient-cyan);
+    background-size: 200% 100%;
+    background-position: 0% 50%;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+    filter: var(--sarif-sheen-filter-cyan-text);
+    will-change: background-position;  /* transient; only set while tx-sequencer is mid-submit */
+    animation: sarif-gold-sheen-loop var(--sarif-sheen-leg) linear infinite reverse;
+  }
+
+  /* Passed phases (lower-index completed) — subdued but lit, not dim */
+  .tx-sequencer[data-active="relaying"] .tx-sequencer__phase[data-phase="encoding"],
+  .tx-sequencer[data-active="acknowledged"] .tx-sequencer__phase[data-phase="encoding"],
+  .tx-sequencer[data-active="acknowledged"] .tx-sequencer__phase[data-phase="relaying"] {
+    color: rgba(0, 212, 255, 0.6);
+  }
+
+  .tx-sequencer[data-active="relaying"] .tx-sequencer__phase[data-phase="encoding"] .tx-sequencer__dot,
+  .tx-sequencer[data-active="acknowledged"] .tx-sequencer__phase[data-phase="encoding"] .tx-sequencer__dot,
+  .tx-sequencer[data-active="acknowledged"] .tx-sequencer__phase[data-phase="relaying"] .tx-sequencer__dot {
+    background: rgba(0, 212, 255, 0.55);
+  }
+
+  /* Failure state — phase "failed" suppresses the other three. */
+  .tx-sequencer__phase[data-phase="failed"] { display: none; }
+  .tx-sequencer[data-active="failed"] .tx-sequencer__phase:not([data-phase="failed"]) { display: none; }
+  .tx-sequencer[data-active="failed"] .tx-sequencer__phase[data-phase="failed"] {
+    display: inline-flex;
+    color: #cc4a1f;
+  }
+  .tx-sequencer[data-active="failed"] .tx-sequencer__phase[data-phase="failed"] .tx-sequencer__dot {
+    background: #cc4a1f;
+    box-shadow: 0 0 10px rgba(204, 74, 31, 0.55);
+    transform: scale(1.35);
+  }
+  .tx-sequencer[data-active="failed"] .tx-sequencer__rail {
+    background: linear-gradient(
+      90deg,
+      rgba(204, 74, 31, 0) 0%,
+      rgba(204, 74, 31, 0.3) 50%,
+      rgba(204, 74, 31, 0) 100%
+    );
+  }
+
+  /* ────────────────────────────────────────────────────────────────────
+     TX Receipt — success (and error) surface after submit. Shares visual
+     DNA with `.signal-panel`: same dark glass base, cyan-accented
+     TX-ref header, monospace HUD, clip-path chamfer. The page's compose
+     surface and receipt surface read as one continuous operator
+     console so the brand language never flips between states. Chat-
+     bubble metaphor appears ONLY after submit, never while composing,
+     so the prospect is never misled into thinking a live AI is on the
+     other end.
+     ──────────────────────────────────────────────────────────────────── */
+  .tx-receipt {
+    position: relative;
+    padding: 18px 22px 22px;
+    background:
+      linear-gradient(180deg, rgba(8, 22, 34, 0.97) 0%, rgba(6, 18, 28, 0.98) 100%);
+    border: 1px solid rgba(0, 212, 255, 0.28);
+    clip-path: var(--clip-card);
+    color: rgba(240, 248, 255, 0.94);
+    box-shadow:
+      inset 0 1px 0 rgba(0, 212, 255, 0.12),
+      inset 0 0 0 1px rgba(0, 212, 255, 0.04),
+      0 16px 40px rgba(6, 18, 28, 0.22),
+      0 4px 16px rgba(0, 0, 0, 0.12);
+  }
+
+  .tx-receipt:focus {
+    outline: none;
+  }
+
+  .tx-receipt:focus-visible {
+    outline: 2px solid var(--cyan-core);
+    outline-offset: 4px;
+  }
+
+  /* Error state: preserves the dark glass base so the visual family is
+     identical; shifts the border + inner-sheen + drop-shadow warmth to
+     signal failure without re-skinning the component. */
+  .tx-receipt--error {
+    border-color: rgba(204, 74, 31, 0.42);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 140, 100, 0.14),
+      inset 0 0 0 1px rgba(204, 74, 31, 0.06),
+      0 16px 40px rgba(6, 18, 28, 0.22),
+      0 4px 16px rgba(204, 74, 31, 0.12);
+  }
+
+  /* Receipt header — identical monospace eyebrow rhythm as
+     `.signal-panel__header` so the two surfaces feel like the same
+     console in different phases (compose / delivered / failed). */
+  .tx-receipt__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    row-gap: 8px;
+    padding-bottom: 14px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.12);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(0, 212, 255, 0.72);
+    user-select: none;
+  }
+
+  .tx-receipt--error .tx-receipt__header {
+    border-bottom-color: rgba(204, 74, 31, 0.22);
+    color: rgba(255, 160, 130, 0.78);
+  }
+
+  /* TX reference cluster — matches `.signal-panel__ref` exactly, with a
+     min-width:0 child so the channel-status pill inside can wrap on
+     narrow viewports instead of pushing the sibling timestamp off the
+     row. */
+  .tx-receipt__ref {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+    color: rgba(0, 212, 255, 0.62);
+  }
+
+  .tx-receipt__ref--error {
+    color: rgba(255, 160, 130, 0.62);
+  }
+
+  .tx-receipt__ref-prefix,
+  .tx-receipt__ref-date {
+    display: inline-block;
+  }
+
+  .tx-receipt__ref-sep {
+    color: rgba(255, 255, 255, 0.2);
+    margin: 0 8px;
+  }
+
+  .tx-receipt__ref--error .tx-receipt__ref-sep {
+    color: rgba(255, 160, 130, 0.28);
+  }
+
+  /* Channel-status pill embedded in a receipt header. Reuses the
+     shared `.channel-status` component (see section above) and tweaks
+     the typography + chrome to sit comfortably on the dark glass
+     surface, mirroring `.signal-panel__header .channel-status`. */
+  .tx-receipt__header .channel-status {
+    margin-top: 0;
+    flex-shrink: 0;
+    align-self: center;
+    font-family: var(--font-heading);
+  }
+
+  .tx-receipt__header .channel-status.channel-status--delivered {
+    color: rgba(221, 184, 61, 0.6);
+    border-color: rgba(221, 184, 61, 0.28);
+    background: rgba(221, 184, 61, 0.05);
+  }
+
+  .tx-receipt__header .channel-status.channel-status--error {
+    color: rgba(255, 160, 130, 0.58);
+    border-color: rgba(204, 74, 31, 0.32);
+    background: rgba(204, 74, 31, 0.06);
+  }
+
+  .tx-receipt__header .channel-status .channel-status__item:not(.channel-status__item--brand) {
+    color: rgba(240, 248, 255, 0.92);
+  }
+
+  .tx-receipt__header .channel-status.channel-status--delivered .channel-status__dot {
+    background: var(--gold-bright, #ddb83d);
+    box-shadow: 0 0 8px rgba(221, 184, 61, 0.55);
+  }
+
+  .tx-receipt__header .channel-status.channel-status--error .channel-status__dot {
+    background: #cc4a1f;
+    box-shadow: 0 0 8px rgba(204, 74, 31, 0.55);
+    /* Failure is a terminal state — pulsing would read as "retrying". */
+    animation: none;
+  }
+
+  .tx-receipt__header .channel-status .channel-status__sep {
+    color: rgba(0, 212, 255, 0.42);
+    opacity: 0.85;
+    margin: 0 4px;
+  }
+
+  .tx-receipt--error .tx-receipt__header .channel-status .channel-status__sep {
+    color: rgba(255, 160, 130, 0.42);
+  }
+
+  /* Timestamp — monospace, low-contrast, pinned to the end of the row
+     via `margin-left:auto`. On narrow viewports we allow it to fall to
+     its own row (see 540px breakpoint below). */
+  .tx-receipt__timestamp {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.42);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* Error summary line: dedicated surface for the dynamic server-error
+     copy written by JS. Sits below the header so long messages have
+     breathing room without breaking the pill's tight typography. */
+  .tx-receipt__error-summary {
+    margin: 0 0 14px;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    color: rgba(255, 198, 178, 0.92);
+    overflow-wrap: anywhere;
+    min-height: 0;
+  }
+
+  .tx-receipt__error-summary:empty {
+    display: none;
+  }
+
+  .tx-receipt__thread {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .tx-bubble {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 88%;
+    padding: 12px 16px;
+    clip-path: var(--clip-sm);
+  }
+
+  /* Outgoing bubble: operator-console inset on the dark glass. Cyan
+     border + inner sheen match the textarea's focused state so the
+     prospect's transmitted signal reads as a direct quote of what
+     they typed. */
+  .tx-bubble--outgoing {
+    align-self: flex-end;
+    background:
+      linear-gradient(180deg, rgba(6, 18, 28, 0.88) 0%, rgba(4, 14, 22, 0.92) 100%);
+    border: 1px solid rgba(0, 212, 255, 0.38);
+    color: rgba(240, 248, 255, 0.96);
+    box-shadow:
+      inset 0 1px 0 rgba(0, 212, 255, 0.14),
+      0 4px 14px rgba(0, 0, 0, 0.28);
+  }
+
+  /* Reply bubble: same dark glass family, warmed with gold so Sarif's
+     voice visually asserts itself as the acknowledging party. A single
+     gold hairline (top inset) echoes the focus-within signature of the
+     signal-panel on submit. */
+  .tx-bubble--reply {
+    align-self: flex-start;
+    background:
+      linear-gradient(180deg, rgba(16, 30, 44, 0.92) 0%, rgba(10, 22, 34, 0.95) 100%);
+    border: 1px solid rgba(221, 184, 61, 0.42);
+    color: rgba(248, 236, 196, 0.94);
+    box-shadow:
+      inset 0 1px 0 rgba(221, 184, 61, 0.2),
+      0 4px 14px rgba(0, 0, 0, 0.22),
+      0 0 0 1px rgba(221, 184, 61, 0.08);
+  }
+
+  .tx-bubble__meta {
+    font-family: var(--font-heading);
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+
+  .tx-bubble--outgoing .tx-bubble__meta {
+    color: rgba(0, 212, 255, 0.82);
+  }
+
+  .tx-bubble--reply .tx-bubble__meta {
+    color: rgba(221, 184, 61, 0.92);
+  }
+
+  .tx-bubble__body {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    line-height: 1.65;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .tx-bubble--outgoing .tx-bubble__body {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.005em;
+  }
+
+  .tx-bubble__email {
+    color: var(--cyan-core);
+    font-weight: 600;
+    word-break: break-all;
+  }
+
+  /* Wrap breakpoint: the header's TX-ref + channel-status pill +
+     timestamp row routinely exceeds ~420px content width once the
+     monospace timestamp is in play. 540px gives landscape phones and
+     the 414-wide Plus/Pro Max tier clean breathing room before the
+     layout switches to stacked (ref + pill on row 1, timestamp on
+     row 2). Tablets (>540) still get the dense inline layout. */
+  @media (max-width: 540px) {
+    .tx-bubble {
+      max-width: 100%;
+    }
+    .tx-receipt__header {
+      flex-wrap: wrap;
+    }
+    .tx-receipt__timestamp {
+      margin-left: 0;
+      flex-basis: 100%;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .tx-receipt {
+      padding: 16px 18px 20px;
+    }
+    .tx-receipt__header {
+      font-size: 0.62rem;
+      letter-spacing: 0.06em;
+      gap: 8px;
+    }
+    .tx-receipt__ref-sep {
+      margin: 0 4px;
+    }
+    .tx-receipt__header .channel-status {
+      font-size: 0.58rem;
+      padding: 5px 10px;
+    }
+    .tx-receipt__header .channel-status .channel-status__sep {
+      display: none;
+    }
+    .tx-receipt__header .channel-status .channel-status__item--brand {
+      display: block;
+      width: 100%;
+      margin-top: 2px;
+    }
+  }
+
+  .form-fallback-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    margin-bottom: 12px;
+  }
+
+  .form-fallback-btn {
+    font-family: var(--font-heading);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--chrome-dark);
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(0, 212, 255, 0.35);
+    clip-path: var(--clip-sm);
+    padding: 10px 16px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s ease, color 0.2s ease;
+  }
+
+  .form-fallback-btn:hover {
+    border-color: var(--cyan-core);
+    color: var(--cyan-core);
+  }
+
+  .form-fallback-btn:focus {
+    outline: none;
+  }
+
+  .form-fallback-btn:focus-visible {
+    outline: 2px solid var(--cyan-core);
+    outline-offset: 3px;
+  }
+
+  .form-fallback-btn--primary {
+    color: var(--cyan-core);
+    border-color: var(--cyan-core);
+    background: rgba(0, 212, 255, 0.08);
+  }
+
+  .form-fallback-btn--primary:hover {
+    color: var(--sarif-gold);
+    border-color: var(--sarif-gold);
+    background: rgba(212, 175, 55, 0.1);
+  }
+
+  .form-copy-status {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin: 0;
+    min-height: 1.4em;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .form-fallback-btn {
+      transition: none;
+    }
+
+    .form-submit__label {
+      transition: none;
+    }
+
+    .form-submit__label--scrambling {
+      text-shadow: none;
+      letter-spacing: 0.12em;
+    }
+
+    /* Channel status: hold the lit state, no pulse. */
+    .channel-status__dot {
+      animation: none;
+      opacity: 1;
+    }
+
+    /* Brand item: kill sheen loop, collapse to static gold color so the
+       label stays legible without any moving gradient or glow. */
+    .channel-status__item--brand {
+      animation: none;
+      background-image: none;
+      background-position: 0 0;
+      filter: none;
+      will-change: auto;
+      color: var(--sarif-gold);
+      -webkit-text-fill-color: var(--sarif-gold);
+    }
+
+    /* Signal panel: strip transitions; keep focus states static. */
+    .signal-panel,
+    .signal-panel__hud,
+    .signal-panel__input {
+      transition: none;
+    }
+
+    /* Envelope inputs: no focus/border animation. */
+    .form-input,
+    .form-textarea {
+      transition: none;
+    }
+
+    /* Sequencer: no fade between phases — instant swap. */
+    .tx-sequencer__phase,
+    .tx-sequencer__dot {
+      transition: none;
+    }
+
+    .tx-sequencer[data-active="encoding"] .tx-sequencer__phase[data-phase="encoding"] .tx-sequencer__dot,
+    .tx-sequencer[data-active="relaying"] .tx-sequencer__phase[data-phase="relaying"] .tx-sequencer__dot,
+    .tx-sequencer[data-active="acknowledged"] .tx-sequencer__phase[data-phase="acknowledged"] .tx-sequencer__dot,
+    .tx-sequencer[data-active="failed"] .tx-sequencer__phase[data-phase="failed"] .tx-sequencer__dot {
+      transform: none;
+    }
+
+    /* In-flight label sheen: kill the animated gradient and collapse to
+       the static active cyan color. */
+    .tx-sequencer[data-active="encoding"] .tx-sequencer__phase[data-phase="encoding"] .tx-sequencer__label,
+    .tx-sequencer[data-active="relaying"] .tx-sequencer__phase[data-phase="relaying"] .tx-sequencer__label {
+      animation: none;
+      background-image: none;
+      background-position: 0 0;
+      filter: none;
+      will-change: auto;
+      color: var(--cyan-core);
+      -webkit-text-fill-color: var(--cyan-core);
+    }
+  }
+
+  /* Forced-colors (Windows High Contrast / tinted modes): the brand item's
+     text-clip gradient is invisible when user colors override. Mirror the
+     pattern used globally for sheen targets — drop the gradient and let the
+     system foreground paint the glyphs. */
+  @media (forced-colors: active) {
+    .channel-status__item--brand {
+      animation: none;
+      background-image: none;
+      background-position: 0 0;
+      filter: none;
+      will-change: auto;
+      color: CanvasText;
+      -webkit-text-fill-color: CanvasText;
+    }
+
+    /* Sequencer in-flight labels: drop the gradient so the system
+       foreground paints the glyphs in high-contrast / tinted modes. */
+    .tx-sequencer[data-active="encoding"] .tx-sequencer__phase[data-phase="encoding"] .tx-sequencer__label,
+    .tx-sequencer[data-active="relaying"] .tx-sequencer__phase[data-phase="relaying"] .tx-sequencer__label {
+      animation: none;
+      background-image: none;
+      background-position: 0 0;
+      filter: none;
+      will-change: auto;
+      color: CanvasText;
+      -webkit-text-fill-color: CanvasText;
+    }
+  }
+
+  /* Contact Info Sidebar — operator-console surface matching the signal panel.
+     Gold eyebrow labels (via global.css) and cyan email link retain their
+     sheens; body copy and note are brightened for dark-bg contrast. */
+  .contact-info {
+    padding: 36px;
+    clip-path: var(--clip-card);
+    background: linear-gradient(
+      180deg,
+      rgba(8, 22, 34, 0.96) 0%,
+      rgba(6, 18, 28, 0.98) 100%
+    );
+    backdrop-filter: blur(16px) saturate(1.3);
+    -webkit-backdrop-filter: blur(16px) saturate(1.3);
+    border: 1px solid rgba(0, 212, 255, 0.22);
+    box-shadow:
+      inset 0 1px 0 rgba(0, 212, 255, 0.12),
+      inset 0 0 0 1px rgba(0, 212, 255, 0.04),
+      0 16px 40px rgba(6, 18, 28, 0.22),
+      0 4px 16px rgba(0, 0, 0, 0.12);
+  }
+
+  .info-block {
+    margin-bottom: 32px;
+  }
+
+  /* Typography matches form field labels (.ui-eyebrow in global.css); keep spacing local */
+  .info-label {
+    margin-bottom: 8px;
+  }
+
+  /* Sidebar label gold sheen: global.css (.contact-info .info-label.ui-eyebrow) */
+
+  p.info-value {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: rgba(240, 248, 255, 0.92);
+    line-height: 1.6;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .info-value--link {
+    text-decoration: none;
+    overflow-wrap: break-word;
+    word-break: break-all;
+    transition: color 0.2s ease, text-shadow 0.2s ease;
+  }
+
+  /* Email row uses cyan sheen in global.css; hover glow is filter-based there */
+  .info-value--link:not(.ui-eyebrow):hover {
+    color: var(--cyan-core);
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.35);
+  }
+
+  .info-divider {
+    width: 40px;
+    height: 1px;
+    background: rgba(0, 212, 255, 0.32);
+    margin-bottom: 24px;
+  }
+
+  .info-note {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: rgba(210, 225, 235, 0.68);
+    opacity: 1;
+    line-height: 1.7;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  /* Stacked notes: second paragraph needs breathing room without a divider. */
+  .info-note + .info-note {
+    margin-top: 16px;
+  }
+
+  /* Inline link inside the dark-glass sidebar — cyan accent, underline
+     appears on hover/focus only. Scoped to .info-note so the token doesn't
+     leak into other `<a>` inside the sidebar (the email link has its own
+     sheen treatment via global.css). */
+  .info-note a {
+    color: var(--cyan-core);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.22);
+    transition: color 0.2s ease, border-color 0.2s ease, text-shadow 0.2s ease;
+  }
+
+  .info-note a:hover,
+  .info-note a:focus-visible {
+    border-bottom-color: rgba(0, 212, 255, 0.6);
+    text-shadow: 0 0 16px rgba(0, 212, 255, 0.28);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .info-note a {
+      transition: none;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .contact-grid {
+      grid-template-columns: 1fr;
+      gap: 60px;
+    }
+
+    /* Single-column layout: the sidebar card's own border is sufficient
+       separation; the prior border-top was a holdover from the light theme. */
+    .contact-info {
+      padding: 32px;
+    }
+
+    .form-fallback-btn {
+      font-size: 0.75rem;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+    }
+  }
+</style>
+
+<script>
+  import {
+    installFormDraft,
+    clearFormDraft,
+    queueFailedSubmission,
+  } from '../scripts/form-draft.js';
+
+  const PUBLIC_CONTACT_EMAIL = 'info@sarifconsulting.ai';
+  const CONTACT_DRAFT_KEY = 'sarif:contact-draft';
+  const CONTACT_DRAFT_FIELDS = ['name', 'organization', 'signal'];
+  const CONTACT_IDEMPOTENCY_KEY_STORAGE = 'sarif:contact-idem-key';
+  const SUBMIT_MIN_HOLD_MS = 1200;
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * Turnstile lifecycle
+   * ──────────────────────────────────────────────────────────────────────
+   * The contact page renders a Cloudflare Turnstile widget in
+   * interaction-only mode. That widget issues a short-lived token which
+   * must accompany the /api/transmit POST body as `cf-turnstile-response`.
+   * The server rejects submissions without a token (400, code
+   * `verification_missing`), which used to surface on any submission that
+   * landed before the challenge auto-resolved — especially on throttled
+   * mobile.
+   *
+   * We do three things to make this reliably green:
+   *   1. Explicit render. We don't rely on the `cf-turnstile` auto-scan
+   *      because it only fires once per api.js load. Astro ClientRouter
+   *      soft-navs back to /contact/ insert a fresh mount node that the
+   *      already-loaded api.js never re-scans.
+   *   2. Submit gate. The submit button stays `disabled` until the
+   *      widget's `callback` fires with a token. A visible "Verifying
+   *      connection…" hint explains the brief lock (the widget itself
+   *      is invisible in interaction-only mode).
+   *   3. Post-submit reset. Tokens are single-use. After every server
+   *      response (success OR failure) we `turnstile.reset(widgetId)`
+   *      so the next submission has a fresh token. On 400
+   *      verification_missing / challenge_failed we reset + re-lock
+   *      the gate so the retry button works without a page reload.
+   */
+  const TURNSTILE_MOUNT_SELECTOR = '.turnstile-mount[data-sitekey]';
+  /** Opaque widget ID returned by `turnstile.render()`. Null until rendered. */
+  /** @type {string | null} */
+  let turnstileWidgetId = null;
+  /** Latest issued token. Empty string = no token / consumed / expired. */
+  let turnstileToken = '';
+  /** True while a /api/transmit fetch is in flight. */
+  let turnstileSubmitting = false;
+  /** Cached reference to the mount element so reset callbacks can find the form. */
+  /** @type {HTMLElement | null} */
+  let turnstileMountEl = null;
+
+  /**
+   * Typed accessor for the Turnstile global. api.js defines
+   * `window.turnstile` at runtime, but the DOM typings don't know about
+   * it. We read it from a centralized helper so every call site stays
+   * readable and the single ts-expect-error below documents the runtime
+   * contract once. Returning the global as `any` is intentional: Turnstile's
+   * widget config shape is large and version-drifts; a narrower local
+   * definition would rot and produce false-positive type errors.
+   * @returns {any}
+   */
+  function getTurnstileGlobal() {
+    // @ts-expect-error — window.turnstile is defined at runtime by
+    // https://challenges.cloudflare.com/turnstile/v0/api.js. The
+    // DOM lib has no ambient type for it and we don't want to inflict
+    // a global .d.ts on the rest of the project for a page-scoped
+    // dependency.
+    return window.turnstile;
+  }
+
+  function turnstileReady() {
+    // Narrow guard: api.js defines window.turnstile with `.render()` and
+    // `.reset()` once it has loaded and initialized. Checking both guards
+    // against a partially-defined global (seen briefly during load).
+    if (typeof window === 'undefined') return false;
+    const ts = getTurnstileGlobal();
+    return (
+      !!ts &&
+      typeof ts.render === 'function' &&
+      typeof ts.reset === 'function'
+    );
+  }
+
+  /** True iff the page has a Turnstile mount node (feature-detect, not env-detect). */
+  function hasTurnstileMount() {
+    return document.querySelector(TURNSTILE_MOUNT_SELECTOR) instanceof HTMLElement;
+  }
+
+  /**
+   * Inject / update the hidden `cf-turnstile-response` input that rides
+   * along the form's JSON payload. Called whenever the token changes so
+   * `FormData(form)` serialization picks up the latest value without
+   * requiring the submit handler to know where the token lives.
+   */
+  function updateTurnstileHiddenInput() {
+    const form = document.getElementById('contact-form');
+    if (!(form instanceof HTMLFormElement)) return;
+    const name =
+      turnstileMountEl?.dataset?.responseFieldName || 'cf-turnstile-response';
+    const existing = form.querySelector(`input[type="hidden"][name="${name}"]`);
+    /** @type {HTMLInputElement} */
+    let input;
+    if (existing instanceof HTMLInputElement) {
+      input = existing;
+    } else {
+      input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      form.appendChild(input);
+    }
+    input.value = turnstileToken;
+  }
+
+  /**
+   * Reconcile the submit button + prelock hint with the current gate
+   * state. Idempotent; safe to call from any state change (token arrive,
+   * token expire, submit start, submit end).
+   *
+   * Precedence: `turnstileSubmitting` always wins (button disabled, hint
+   * hidden — the sequencer takes over). Otherwise the gate is driven by
+   * token presence when Turnstile is on the page at all.
+   */
+  function refreshSubmitGate() {
+    const submitBtn = document.getElementById('submit-btn');
+    const prelockEl = document.getElementById('tx-prelock');
+    const turnstileOnPage = hasTurnstileMount();
+    const gateLocked = turnstileOnPage && !turnstileToken;
+
+    if (submitBtn instanceof HTMLButtonElement) {
+      // Only we touch `disabled` for the gate. `submitDigitize.setBusy()`
+      // also manages disabled during submit — that's fine, both agree
+      // on "disabled during submit". The finally-block below calls
+      // `refreshSubmitGate()` AFTER `setBusy(false)` so the final state
+      // is correct regardless of token presence.
+      submitBtn.disabled = gateLocked || turnstileSubmitting;
+      if (gateLocked && !turnstileSubmitting) {
+        submitBtn.setAttribute('aria-disabled', 'true');
+      } else {
+        submitBtn.removeAttribute('aria-disabled');
+      }
+    }
+    if (prelockEl instanceof HTMLElement) {
+      const showHint = gateLocked && !turnstileSubmitting;
+      if (showHint) {
+        prelockEl.removeAttribute('hidden');
+      } else {
+        prelockEl.setAttribute('hidden', '');
+      }
+    }
+  }
+
+  function setTurnstileToken(token) {
+    turnstileToken = typeof token === 'string' ? token : '';
+    updateTurnstileHiddenInput();
+    refreshSubmitGate();
+  }
+
+  function clearTurnstileToken() {
+    turnstileToken = '';
+    updateTurnstileHiddenInput();
+    refreshSubmitGate();
+  }
+
+  /**
+   * Explicitly render the Turnstile widget. Idempotent — the mount node
+   * carries a `data-turnstile-rendered` sentinel so repeat calls (e.g.
+   * from `astro:page-load` firing on the same DOM) are no-ops.
+   */
+  function ensureTurnstileRendered() {
+    const mountNode = document.querySelector(TURNSTILE_MOUNT_SELECTOR);
+    if (!(mountNode instanceof HTMLElement)) return;
+    const mount = mountNode;
+    if (mount.dataset.turnstileRendered === 'true') {
+      turnstileMountEl = mount;
+      return;
+    }
+    if (!turnstileReady()) {
+      // api.js hasn't finished loading yet. Our `sarifTurnstileOnload`
+      // callback (below) will drive us back here once it has.
+      turnstileMountEl = mount;
+      return;
+    }
+
+    try {
+      const ts = getTurnstileGlobal();
+      const widgetId = ts.render(mount, {
+        sitekey: mount.dataset.sitekey,
+        appearance: mount.dataset.appearance || 'always',
+        theme: mount.dataset.theme || 'auto',
+        retry: mount.dataset.retry || 'auto',
+        'response-field-name':
+          mount.dataset.responseFieldName || 'cf-turnstile-response',
+        callback: (/** @type {string} */ token) => {
+          setTurnstileToken(token);
+        },
+        'error-callback': () => {
+          // Widget errored out (network, expired challenge page, etc.).
+          // Keep the gate locked. `retry: auto` above asks Turnstile to
+          // re-issue; when it succeeds the `callback` fires again.
+          clearTurnstileToken();
+        },
+        'expired-callback': () => {
+          // Token aged out before submission. Clear + reset so a fresh
+          // challenge is issued automatically.
+          clearTurnstileToken();
+          try {
+            if (turnstileWidgetId !== null) ts.reset(turnstileWidgetId);
+          } catch {
+            // swallow — reset is best-effort
+          }
+        },
+        'timeout-callback': () => {
+          // Used by Turnstile when `retry` is disabled; we're on `auto`
+          // so this path is rare. Fall through to expired semantics.
+          clearTurnstileToken();
+        },
+      });
+      turnstileWidgetId = widgetId;
+      turnstileMountEl = mount;
+      mount.dataset.turnstileRendered = 'true';
+    } catch (err) {
+      // Render failure is non-fatal: leave the gate locked, the user
+      // still has the mailto fallback. Log for operator visibility.
+      const message =
+        err instanceof Error ? err.message : String(err);
+      console.warn('turnstile_render_failed', { message });
+    }
+  }
+
+  /**
+   * Reset the Turnstile widget after a server response consumes (or
+   * rejects) the token. Called unconditionally in the submit handler's
+   * finally block. The gate re-locks until the widget reissues.
+   */
+  function resetTurnstileAfterServerResponse() {
+    if (!hasTurnstileMount()) return;
+    turnstileToken = '';
+    updateTurnstileHiddenInput();
+    try {
+      if (turnstileReady() && turnstileWidgetId !== null) {
+        getTurnstileGlobal().reset(turnstileWidgetId);
+      }
+    } catch {
+      // Best-effort. If reset fails, the next `callback` will still fire
+      // when the widget self-heals, and refreshSubmitGate reconciles.
+    }
+    refreshSubmitGate();
+  }
+
+  // Expose the api.js onload hook. api.js is loaded with
+  // ?onload=sarifTurnstileOnload and will call this exactly once,
+  // after which `window.turnstile` is guaranteed ready. Attached
+  // directly on window so it's reachable by the api.js `?onload=`
+  // param; the ts-expect-error documents the runtime-only binding
+  // (see getTurnstileGlobal above for the same pattern).
+  if (typeof window !== 'undefined') {
+    // @ts-expect-error — runtime-only global, see getTurnstileGlobal.
+    window.sarifTurnstileOnload = function () {
+      ensureTurnstileRendered();
+    };
+  }
+
+  function ensureContactIdempotencyKey() {
+    try {
+      let key = sessionStorage.getItem(CONTACT_IDEMPOTENCY_KEY_STORAGE);
+      if (!key) {
+        key =
+          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `ck-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        sessionStorage.setItem(CONTACT_IDEMPOTENCY_KEY_STORAGE, key);
+      }
+      return key;
+    } catch {
+      return `ck-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+  }
+
+  function rotateContactIdempotencyKey() {
+    try {
+      sessionStorage.removeItem(CONTACT_IDEMPOTENCY_KEY_STORAGE);
+    } catch {
+      // Noop
+    }
+  }
+
+  const SUBMIT_LABEL_IDLE = 'Transmit';
+  const SUBMIT_LABEL_ACTIVE = 'Augment';
+  const SUBMIT_LABEL_BUSY = 'Transmitting...';
+  const SCRAMBLE_CHARSET = '0123456789ABCDEF';
+  const SCRAMBLE_FRAME_COUNT = 14;
+
+  /**
+   * @param {HTMLButtonElement} button
+   * @param {HTMLElement} labelSpan
+   */
+  function initSubmitLabelDigitize(button, labelSpan) {
+    const reduceMq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    function prefersReducedMotion() {
+      return reduceMq.matches;
+    }
+
+    let busy = false;
+    let pointerInside = false;
+    let animGeneration = 0;
+    let rafId = 0;
+
+    function randomScrambleChar() {
+      return SCRAMBLE_CHARSET[Math.floor(Math.random() * SCRAMBLE_CHARSET.length)] ?? '0';
+    }
+
+    function setScrambling(on) {
+      labelSpan.classList.toggle('form-submit__label--scrambling', on);
+    }
+
+    function cancelAnimation() {
+      animGeneration += 1;
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
+      setScrambling(false);
+    }
+
+    function animateTo(target) {
+      if (prefersReducedMotion()) {
+        labelSpan.textContent = target;
+        setScrambling(false);
+        return;
+      }
+
+      cancelAnimation();
+      const gen = animGeneration;
+      let frame = 0;
+
+      function tick() {
+        if (gen !== animGeneration || busy) return;
+
+        frame += 1;
+        const progress = frame / SCRAMBLE_FRAME_COUNT;
+
+        if (progress >= 1) {
+          labelSpan.textContent = target;
+          setScrambling(false);
+          rafId = 0;
+          return;
+        }
+
+        setScrambling(true);
+        const resolved = Math.floor(progress * target.length);
+        let out = '';
+        for (let i = 0; i < target.length; i++) {
+          const ch = target[i];
+          if (ch === ' ' || ch === '.') {
+            out += ch;
+            continue;
+          }
+          out += i < resolved ? ch : randomScrambleChar();
+        }
+        labelSpan.textContent = out;
+        rafId = requestAnimationFrame(tick);
+      }
+
+      rafId = requestAnimationFrame(tick);
+    }
+
+    function destinationLabel() {
+      if (busy) return SUBMIT_LABEL_BUSY;
+      if (pointerInside || document.activeElement === button) return SUBMIT_LABEL_ACTIVE;
+      return SUBMIT_LABEL_IDLE;
+    }
+
+    function applyVisual() {
+      if (busy) {
+        cancelAnimation();
+        labelSpan.textContent = SUBMIT_LABEL_BUSY;
+        return;
+      }
+      animateTo(destinationLabel());
+    }
+
+    function setBusy(nextBusy) {
+      busy = nextBusy;
+      if (busy) {
+        cancelAnimation();
+        labelSpan.textContent = SUBMIT_LABEL_BUSY;
+        button.setAttribute('disabled', 'true');
+        button.setAttribute('aria-busy', 'true');
+        return;
+      }
+      button.removeAttribute('aria-busy');
+      button.removeAttribute('disabled');
+      applyVisual();
+    }
+
+    button.addEventListener('mouseenter', () => {
+      pointerInside = true;
+      if (!busy) applyVisual();
+    });
+
+    button.addEventListener('mouseleave', () => {
+      pointerInside = false;
+      if (!busy) applyVisual();
+    });
+
+    button.addEventListener('focus', () => {
+      if (!busy) applyVisual();
+    });
+
+    button.addEventListener('blur', () => {
+      if (!busy) applyVisual();
+    });
+
+    const onMq = () => {
+      if (!busy) applyVisual();
+    };
+    if (typeof reduceMq.addEventListener === 'function') {
+      reduceMq.addEventListener('change', onMq);
+    } else {
+      reduceMq.addListener(onMq);
+    }
+
+    labelSpan.textContent = SUBMIT_LABEL_IDLE;
+    setScrambling(false);
+
+    return {
+      setBusy,
+      destroy() {
+        cancelAnimation();
+        if (typeof reduceMq.removeEventListener === 'function') {
+          reduceMq.removeEventListener('change', onMq);
+        } else {
+          reduceMq.removeListener(onMq);
+        }
+      },
+    };
+  }
+
+  function buildTransmitMailto(form) {
+    const fd = new FormData(form);
+    const name = String(fd.get('name') || '').trim();
+    const email = String(fd.get('email') || '').trim();
+    const org = String(fd.get('organization') || '').trim();
+    const signal = String(fd.get('signal') || '').trim();
+    const subject = `Transmission from ${name || 'Sarif site'}`.slice(0, 200);
+    const body = [
+      `Name: ${name}`,
+      `Email: ${email}`,
+      org ? `Organization: ${org}` : null,
+      '',
+      'Signal:',
+      signal.slice(0, 6000),
+    ]
+      .filter(Boolean)
+      .join('\n')
+      .slice(0, 8000);
+    return `mailto:${PUBLIC_CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+
+  function setContactErrorMessage(errorSummaryEl, status, json) {
+    const fallback =
+      'Delivery is taking longer than expected. Copy info@sarifconsulting.ai or open your email app to reach Sarif directly.';
+    // Post-P7a: server responds with { ok, code, field?, message }. We keep
+    // backwards-compat with the legacy `{ error }` shape so bfcache-served
+    // pages don't surface an empty toast while the service worker updates.
+    const pickMessage = () => {
+      if (json && typeof json.message === 'string') return json.message;
+      if (json && typeof json.error === 'string') return json.error;
+      return null;
+    };
+    const msg = pickMessage();
+    /* 503 is a recoverable operator-facing failure (Turnstile down, or
+       missing secret in a misconfigured prod deploy). We want the server
+       copy verbatim because it already carries the retry timing and email
+       fallback. Same for 400 `verification_missing` / `verification_unavailable`
+       on the challenge surface. */
+    if ((status === 400 || status === 429 || status === 502 || status === 503) && msg) {
+      errorSummaryEl.textContent = msg;
+      return;
+    }
+    if (status === 500) {
+      errorSummaryEl.textContent = fallback;
+      return;
+    }
+    if (msg) {
+      errorSummaryEl.textContent = msg;
+      return;
+    }
+    errorSummaryEl.textContent = fallback;
+  }
+
+  // Truncate a signal for display in the outgoing receipt bubble. We keep
+  // a generous cap (~360 chars) so short transmissions render whole while
+  // long ones show the lede with a clear ellipsis + archived hint.
+  const RECEIPT_SIGNAL_MAX = 360;
+  function truncateForReceipt(str) {
+    const s = (str ?? '').trim();
+    if (s.length <= RECEIPT_SIGNAL_MAX) return s;
+    return s.slice(0, RECEIPT_SIGNAL_MAX).trimEnd() + '…';
+  }
+
+  // "YYYY-MM" in UTC — matches the TX reference format stamped by the
+  // server. Rendering it client-side means the preview stays in sync
+  // at month boundaries without a rebuild. Keeps the operator header
+  // honest without leaking the real (internal) reference id.
+  function currentRefDate() {
+    const d = new Date();
+    const yyyy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    return `${yyyy}-${mm}`;
+  }
+
+  // Format "YYYY-MM-DD HH:MM UTC" for the receipt header timestamp.
+  function nowReceiptStamp() {
+    const d = new Date();
+    const yyyy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mi = String(d.getUTCMinutes()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd} ${hh}:${mi} UTC`;
+  }
+
+  // Sequencer helper: sets data-active, optionally auto-hides after a
+  // terminal phase. Returns a thin controller so the submit flow can
+  // drive it without threading the element everywhere.
+  function initSequencer(el) {
+    if (!(el instanceof HTMLElement)) {
+      return { show() {}, setPhase() {}, hide() {} };
+    }
+    /** @type {ReturnType<typeof setTimeout> | null} */
+    let hideTimer = null;
+    function clearHide() {
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+    }
+    return {
+      show() {
+        clearHide();
+        el.removeAttribute('hidden');
+      },
+      setPhase(phase) {
+        el.setAttribute('data-active', phase);
+      },
+      hide(delayMs = 0) {
+        clearHide();
+        if (delayMs <= 0) {
+          el.setAttribute('hidden', '');
+          el.removeAttribute('data-active');
+          return;
+        }
+        hideTimer = setTimeout(() => {
+          el.setAttribute('hidden', '');
+          el.removeAttribute('data-active');
+          hideTimer = null;
+        }, delayMs);
+      },
+    };
+  }
+
+  // Char counter with tiered thresholds (warn at 80%, danger at 95%)
+  // so prospects feel HUD-level awareness, not alarm.
+  // SIGNAL_MIN mirrors functions/api/_shared/validate.js LIMITS.SIGNAL_MIN;
+  // keep them in sync or the client guard lies about the server contract.
+  const SIGNAL_MIN = 20;
+  const SIGNAL_MAX = 10000;
+  const SIGNAL_WARN_AT = 8000;
+  const SIGNAL_DANGER_AT = 9500;
+  // Resting copy for the min-length hint line. The hint is empty by
+  // default — the HUD badge carries the live "20 min" signal — and is
+  // only populated when the pre-submit guard rejects an under-floor
+  // submit. Restoring to '' after the user corrects the field hides
+  // the line again cleanly.
+  const SIGNAL_MIN_HINT_DEFAULT = '';
+  function initSignalCounter(textarea, countEl, liveEl) {
+    if (!(textarea instanceof HTMLTextAreaElement) || !(countEl instanceof HTMLElement)) {
+      return;
+    }
+    const fmt = new Intl.NumberFormat('en-US');
+    const minBadgeEl = document.getElementById('signal-min-badge');
+    const minBadgeTextEl = minBadgeEl?.querySelector('.signal-panel__hud-min-text');
+    const minHintEl = document.getElementById('signal-min-hint');
+    // Debounce the aria-live announcement so rapid typing doesn't flood
+    // screen readers. We only announce on thresholds crossings.
+    /** @type {'empty' | 'under-min' | 'ok' | 'warn' | 'danger'} */
+    let lastState = 'empty';
+    function classifyState(len) {
+      if (len === 0) return 'empty';
+      if (len < SIGNAL_MIN) return 'under-min';
+      if (len >= SIGNAL_DANGER_AT) return 'danger';
+      if (len >= SIGNAL_WARN_AT) return 'warn';
+      return 'ok';
+    }
+    function update() {
+      const len = textarea.value.length;
+      countEl.textContent = fmt.format(len);
+      countEl.classList.toggle('signal-panel__hud-count--warn', len >= SIGNAL_WARN_AT && len < SIGNAL_DANGER_AT);
+      countEl.classList.toggle('signal-panel__hud-count--danger', len >= SIGNAL_DANGER_AT);
+
+      // Min-length badge. "need" when we're under the floor (prompt to
+      // keep going), "met" once cleared (visually recedes without
+      // disappearing — keeps the minimum discoverable to a user who
+      // happens to delete back under later).
+      if (minBadgeEl instanceof HTMLElement) {
+        const needsMore = len < SIGNAL_MIN;
+        minBadgeEl.classList.toggle('signal-panel__hud-min--need', needsMore);
+        minBadgeEl.classList.toggle('signal-panel__hud-min--met', !needsMore);
+        if (minBadgeTextEl instanceof HTMLElement) {
+          if (needsMore) {
+            const remaining = SIGNAL_MIN - len;
+            // "20 min" when empty; "12 more" while typing under the floor;
+            // "min met" once cleared. Stable lengths so the HUD width
+            // doesn't jitter as the user types.
+            if (len === 0) {
+              minBadgeTextEl.textContent = `${SIGNAL_MIN} min`;
+            } else {
+              minBadgeTextEl.textContent = `${remaining} more`;
+            }
+          } else {
+            minBadgeTextEl.textContent = 'min met';
+          }
+        }
+      }
+
+      // Visible helper line under the textarea — warms up to cyan when
+      // the user is actively typing but hasn't met the floor yet. Once
+      // the floor is cleared, drop the post-submit `--error` state too
+      // so the hint returns to its neutral resting copy.
+      if (minHintEl instanceof HTMLElement) {
+        minHintEl.classList.toggle(
+          'signal-panel__min-hint--active',
+          len > 0 && len < SIGNAL_MIN,
+        );
+        if (len >= SIGNAL_MIN && minHintEl.classList.contains('signal-panel__min-hint--error')) {
+          minHintEl.classList.remove('signal-panel__min-hint--error');
+          minHintEl.textContent = SIGNAL_MIN_HINT_DEFAULT;
+          textarea.removeAttribute('aria-invalid');
+        }
+      }
+
+      const state = classifyState(len);
+      if (state !== lastState && liveEl instanceof HTMLElement) {
+        if (state === 'under-min') {
+          // Only announce once per typing pass, when the user is clearly
+          // entering content but still below threshold. Not on every
+          // keystroke — that would drown the screen reader.
+          liveEl.textContent = `${SIGNAL_MIN - textarea.value.length} more characters needed before you can transmit.`;
+        } else if (state === 'ok' && lastState === 'under-min') {
+          liveEl.textContent = 'Minimum length met.';
+        } else if (state === 'warn') {
+          liveEl.textContent = 'Approaching maximum length.';
+        } else if (state === 'danger') {
+          liveEl.textContent = `${SIGNAL_MAX - len} characters remaining.`;
+        } else {
+          liveEl.textContent = '';
+        }
+        lastState = state;
+      }
+    }
+    textarea.addEventListener('input', update);
+    update();
+  }
+
+  function initContactForm() {
+    const formRaw = document.getElementById('contact-form');
+    /** @type {HTMLFormElement | null} */
+    const form = formRaw instanceof HTMLFormElement ? formRaw : null;
+    const successEl = document.getElementById('form-success');
+    const successEmailEl = document.getElementById('form-success-email');
+    const errorEl = document.getElementById('form-error');
+    const errorSummaryEl = document.getElementById('form-error-summary');
+    const copyBtn = document.getElementById('copy-contact-email');
+    const mailtoEl = document.getElementById('mailto-fallback');
+    const retryBtn = document.getElementById('form-retry');
+    const copyStatusEl = document.getElementById('form-copy-status');
+    const submitBtn = document.getElementById('submit-btn');
+    const submitLabelEl = submitBtn?.querySelector('.form-submit__label');
+    const signalEl = document.getElementById('contact-signal');
+    const signalCountEl = document.getElementById('signal-chars');
+    const signalLiveEl = document.getElementById('signal-hud-live');
+    const refDateEl = document.querySelector('.signal-panel__ref-date');
+    const sequencerEl = document.getElementById('tx-sequencer');
+    const receiptSignalEl = document.getElementById('tx-receipt-signal');
+    const receiptStampEl = document.getElementById('tx-receipt-timestamp');
+
+    if (!form || form._bound) {
+      // Second initContactForm pass on the same DOM — e.g. the user
+      // navigated away and back via ClientRouter onto a cached/bfcached
+      // page whose form element survived. The handlers are already
+      // bound, but the Turnstile widget may still need (re-)rendering
+      // because api.js's auto-scan doesn't fire on SPA nav and we now
+      // use explicit render. Idempotent; no-op if already rendered.
+      if (hasTurnstileMount()) {
+        ensureTurnstileRendered();
+        refreshSubmitGate();
+      }
+      return;
+    }
+    form._bound = true;
+
+    if (refDateEl instanceof HTMLElement) {
+      refDateEl.textContent = currentRefDate();
+    }
+    // Mirror the TX reference date into the success / error receipt
+    // headers. Both receipts share the exact YYYY-MM string as the
+    // signal-panel so the page reads as one continuous transmission
+    // record across compose → deliver / fail states.
+    const receiptRefDate = currentRefDate();
+    const txReceiptRefDateEl = document.getElementById('tx-receipt-ref-date');
+    if (txReceiptRefDateEl instanceof HTMLElement) {
+      txReceiptRefDateEl.textContent = receiptRefDate;
+    }
+    document.querySelectorAll('[data-tx-ref-date]').forEach((el) => {
+      if (el instanceof HTMLElement) {
+        el.textContent = receiptRefDate;
+      }
+    });
+
+    installFormDraft({
+      formId: 'contact-form',
+      storageKey: CONTACT_DRAFT_KEY,
+      fields: CONTACT_DRAFT_FIELDS,
+    });
+
+    initSignalCounter(signalEl, signalCountEl, signalLiveEl);
+
+    const sequencer = initSequencer(sequencerEl);
+
+    // Turnstile bootstrap (if the mount is on the page). Lock the submit
+    // gate immediately; unlock once the widget's callback fires with a
+    // token. `ensureTurnstileRendered` is idempotent so calling it here
+    // AND from the api.js onload hook is safe — whichever arrives first
+    // wins, the other returns early.
+    if (hasTurnstileMount()) {
+      refreshSubmitGate();
+      ensureTurnstileRendered();
+    }
+
+    /** @type {ReturnType<typeof initSubmitLabelDigitize> | null} */
+    let submitDigitize =
+      submitBtn && submitLabelEl instanceof HTMLElement
+        ? initSubmitLabelDigitize(submitBtn, submitLabelEl)
+        : null;
+
+    retryBtn?.addEventListener('click', () => {
+      errorEl?.setAttribute('hidden', '');
+      if (copyStatusEl) copyStatusEl.textContent = '';
+      const firstFieldRaw = form?.querySelector('input:not([type="hidden"]), textarea');
+      /** @type {HTMLElement | null} */
+      const firstField = firstFieldRaw instanceof HTMLElement ? firstFieldRaw : null;
+      firstField?.focus({ preventScroll: false });
+      firstField?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    copyBtn?.addEventListener('click', async () => {
+      if (copyStatusEl) copyStatusEl.textContent = '';
+      try {
+        await navigator.clipboard.writeText(PUBLIC_CONTACT_EMAIL);
+        if (copyStatusEl) copyStatusEl.textContent = 'Email address copied to clipboard.';
+      } catch {
+        if (copyStatusEl) copyStatusEl.textContent = 'Copy blocked — select the address in the Direct section.';
+      }
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Client-side signal-min check runs BEFORE form.checkValidity() so
+      // we can show a branded, specific message in the signal hint line
+      // instead of the browser's pale-yellow `minlength` tooltip. The
+      // threshold mirrors the server (`functions/api/_shared/validate.js`
+      // LIMITS.SIGNAL_MIN = 20); keep them in sync. We keep the native
+      // `minlength="20"` on the textarea too so keyboard-only users and
+      // `form.checkValidity()` still have a second line of defense (e.g.
+      // if someone scripts a submit or bypasses this listener).
+      const signalField = form.querySelector('#contact-signal');
+      if (signalField instanceof HTMLTextAreaElement) {
+        const signalLen = signalField.value.length;
+        if (signalLen > 0 && signalLen < SIGNAL_MIN) {
+          const minHintEl = document.getElementById('signal-min-hint');
+          if (minHintEl instanceof HTMLElement) {
+            const remaining = SIGNAL_MIN - signalLen;
+            const noun = remaining === 1 ? 'character' : 'characters';
+            minHintEl.textContent =
+              `${remaining} more ${noun} needed — share enough context for a clean readout.`;
+            minHintEl.classList.remove('signal-panel__min-hint--active');
+            minHintEl.classList.add('signal-panel__min-hint--error');
+          }
+          const liveEl = document.getElementById('signal-hud-live');
+          if (liveEl instanceof HTMLElement) {
+            liveEl.textContent = `Signal is too short. ${SIGNAL_MIN - signalLen} more characters needed.`;
+          }
+          signalField.setAttribute('aria-invalid', 'true');
+          signalField.focus({ preventScroll: false });
+          signalField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+        // Reset any prior under-min error state once the field is valid.
+        signalField.removeAttribute('aria-invalid');
+        const minHintEl = document.getElementById('signal-min-hint');
+        if (minHintEl instanceof HTMLElement) {
+          minHintEl.classList.remove('signal-panel__min-hint--error');
+          minHintEl.textContent = SIGNAL_MIN_HINT_DEFAULT;
+        }
+      }
+
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+      }
+
+      const data = new FormData(form);
+      const payload = Object.fromEntries(data.entries());
+
+      if (payload.website) {
+        if (receiptSignalEl) receiptSignalEl.textContent = '';
+        if (receiptStampEl) receiptStampEl.textContent = nowReceiptStamp();
+        successEl?.removeAttribute('hidden');
+        form.reset();
+        successEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+      }
+      delete payload.website;
+
+      if (mailtoEl) {
+        mailtoEl.setAttribute('href', buildTransmitMailto(form));
+      }
+
+      // Capture the signal text BEFORE form.reset() clears it — the
+      // outgoing receipt bubble needs the original prospect text.
+      const transmittedSignal = typeof payload.signal === 'string' ? payload.signal : '';
+
+      submitDigitize?.setBusy(true);
+      form.setAttribute('aria-busy', 'true');
+      // Mark the gate busy so `refreshSubmitGate()` — which can be
+      // invoked by a Turnstile callback firing mid-flight — doesn't
+      // fight the digitize busy state. Cleared in `finally`.
+      turnstileSubmitting = true;
+      refreshSubmitGate();
+      const submitStartedAt = Date.now();
+      sequencer.show();
+      sequencer.setPhase('encoding');
+      // Short encoding dwell for operator feel. Honest: the fetch
+      // hasn't fired yet, we really are "encoding" the request body.
+      await new Promise((r) => setTimeout(r, 280));
+      sequencer.setPhase('relaying');
+
+      try {
+        const res = await fetch('/api/transmit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Idempotency-Key': ensureContactIdempotencyKey(),
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const json = await res.json().catch(() => ({}));
+
+        const isSuccess =
+          res.ok && json.ok !== false && json.success !== false;
+        if (isSuccess) {
+          sequencer.setPhase('acknowledged');
+          if (successEmailEl) {
+            const emailValue = typeof payload.email === 'string' ? payload.email.trim() : '';
+            successEmailEl.textContent = emailValue || 'your email';
+          }
+          if (receiptSignalEl) {
+            receiptSignalEl.textContent = truncateForReceipt(transmittedSignal);
+          }
+          if (receiptStampEl) {
+            receiptStampEl.textContent = nowReceiptStamp();
+          }
+          // Brief acknowledged-phase dwell so the state lands visibly
+          // before the receipt takes over. Reduced-motion users still
+          // see the phase change; the dwell is fine either way.
+          await new Promise((r) => setTimeout(r, 420));
+          successEl?.removeAttribute('hidden');
+          errorEl?.setAttribute('hidden', '');
+          if (copyStatusEl) copyStatusEl.textContent = '';
+          clearFormDraft(CONTACT_DRAFT_KEY);
+          rotateContactIdempotencyKey();
+          form.reset();
+          successEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          successEl?.focus({ preventScroll: true });
+          sequencer.hide(600);
+        } else {
+          sequencer.setPhase('failed');
+          if (errorSummaryEl) setContactErrorMessage(errorSummaryEl, res.status, json);
+          // Transient server faults (502, 503, 504) queue a silent retry.
+          // 4xx responses mean the request itself was rejected — no point
+          // retrying until the user edits and resubmits. 429 is the
+          // operator's explicit back-off; we honor that by not queuing.
+          if (res.status === 502 || res.status === 503 || res.status === 504) {
+            queueFailedSubmission({
+              endpoint: '/api/transmit',
+              idempotencyKey: ensureContactIdempotencyKey(),
+              payload,
+            });
+          }
+          errorEl?.removeAttribute('hidden');
+          successEl?.setAttribute('hidden', '');
+          errorEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          errorEl?.focus({ preventScroll: true });
+          sequencer.hide(800);
+        }
+      } catch {
+        sequencer.setPhase('failed');
+        if (errorSummaryEl) {
+          errorSummaryEl.textContent =
+            'Network error — check your connection, or use Open email app below.';
+        }
+        // Network abort / offline — queue for flush on `online` or next visit.
+        queueFailedSubmission({
+          endpoint: '/api/transmit',
+          idempotencyKey: ensureContactIdempotencyKey(),
+          payload,
+        });
+        errorEl?.removeAttribute('hidden');
+        successEl?.setAttribute('hidden', '');
+        errorEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        errorEl?.focus({ preventScroll: true });
+        sequencer.hide(800);
+      } finally {
+        // Enforce a minimum submit-hold window so accidental double-clicks
+        // on flaky networks can't slip past the disabled state. The digitize
+        // label reflects the busy state visually; we just keep it locked.
+        const elapsed = Date.now() - submitStartedAt;
+        if (elapsed < SUBMIT_MIN_HOLD_MS) {
+          await new Promise((r) => setTimeout(r, SUBMIT_MIN_HOLD_MS - elapsed));
+        }
+        submitDigitize?.setBusy(false);
+        form.removeAttribute('aria-busy');
+        // Tokens are single-use regardless of whether the server accepted
+        // or rejected them. Resetting unconditionally here does three
+        // things at once:
+        //   1. Reclaims the gate for the next attempt on 4xx (user sees
+        //      "Verifying connection…" while a fresh token is issued).
+        //   2. Prevents a stale token from being replayed on a retry.
+        //   3. On success the form is reset and hidden; the reset here
+        //      keeps state coherent for any double-submit timing.
+        turnstileSubmitting = false;
+        resetTurnstileAfterServerResponse();
+      }
+    });
+  }
+
+  function handleContactPageShow(event) {
+    if (!event.persisted) return;
+    const form = document.getElementById('contact-form');
+    if (form instanceof HTMLFormElement) {
+      form.removeAttribute('aria-busy');
+      const submit = document.getElementById('submit-btn');
+      if (submit instanceof HTMLButtonElement) {
+        submit.disabled = false;
+      }
+    }
+    const sequencer = document.getElementById('tx-sequencer');
+    if (sequencer instanceof HTMLElement) {
+      sequencer.setAttribute('hidden', '');
+      sequencer.removeAttribute('data-active');
+    }
+    // bfcache restore: a stale Turnstile token likely rode along in
+    // memory. Clear it, reset the widget, and reconcile the gate so
+    // the user starts from a clean verification state rather than
+    // submitting a token that may already be consumed or expired.
+    turnstileSubmitting = false;
+    if (hasTurnstileMount()) {
+      resetTurnstileAfterServerResponse();
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initContactForm, { once: true });
+  } else {
+    initContactForm();
+  }
+  document.addEventListener('astro:page-load', initContactForm);
+  window.addEventListener('pageshow', handleContactPageShow);
+</script>

@@ -1,0 +1,19 @@
+name = "sarif-cron-purge"
+main = "src/index.js"
+compatibility_date = "2025-11-01"
+workers_dev = false
+
+# Daily 03:00 UTC. Drifts with DST on the receiving side; purge is idempotent
+# so the exact minute does not matter.
+[triggers]
+crons = ["0 3 * * *"]
+
+# Variables that identify the target Pages project. Set via `wrangler secret`
+# (never commit values):
+#   wrangler secret put ADMIN_PURGE_TOKEN --name sarif-cron-purge
+#
+# PURGE_ORIGIN is committed as a vars entry below because it is not a secret.
+
+[vars]
+PURGE_ORIGIN = "https://sarifconsulting.ai"
+PURGE_PATH = "/api/admin/purge"

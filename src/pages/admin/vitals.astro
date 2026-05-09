@@ -1,0 +1,435 @@
+---
+/**
+ * /admin/vitals — Real-user Web Vitals dashboard.
+ *
+ * Access-gated by functions/admin/_middleware.js; unauthenticated requests
+ * are redirected to the Cloudflare Access login flow before this HTML is
+ * ever returned. This page itself does no authentication — it fetches
+ * /api/admin/vitals which is gated by the same Access app and handles
+ * defense-in-depth bearer validation.
+ *
+ * Design constraints:
+ *   - Zero inline JS client-side beyond what this page registers (CSP
+ *     strict hashes are injected post-build).
+ *   - No external dashboard library — sparklines are hand-rolled SVG so
+ *     we don't pull a chart bundle into an internal-only surface.
+ *   - Reads are idempotent GETs; no mutations live on this page.
+ *   - `prefers-reduced-motion` suppresses every transition on this view.
+ */
+import Base from '../../layouts/Base.astro';
+---
+
+<Base
+  title="Admin — Vitals"
+  description="Internal Web Vitals dashboard."
+  noindex={true}
+>
+  <section class="admin-vitals section" aria-labelledby="vitals-heading">
+    <div class="container">
+      <header class="admin-vitals__header">
+        <p class="section-label">Operator · Observability</p>
+        <h1 id="vitals-heading" class="section-header">Real-User Vitals</h1>
+        <p class="admin-vitals__lede">
+          Aggregated LCP, INP, CLS, TTFB, and FCP from the public surface.
+          No PII. Sourced from <code>client_web_vitals</code>; access-gated.
+        </p>
+
+        <form class="admin-vitals__controls" data-vitals-controls>
+          <label class="admin-vitals__control">
+            <span>Range</span>
+            <select name="range">
+              <option value="24h">Last 24 hours</option>
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+            </select>
+          </label>
+          <label class="admin-vitals__control">
+            <span>Page</span>
+            <select name="page">
+              <option value="">All pages</option>
+            </select>
+          </label>
+          <button type="button" class="admin-vitals__reload" data-vitals-reload>
+            Reload
+          </button>
+        </form>
+      </header>
+
+      <div class="admin-vitals__status" role="status" aria-live="polite" data-vitals-status>
+        Loading…
+      </div>
+
+      <div class="admin-vitals__summary" data-vitals-summary hidden></div>
+
+      <section class="admin-vitals__timeseries" aria-labelledby="vitals-timeseries-heading" hidden data-vitals-timeseries-section>
+        <h2 id="vitals-timeseries-heading" class="admin-vitals__subhead">LCP p75 over time</h2>
+        <div data-vitals-timeseries></div>
+      </section>
+
+      <section class="admin-vitals__by-page" aria-labelledby="vitals-by-page-heading" hidden data-vitals-by-page-section>
+        <h2 id="vitals-by-page-heading" class="admin-vitals__subhead">By page</h2>
+        <div data-vitals-by-page></div>
+      </section>
+
+      <template data-vitals-metric-card-template>
+        <article class="metric-card">
+          <header class="metric-card__header">
+            <h3 class="metric-card__name"></h3>
+            <span class="metric-card__samples"></span>
+          </header>
+          <dl class="metric-card__grid">
+            <div><dt>p50</dt><dd data-metric-p50>—</dd></div>
+            <div><dt>p75</dt><dd data-metric-p75>—</dd></div>
+            <div><dt>p95</dt><dd data-metric-p95>—</dd></div>
+            <div><dt>good %</dt><dd data-metric-good>—</dd></div>
+          </dl>
+        </article>
+      </template>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .admin-vitals {
+    padding-top: 64px;
+    color: var(--text);
+  }
+  .admin-vitals__header {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .admin-vitals__lede {
+    color: var(--text-muted);
+    max-width: 60ch;
+  }
+  .admin-vitals__controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-end;
+    margin-top: 12px;
+  }
+  .admin-vitals__control {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .admin-vitals__control select {
+    background: rgba(10, 20, 30, 0.5);
+    color: var(--text);
+    border: 1px solid rgba(0, 212, 255, 0.25);
+    padding: 6px 10px;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.8rem;
+    min-width: 180px;
+  }
+  .admin-vitals__reload {
+    border: 1px solid rgba(0, 212, 255, 0.5);
+    background: transparent;
+    color: var(--text);
+    padding: 8px 16px;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .admin-vitals__reload:hover {
+    background: rgba(0, 212, 255, 0.1);
+  }
+  .admin-vitals__status {
+    padding: 12px 16px;
+    border-left: 2px solid rgba(0, 212, 255, 0.4);
+    color: var(--text-muted);
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.8rem;
+  }
+  .admin-vitals__summary {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    margin-top: 24px;
+  }
+  .admin-vitals__subhead {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    margin: 40px 0 16px;
+  }
+  .metric-card {
+    border-left: 2px solid rgba(0, 212, 255, 0.4);
+    padding: 12px 16px;
+    background: rgba(10, 20, 30, 0.3);
+  }
+  .metric-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .metric-card__name {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+    margin: 0;
+  }
+  .metric-card__samples {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+  .metric-card__grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin: 0;
+  }
+  .metric-card__grid dt {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .metric-card__grid dd {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.9rem;
+    margin: 0;
+  }
+  .admin-vitals__by-page-row {
+    border: 1px solid rgba(0, 212, 255, 0.12);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .admin-vitals__by-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+  }
+  .admin-vitals__by-page-path {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.9rem;
+  }
+  .admin-vitals__by-page-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+  }
+  .sparkline {
+    display: block;
+    width: 100%;
+    height: 120px;
+  }
+</style>
+
+<script>
+  /**
+   * Admin vitals client. Fetches /api/admin/vitals, renders summary cards,
+   * a per-page drill-down, and one SVG sparkline for LCP p75. All DOM
+   * writes go through a predictable update() so React-esque reconciliation
+   * is not needed.
+   *
+   * Note: this runs *after* the Access middleware has already authenticated
+   * the user; the fetch below will 401 if the browser session has expired,
+   * in which case we surface the error and prompt the user to reload.
+   */
+  const API = '/api/admin/vitals';
+
+  function formatValue(name, v) {
+    if (v == null) return '—';
+    if (name === 'CLS') return v.toFixed(3);
+    return `${Math.round(v)} ms`;
+  }
+
+  function buildSparkline(points, width, height) {
+    if (!points || points.length === 0) return '';
+    const values = points.map((p) => p.p75 || 0);
+    const max = Math.max(...values, 1);
+    const step = width / Math.max(points.length - 1, 1);
+    const path = points
+      .map((p, i) => {
+        const x = i * step;
+        const y = height - ((p.p75 || 0) / max) * (height - 12) - 6;
+        return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(' ');
+    return `
+      <svg class="sparkline" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
+        <path d="${path}" fill="none" stroke="rgba(0, 212, 255, 0.8)" stroke-width="1.5" />
+      </svg>
+    `;
+  }
+
+  function renderMetricCards(host, metrics) {
+    const tpl = document.querySelector('[data-vitals-metric-card-template]');
+    if (!(tpl instanceof HTMLTemplateElement)) return;
+    host.innerHTML = '';
+    for (const m of metrics) {
+      const cloned = tpl.content.cloneNode(true);
+      if (!(cloned instanceof DocumentFragment)) continue;
+      const frag = cloned;
+      const nameEl = frag.querySelector('.metric-card__name');
+      const samplesEl = frag.querySelector('.metric-card__samples');
+      if (nameEl) nameEl.textContent = m.name;
+      if (samplesEl) samplesEl.textContent = `n=${m.samples}`;
+      const set = (sel, text) => {
+        const el = frag.querySelector(sel);
+        if (el) el.textContent = text;
+      };
+      set('[data-metric-p50]', formatValue(m.name, m.p50));
+      set('[data-metric-p75]', formatValue(m.name, m.p75));
+      set('[data-metric-p95]', formatValue(m.name, m.p95));
+      set('[data-metric-good]', m.good_pct == null ? '—' : `${Math.round(m.good_pct)}%`);
+      host.appendChild(frag);
+    }
+  }
+
+  async function loadAndRender() {
+    const status = document.querySelector('[data-vitals-status]');
+    const summary = document.querySelector('[data-vitals-summary]');
+    const tsSection = document.querySelector('[data-vitals-timeseries-section]');
+    const tsHost = document.querySelector('[data-vitals-timeseries]');
+    const bpSection = document.querySelector('[data-vitals-by-page-section]');
+    const bpHost = document.querySelector('[data-vitals-by-page]');
+    const controls = document.querySelector('[data-vitals-controls]');
+    if (
+      !(status instanceof HTMLElement) ||
+      !(summary instanceof HTMLElement) ||
+      !(tsSection instanceof HTMLElement) ||
+      !(tsHost instanceof HTMLElement) ||
+      !(bpSection instanceof HTMLElement) ||
+      !(bpHost instanceof HTMLElement) ||
+      !(controls instanceof HTMLFormElement)
+    ) return;
+
+    const rangeEl = controls.elements.namedItem('range');
+    const pageEl = controls.elements.namedItem('page');
+    const range =
+      rangeEl instanceof HTMLSelectElement ? rangeEl.value : '24h';
+    const page =
+      pageEl instanceof HTMLSelectElement ? pageEl.value : '';
+
+    status.textContent = 'Loading…';
+    summary.setAttribute('hidden', '');
+    tsSection.setAttribute('hidden', '');
+    bpSection.setAttribute('hidden', '');
+
+    const params = new URLSearchParams();
+    params.set('range', range);
+    if (page) params.set('page', page);
+    try {
+      const res = await fetch(`${API}?${params.toString()}`, {
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+      });
+      if (res.status === 401) {
+        /* Round-4 phase-5 polish — preserve the full URL (pathname +
+           search + hash) so the post-Access-login bounce lands the
+           operator back on the same range/page selection. Using
+           window.location.href forces a top-level navigation, which
+           Cloudflare Access intercepts with its login flow; a simple
+           `reload()` also works but loses any unsaved state. The
+           message is shown first so AT users get the context before
+           the redirect fires. */
+        status.textContent =
+          'Your admin session has expired. Redirecting to reauthenticate…';
+        const returnUrl =
+          window.location.pathname + window.location.search + window.location.hash;
+        setTimeout(() => {
+          window.location.href = returnUrl || '/admin/vitals/';
+        }, 600);
+        return;
+      }
+      if (!res.ok) {
+        status.textContent = `API returned ${res.status}. Retry or investigate logs.`;
+        return;
+      }
+      const data = await res.json();
+      status.textContent = `n=${data.samples_total} samples · generated ${new Date(
+        data.generated_at,
+      ).toLocaleString()}`;
+
+      renderMetricCards(summary, data.overall);
+      summary.removeAttribute('hidden');
+
+      // Populate page filter (preserves current selection).
+      if (pageEl instanceof HTMLSelectElement) {
+        const currentSelection = pageEl.value;
+        const pages = new Set(data.by_page.map((p) => p.page));
+        if (currentSelection && !pages.has(currentSelection)) {
+          pages.add(currentSelection);
+        }
+        pageEl.innerHTML = '<option value="">All pages</option>';
+        for (const raw of [...pages].sort()) {
+          const p = typeof raw === 'string' ? raw : String(raw ?? '');
+          if (!p) continue;
+          const opt = document.createElement('option');
+          opt.value = p;
+          opt.textContent = p;
+          if (p === currentSelection) opt.selected = true;
+          pageEl.appendChild(opt);
+        }
+      }
+
+      if (data.timeseries && data.timeseries.length > 0) {
+        tsHost.innerHTML = buildSparkline(data.timeseries, 720, 120);
+        tsSection.removeAttribute('hidden');
+      }
+
+      if (data.by_page && data.by_page.length > 0) {
+        bpHost.innerHTML = '';
+        for (const row of data.by_page) {
+          const rowEl = document.createElement('article');
+          rowEl.className = 'admin-vitals__by-page-row';
+          const header = document.createElement('header');
+          header.className = 'admin-vitals__by-page-header';
+          const path = document.createElement('span');
+          path.className = 'admin-vitals__by-page-path';
+          path.textContent = row.page;
+          const count = document.createElement('span');
+          count.className = 'metric-card__samples';
+          count.textContent = `n=${row.samples}`;
+          header.appendChild(path);
+          header.appendChild(count);
+          rowEl.appendChild(header);
+
+          const metrics = document.createElement('div');
+          metrics.className = 'admin-vitals__by-page-metrics';
+          renderMetricCards(metrics, row.metrics);
+          rowEl.appendChild(metrics);
+          bpHost.appendChild(rowEl);
+        }
+        bpSection.removeAttribute('hidden');
+      }
+    } catch (err) {
+      console.error('admin_vitals_client_fetch_failed', err);
+      status.textContent = 'Network error. Retry.';
+    }
+  }
+
+  function init() {
+    const controls = document.querySelector('[data-vitals-controls]');
+    const reload = document.querySelector('[data-vitals-reload]');
+    if (controls instanceof HTMLFormElement) {
+      controls.addEventListener('change', loadAndRender);
+    }
+    if (reload instanceof HTMLElement) {
+      reload.addEventListener('click', loadAndRender);
+    }
+    loadAndRender();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
+  document.addEventListener('astro:page-load', init);
+</script>

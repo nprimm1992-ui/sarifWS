@@ -1,0 +1,187 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: round4.spec.ts >> reduced motion live toggle strips tilt transform
+- Location: tests\e2e\round4.spec.ts:161:1
+
+# Error details
+
+```
+Test timeout of 30000ms exceeded.
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2]:
+    - /url: "#main-content"
+  - banner [ref=e4]:
+    - navigation "Main navigation" [ref=e5]:
+      - link "Sarif Consulting — Home" [ref=e6]:
+        - /url: /
+        - text: SARIF CONSULTING
+      - list [ref=e7]:
+        - listitem [ref=e8]:
+          - link "About" [ref=e9]:
+            - /url: /about/
+        - listitem [ref=e10]:
+          - link "Engagements" [ref=e11]:
+            - /url: /engagements/
+        - listitem [ref=e12]:
+          - link "Services" [ref=e13]:
+            - /url: /services/
+        - listitem [ref=e14]:
+          - link "Praxis" [ref=e15]:
+            - /url: /praxis/
+        - listitem [ref=e16]:
+          - link "Contact" [ref=e17]:
+            - /url: /contact/
+  - main [ref=e19]:
+    - region "Praxis" [ref=e20]:
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - paragraph [ref=e23]: Learn more
+          - heading "Praxis" [level=1] [ref=e24]
+          - generic [ref=e25]:
+            - heading "Practice made public. Intelligence architecture, ethics, systems design." [level=2] [ref=e26]
+            - paragraph [ref=e27]: Praxis is the Sarif publication where operational thinking, methodology in progress and architectural observations are published as they are developed — not retrofitted into polished deliverables. Each piece is an operational position that has already been tested against real engagements before it is written up. Expect a single considered release per month, not a feed.
+        - complementary "Filter Praxis articles" [ref=e28]:
+          - paragraph [ref=e29]: Filter
+          - generic [ref=e30]:
+            - paragraph [ref=e31]: lens
+            - list [ref=e32]:
+              - listitem [ref=e33]:
+                - button "Architectural Depth" [ref=e34] [cursor=pointer]
+              - listitem [ref=e35]:
+                - button "Methodology" [ref=e36] [cursor=pointer]
+          - generic [ref=e37]:
+            - paragraph [ref=e38]: tags
+            - list [ref=e39]:
+              - listitem [ref=e40]:
+                - button "Field Observation" [ref=e41] [cursor=pointer]
+              - listitem [ref=e42]:
+                - button "Methodology" [ref=e43] [cursor=pointer]
+              - listitem [ref=e44]:
+                - button "Operating Model" [ref=e45] [cursor=pointer]
+              - listitem [ref=e46]:
+                - button "Systems" [ref=e47] [cursor=pointer]
+              - listitem [ref=e48]:
+                - button "UCIM" [ref=e49] [cursor=pointer]
+          - button "Clear all Praxis filters" [ref=e50] [cursor=pointer]: Clear filters
+        - list [ref=e51]:
+          - listitem [ref=e52]:
+            - generic: "01"
+            - link "Praxis No. 01 Apr 11, 2026 Architectural Depth One Operator, One Intelligence Layer The consulting model that eliminates coherence decay is not a larger team. It is a smaller one — with a persistent intelligence substrate underneath it." [ref=e53]:
+              - /url: /praxis/one-operator-one-intelligence-layer/
+              - generic [ref=e54]:
+                - generic [ref=e55]: Praxis No. 01
+                - time [ref=e57]: Apr 11, 2026
+              - generic [ref=e58]: Architectural Depth
+              - heading "One Operator, One Intelligence Layer" [level=3] [ref=e59]
+              - paragraph [ref=e60]: The consulting model that eliminates coherence decay is not a larger team. It is a smaller one — with a persistent intelligence substrate underneath it.
+          - listitem [ref=e62]:
+            - generic: "02"
+            - link "Praxis No. 02 Apr 11, 2026 Methodology What the Matrix Metabolizes UCIM is not a knowledge base. It is a digestive system. What the matrix ingests, reinforces and discards across an engagement — and why the distinction matters." [ref=e63]:
+              - /url: /praxis/what-the-matrix-metabolizes/
+              - generic [ref=e64]:
+                - generic [ref=e65]: Praxis No. 02
+                - time [ref=e67]: Apr 11, 2026
+              - generic [ref=e68]: Methodology
+              - heading "What the Matrix Metabolizes" [level=3] [ref=e69]
+              - paragraph [ref=e70]: UCIM is not a knowledge base. It is a digestive system. What the matrix ingests, reinforces and discards across an engagement — and why the distinction matters.
+  - contentinfo [ref=e72]:
+    - generic [ref=e73]:
+      - paragraph [ref=e74]:
+        - generic [ref=e75]: © 2026 Sarif Consulting
+        - generic [ref=e76]: ·
+        - generic [ref=e77]: Portland, Oregon
+      - generic [ref=e78]:
+        - navigation "Footer navigation" [ref=e79]:
+          - link "Lexicon" [ref=e80]:
+            - /url: /lexicon/
+          - generic [ref=e81]: ·
+          - link "Privacy" [ref=e82]:
+            - /url: /privacy/
+          - generic [ref=e83]: ·
+          - link "Terms" [ref=e84]:
+            - /url: /terms/
+          - generic [ref=e85]: ·
+          - link "Accessibility" [ref=e86]:
+            - /url: /accessibility/
+        - group "Search and ambient audio" [ref=e87]:
+          - button "Open search (Ctrl+K)" [ref=e88] [cursor=pointer]:
+            - img [ref=e89]
+            - generic [ref=e92]: ⌘K
+          - button "Toggle ambient audio" [ref=e93] [cursor=pointer]:
+            - generic [ref=e98]: "OFF"
+            - generic [ref=e99]: "Ambient audio:"
+    - region "Cookie and infrastructure notice" [ref=e100]:
+      - generic [ref=e101]:
+        - paragraph [ref=e102]:
+          - text: Strictly necessary cookies only — no third-party advertising or behavioural tracking.
+          - link "Details" [ref=e103]:
+            - /url: /privacy#cookies
+          - text: .
+        - button "Dismiss" [ref=e104] [cursor=pointer]
+  - dialog:
+    - button
+    - document:
+      - banner:
+        - generic:
+          - generic:
+            - generic: ❯
+            - generic: NAVIGATE · SARIF
+          - generic:
+            - generic: ⌘
+            - generic: K
+        - heading [level=2]: Command
+        - paragraph:
+          - text: Search Praxis, Lexicon, Engagements, and pages. Press
+          - generic: /
+          - text: anywhere to reopen.
+      - generic:
+        - img
+        - combobox
+        - generic: ESC
+      - toolbar:
+        - button [pressed]:
+          - generic: ◆
+          - generic: All
+        - button:
+          - generic: P
+          - generic: Praxis
+        - button:
+          - generic: L
+          - generic: Lexicon
+        - button:
+          - generic: E
+          - generic: Engagements
+        - button:
+          - generic: §
+          - generic: Pages
+      - contentinfo:
+        - generic:
+          - generic: ↑
+          - generic: ↓
+          - generic: navigate
+        - generic:
+          - generic: ⏎
+          - generic: open
+        - generic:
+          - generic: ⌘
+          - generic: ⏎
+          - generic: new tab
+        - generic:
+          - generic: tab
+          - generic: scope
+        - generic:
+          - generic: esc
+          - generic: close
+  - status
+```

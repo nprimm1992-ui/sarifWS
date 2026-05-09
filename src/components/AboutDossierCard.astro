@@ -1,0 +1,414 @@
+---
+/**
+ * AboutDossierCard — authored statement card for /about.
+ *
+ * Mirrors the information grammar of ProofEntry (engagement dossier) and the
+ * services lanes: accent rail, hero concept-stat, lead paragraphs,
+ * diamond-marker evidence list, hover lift + gold-edge glow.
+ *
+ * Optional `videoSrc` renders an ambient video clip at the card's bottom —
+ * autoplays muted when scrolled into view via IntersectionObserver; pauses
+ * when offscreen. No poster or image fallback — if the asset is missing at
+ * build time, the media band is omitted entirely.
+ *
+ * Scope: /about only. Three instances with distinct accent gradients so the
+ * sequence reads as progression, not repetition.
+ *
+ * Tokens reused (zero new tokens introduced): panel-frost-base,
+ * sarif-gold-cap-line (highlights only), --sarif-gold, --gold-bright,
+ * --gold-glow-soft, --cyan-core, --cyan-bright, --glass-border-hover,
+ * --clip-card.
+ *
+ * Highlights render with set:html for inline <strong> — author-controlled,
+ * compile-time-static copy only. Any literal < > & in plain copy must be
+ * written as &lt; &gt; &amp; or they will be interpreted as markup.
+ */
+export type AboutDossierAccent = 'practice' | 'methodology' | 'principle';
+
+interface Props {
+  statValue: string;
+  statLabel: string;
+  leads: string[];
+  highlights: string[];
+  accent: AboutDossierAccent;
+  id?: string;
+  class?: string;
+  videoSrc?: string;
+  videoAlt?: string;
+}
+
+const {
+  statValue,
+  statLabel,
+  leads,
+  highlights,
+  accent,
+  id,
+  class: className,
+  videoSrc,
+  videoAlt = 'Ambient visual supporting the card content',
+} = Astro.props;
+
+/**
+ * Root-relative URL only: encode each path segment so spaces become %20 without
+ * double-encoding an already-encoded href.
+ */
+function encodePublicMediaUrl(path: string): string | undefined {
+  if (path == null || path === '') return undefined;
+  if (!path.startsWith('/')) return encodeURI(path);
+  const parts = path.split('/').map((seg) => (seg === '' ? '' : encodeURIComponent(seg)));
+  return parts.join('/') || undefined;
+}
+
+const videoSrcEncoded = encodePublicMediaUrl(videoSrc ?? '');
+---
+
+<article
+  class:list={['about-dossier', 'panel-frost-base', 'panel-dossier', 'panel-dossier--interactive', 'reveal-on-scroll', className]}
+  data-dossier-accent={accent}
+  id={id}
+>
+  <div class="about-dossier__accent" aria-hidden="true"></div>
+
+  <div class="about-dossier__stat" aria-hidden="true">
+    <span class="about-dossier__stat-value">{statValue}</span>
+    <span class="about-dossier__stat-label ui-eyebrow">{statLabel}</span>
+  </div>
+
+  {leads.map((lead) => (
+    <p class="about-dossier__lead">{lead}</p>
+  ))}
+
+  <ul class="about-dossier__highlights" role="list">
+    {highlights.map((line) => (
+      <li class="sarif-gold-cap-line" set:html={line} />
+    ))}
+  </ul>
+
+  {videoSrcEncoded && (
+    <div class="about-dossier__video-wrap" aria-hidden="true">
+      <video
+        class="about-dossier__video"
+        src={videoSrcEncoded}
+        muted
+        loop
+        playsinline
+        preload="auto"
+        aria-label={videoAlt}
+        data-dossier-video
+      />
+    </div>
+  )}
+</article>
+
+<style>
+  .about-dossier {
+    position: relative;
+    overflow: hidden;
+    clip-path: var(--clip-card);
+    padding: clamp(28px, 4vw, 40px) clamp(24px, 4vw, 40px) clamp(28px, 4vw, 40px) clamp(32px, 4.5vw, 48px);
+    text-align: left;
+    max-width: 720px;
+    margin-inline: auto;
+    transform: translateY(20px);
+    opacity: 0;
+    transition:
+      transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      box-shadow 0.3s ease,
+      border-color 0.3s ease;
+  }
+
+  .about-dossier.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+      opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      box-shadow 0.3s ease,
+      border-color 0.3s ease;
+  }
+
+  /* Hover lift only — border/shadow intensification is carried by the
+     shared `.panel-dossier--interactive:hover` in global.css so the
+     cyan dossier palette stays unified across about, ucim, service
+     card, lane, and proof-entry surfaces. */
+  .about-dossier:hover {
+    transform: translateY(-6px);
+  }
+
+  /* --- Accent rail (left vertical gradient) --- */
+  .about-dossier__accent {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(to bottom, var(--cyan-core), rgba(0, 212, 255, 0.2));
+  }
+
+  .about-dossier[data-dossier-accent='practice'] .about-dossier__accent {
+    background: linear-gradient(
+      to bottom,
+      var(--cyan-core) 0%,
+      rgba(0, 212, 255, 0.45) 40%,
+      rgba(221, 184, 61, 0.55) 100%
+    );
+  }
+
+  .about-dossier[data-dossier-accent='methodology'] .about-dossier__accent {
+    background: linear-gradient(
+      to bottom,
+      var(--cyan-bright) 0%,
+      var(--cyan-core) 55%,
+      rgba(0, 212, 255, 0.35) 100%
+    );
+  }
+
+  .about-dossier[data-dossier-accent='principle'] .about-dossier__accent {
+    background: linear-gradient(
+      to bottom,
+      var(--sarif-gold) 0%,
+      rgba(221, 184, 61, 0.55) 50%,
+      var(--cyan-core) 100%
+    );
+  }
+
+  /* --- Hero concept-stat --- */
+  .about-dossier__stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 10px 0 24px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.14);
+  }
+
+  .about-dossier__stat-value {
+    font-family: var(--font-heading);
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.08;
+    color: var(--gold-bright);
+    text-shadow: var(--gold-glow-soft);
+    filter: brightness(1.08);
+  }
+
+  /* Typography matches ServiceCard title — global .ui-eyebrow + cyan sheen (global.css) */
+  .about-dossier__stat-label.ui-eyebrow {
+    max-width: 36rem;
+  }
+
+  /* --- Lead paragraphs --- */
+  .about-dossier__lead {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    line-height: 1.82;
+    margin: 0 0 16px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .about-dossier__lead:last-of-type {
+    margin-bottom: 20px;
+  }
+
+  /* --- Evidence list (diamond-marker) --- */
+  .about-dossier__highlights {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .about-dossier__highlights li {
+    position: relative;
+    padding-left: 16px;
+    margin-bottom: 8px;
+    text-align: left;
+  }
+
+  .about-dossier__highlights li:last-child {
+    margin-bottom: 0;
+  }
+
+  .about-dossier__highlights li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 4px;
+    height: 4px;
+    background: var(--gold-bright);
+    box-shadow: 0 0 6px rgba(221, 184, 61, 0.45);
+    transform: rotate(45deg);
+  }
+
+  .about-dossier__highlights li :global(strong) {
+    color: var(--gold-bright);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  /* --- Dossier Video --- */
+  .about-dossier__video-wrap {
+    margin-top: 24px;
+    margin-bottom: calc(-1 * clamp(28px, 4vw, 40px));
+    margin-left: calc(-1 * clamp(32px, 4.5vw, 48px));
+    margin-right: calc(-1 * clamp(24px, 4vw, 40px));
+    padding: 0;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .about-dossier__video {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+
+  .about-dossier__video[data-playing] {
+    opacity: 1;
+  }
+
+  .about-dossier__video-wrap--failed {
+    display: none;
+  }
+
+  /* Subtle top edge to separate video from text content */
+  .about-dossier__video-wrap::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgba(0, 212, 255, 0.15) 20%,
+      rgba(0, 212, 255, 0.15) 80%,
+      transparent
+    );
+    z-index: 1;
+  }
+
+  /* --- Reduced motion --- */
+  @media (prefers-reduced-motion: reduce) {
+    .about-dossier {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+
+    .about-dossier:hover {
+      transform: none;
+    }
+
+    .about-dossier__stat-value {
+      filter: none;
+    }
+
+    .about-dossier__highlights li::before {
+      box-shadow: none;
+    }
+
+    .about-dossier__video {
+      opacity: 1;
+      transition: none;
+    }
+  }
+
+  /* --- Mobile compression --- */
+  @media (max-width: 640px) {
+    .about-dossier__stat {
+      margin-bottom: 20px;
+    }
+
+    .about-dossier__video-wrap {
+      margin-left: calc(-1 * clamp(20px, 3.5vw, 32px));
+      margin-right: calc(-1 * clamp(20px, 3.5vw, 32px));
+      margin-bottom: calc(-1 * clamp(20px, 3.5vw, 32px));
+    }
+  }
+</style>
+
+<script>
+  /* HAVE_CURRENT_DATA — first decoded frame available */
+  const MIN_READY_STATE_FOR_FRAME = 2;
+
+  let _dossierVideoObserver = null;
+
+  function initDossierVideos() {
+    if (_dossierVideoObserver) {
+      _dossierVideoObserver.disconnect();
+      _dossierVideoObserver = null;
+    }
+
+    const videos = document.querySelectorAll('[data-dossier-video]');
+    if (videos.length === 0) return;
+
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    for (const el of videos) {
+      if (!(el instanceof HTMLVideoElement)) continue;
+      el.addEventListener(
+        'error',
+        () => {
+          const wrap = el.closest('.about-dossier__video-wrap');
+          if (wrap) wrap.classList.add('about-dossier__video-wrap--failed');
+        },
+        { once: true },
+      );
+    }
+
+    _dossierVideoObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const video = entry.target;
+          if (!(video instanceof HTMLVideoElement)) continue;
+          if (entry.isIntersecting) {
+            if (prefersReduced) {
+              video.pause();
+              try {
+                video.currentTime = 0;
+              } catch {
+                /* ignore */
+              }
+              video.setAttribute('data-playing', '');
+              continue;
+            }
+
+            /* Reveal once there is frame data — avoids opacity:0 when loadeddata
+             * fired before we subscribed (cached / preload) or when play() is delayed. */
+            const reveal = () => {
+              video.setAttribute('data-playing', '');
+            };
+            if (video.readyState >= MIN_READY_STATE_FOR_FRAME) {
+              reveal();
+            } else {
+              video.addEventListener('loadeddata', reveal, { once: true });
+            }
+            void video.play().then(reveal, reveal);
+          } else {
+            if (!prefersReduced) video.pause();
+            video.removeAttribute('data-playing');
+          }
+        }
+      },
+      { rootMargin: '0px 0px 120px 0px', threshold: 0.15 },
+    );
+
+    for (const v of videos) {
+      _dossierVideoObserver.observe(v);
+    }
+  }
+
+  document.addEventListener('astro:page-load', initDossierVideos);
+  if (document.readyState !== 'loading') initDossierVideos();
+</script>

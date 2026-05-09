@@ -1,0 +1,315 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base
+  title="Sarif Consulting — Augment Your Intelligence"
+  description="Portland-based AI-augmented strategic consulting. Architectures, platforms, positioning and media — one methodology, production-grade depth."
+>
+  <!-- HERO -->
+  <section
+    id="hero-section"
+    class="hero"
+    data-pause-offscreen
+    aria-label="Sarif Consulting — AI-Augmented Strategic Consulting"
+  >
+    <div class="hero__content container">
+      <h1 class="sr-only">Sarif Consulting — Augment Your Intelligence</h1>
+      <div class="hero__logo-spacer" aria-hidden="true"></div>
+      <div class="hero__cta-wrap">
+        <a href="/services/" class="btn-primary cyan-gold-label btn-cta-hero-footprint hero__cta">
+          <span class="sarif-hover-sheen" data-materialize-text="pending" data-materialize-order="1">Augment Your Intelligence</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="hero__scroll-indicator" aria-hidden="true">
+      <span class="hero__scroll-line"></span>
+    </div>
+  </section>
+
+  <div class="section-threshold reveal-on-scroll" aria-hidden="true">
+    <div class="threshold-line"></div>
+  </div>
+
+  <!-- Practice summary + link to About -->
+  <section class="about-section section" aria-labelledby="practice-heading">
+    <div class="container about-inner">
+      <div class="practice-content-inner">
+        <div class="practice-coming content-back-panel reveal-on-scroll">
+          <a
+            href="/about/"
+            id="practice-heading"
+            class="practice-coming__link practice-coming__heading-link"
+          >
+            Who we are, how we work — Augmented by design
+          </a>
+          <div class="practice-coming__copy">
+            <p class="practice-coming__line practice-coming__line--lead">
+              Most firms sell <strong>hours</strong> and <strong>discrete deliverables</strong>. Sarif produces
+              <span class="practice-coming__term">living systems</span> where every surface maintains full coherence.
+            </p>
+            <p class="practice-coming__line practice-coming__line--lead">
+              Strategy, systems architecture, experience design, ethics-grounded judgment and operational rigor remain interconnected within our
+              <span class="practice-coming__term practice-coming__term--gold">AI-Augmented methodology</span>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .hero {
+    position: relative;
+    width: 100%;
+    height: 100svh;
+    height: 100dvh;
+    min-height: 600px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    /* Fixed chrome (site-nav 72px + capability-ticker 36px = 108px,
+       plus iOS notch) sits visually on top of this flex container's
+       flex-center reference. Without padding-top the centered column
+       drifts up into the chrome on short dvh viewports (e.g. iPhone
+       SE at ≈ 568dvh, or any landscape phone). Adding padding shifts
+       the flex-center reference downward by exactly the chrome band
+       so the CTA + 3D-logo spacer stay fully in the visible hero.
+
+       `box-sizing: border-box` is global; height stays 100dvh, the
+       content box shrinks by the padding, and the flex-center lands
+       predictably below the chrome. */
+    padding-top: calc(72px + 36px + env(safe-area-inset-top, 0px));
+  }
+
+  .hero__content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    max-width: 760px;
+  }
+
+  .hero__logo-spacer {
+    width: 100%;
+    height: clamp(360px, 62vh, 640px);
+    pointer-events: none;
+  }
+
+  @media (max-width: 768px) {
+    .hero__logo-spacer {
+      height: clamp(240px, 50vh, 400px);
+    }
+  }
+
+  .hero__cta-wrap {
+    display: flex;
+    justify-content: center;
+  }
+
+  .hero__scroll-indicator {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
+  }
+
+  .hero__scroll-line {
+    display: block;
+    width: 1px;
+    height: 48px;
+    background: linear-gradient(to bottom, transparent, var(--cyan-core));
+    margin: 0 auto;
+    animation: scrollPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes scrollPulse {
+    0%, 100% { opacity: 0.2; }
+    50% { opacity: 0.8; }
+  }
+
+  .section-threshold {
+    position: relative;
+    height: 1px;
+    overflow: visible;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Page override: compositor-friendly scaleX reveal. Target width
+     fixed; scale drives the visible growth (see global.css for the
+     shared baseline). */
+  .threshold-line {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%) scaleX(0);
+    width: min(80%, 600px);
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan-core), transparent);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+    transform-origin: center;
+    will-change: transform;
+  }
+
+  .section-threshold.is-visible .threshold-line {
+    transform: translateX(-50%) scaleX(var(--threshold-scale, 1));
+    transition: transform 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .about-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .practice-content-inner {
+    width: 100%;
+    max-width: 800px;
+    margin-inline: auto;
+  }
+
+  /* Mirrors praxis-coming / coming-title / coming-body (Praxis page) */
+  .practice-coming {
+    text-align: center;
+  }
+
+  .practice-coming__heading-link {
+    display: inline-block;
+    margin: 0 0 24px;
+    max-width: 100%;
+    line-height: 1.35;
+  }
+
+  .practice-coming__copy {
+    max-width: min(640px, 100%);
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(18px, 3vw, 26px);
+    text-align: center;
+  }
+
+  .practice-coming__line {
+    font-family: var(--font-body);
+    font-size: clamp(1rem, 2.4vw, 1.12rem);
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.82;
+    text-transform: none;
+    letter-spacing: 0.01em;
+  }
+
+  .practice-coming__line--lead {
+    font-size: clamp(1.05rem, 2.6vw, 1.2rem);
+    line-height: 1.75;
+    font-weight: 500;
+    color: var(--text-on-dark, #eae6dc);
+  }
+
+  .practice-coming__line--lead strong {
+    font-weight: 700;
+    color: var(--lobby-mist, #d8d4cf);
+  }
+
+  .practice-coming__term {
+    font-family: var(--font-heading);
+    font-size: 0.92em;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cyan-bright);
+    text-shadow: var(--cyan-glow-text);
+  }
+
+  .practice-coming__term--gold {
+    color: var(--gold-bright);
+    text-shadow: var(--gold-glow-soft);
+    filter: brightness(1.2);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .practice-coming__line {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+
+    .practice-coming.is-visible .practice-coming__line {
+      animation: practiceLineReveal 0.75s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    }
+
+    .practice-coming.is-visible .practice-coming__line:nth-child(1) {
+      animation-delay: 0.06s;
+    }
+
+    .practice-coming.is-visible .practice-coming__line:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+  }
+
+  @keyframes practiceLineReveal {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .practice-coming__link {
+    font-family: var(--font-heading);
+    font-size: 1.44rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(201, 162, 39, 0.45);
+    padding-bottom: 3px;
+    transition: border-color 0.25s ease, filter 0.25s ease;
+  }
+
+  /* Gold fill for non-sheen practice links only (heading uses global sheen on #practice-heading) */
+  .practice-coming__link:not(.practice-coming__heading-link) {
+    color: var(--sarif-gold);
+  }
+
+  .practice-coming__link:hover,
+  .practice-coming__link:focus-visible {
+    border-color: rgba(221, 184, 61, 0.85);
+    outline: none;
+  }
+
+  .practice-coming__link:not(.practice-coming__heading-link):hover,
+  .practice-coming__link:not(.practice-coming__heading-link):focus-visible {
+    color: var(--gold-bright);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero__scroll-line {
+      animation: none;
+      opacity: 0.4;
+    }
+
+    .hero__title {
+      animation: none !important;
+    }
+
+    .section-threshold .threshold-line { transition: none !important; }
+
+    .practice-coming__link {
+      transition: none;
+    }
+
+    .practice-coming__line {
+      opacity: 1;
+      transform: none;
+      animation: none !important;
+    }
+  }
+</style>
+

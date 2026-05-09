@@ -1,0 +1,957 @@
+---
+/**
+ * Command palette — dossier-grade navigator.
+ *
+ * Opens with:
+ *   - Cmd+K (macOS) / Ctrl+K (Win/Linux)
+ *   - `/` when no input/textarea is focused (classic GitHub/Slack idiom)
+ *   - Any element carrying `[data-command-palette-trigger]`
+ *
+ * Surface anatomy (this file's markup, top → bottom):
+ *   1. Head — eyebrow, title, subtitle, `⌘K` hero kbd.
+ *   2. Search row — icon, input, live count, clear button, Esc hint.
+ *   3. Scope toolbar — All / Praxis / Lexicon / Engagements / Pages.
+ *      Roving tabindex; arrow keys navigate; click/Enter activates.
+ *   4. Results — `role=listbox` with grouped sections. Items render
+ *      a per-type glyph, query-highlighted title, clamped summary,
+ *      and a monospace meta line (lens/horizon, category, etc).
+ *   5. Empty state — actionable copy + two exits (lexicon, contact).
+ *   6. Footer — keyboard hints in bracketed pills.
+ *
+ * Accessibility:
+ *   - `role=dialog` `aria-modal=true` with `aria-labelledby` pointing
+ *     at the visually-hidden h2.
+ *   - Combobox + listbox pattern per ARIA APG 1.2 — `aria-controls`
+ *     on the input, `aria-activedescendant` drives virtual focus on
+ *     results without stealing real focus from the input (so the
+ *     user keeps typing).
+ *   - Tab cycles real focus between input and scope toolbar; inside
+ *     the toolbar, arrow keys move focus and activate the scope.
+ *   - Result `<a>`s carry `tabindex=-1` to stay out of the Tab ring;
+ *     click / Enter still activate.
+ *   - Reduced-motion strips the enter/exit transform but keeps the
+ *     palette fully usable — power users want it either way.
+ *
+ * Lifecycle: mounted once by Base.astro. Runtime rebinds on
+ * `astro:page-load` so ClientRouter swaps don't orphan handlers.
+ */
+---
+
+<div
+  id="command-palette"
+  class="command-palette"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="command-palette-label"
+  aria-hidden="true"
+  hidden
+>
+  <button
+    class="command-palette__backdrop"
+    type="button"
+    aria-label="Close command palette"
+    data-command-palette-close
+    tabindex="-1"></button>
+
+  <div class="command-palette__panel" role="document">
+    <span class="command-palette__corner command-palette__corner--tl" aria-hidden="true"></span>
+    <span class="command-palette__corner command-palette__corner--tr" aria-hidden="true"></span>
+    <span class="command-palette__corner command-palette__corner--bl" aria-hidden="true"></span>
+    <span class="command-palette__corner command-palette__corner--br" aria-hidden="true"></span>
+
+    <header class="command-palette__head">
+      <div class="command-palette__head-row">
+        <span class="command-palette__eyebrow">
+          <span class="command-palette__eyebrow-glyph" aria-hidden="true">❯</span>
+          <span>NAVIGATE · SARIF</span>
+        </span>
+        <span class="command-palette__head-kbd" aria-hidden="true">
+          <kbd>⌘</kbd><kbd>K</kbd>
+        </span>
+      </div>
+      <h2 id="command-palette-label" class="command-palette__title">Command</h2>
+      <p class="command-palette__subtitle">
+        Search Praxis, Lexicon, Engagements, and pages. Press <kbd>/</kbd> anywhere to reopen.
+      </p>
+    </header>
+
+    <div class="command-palette__search" data-command-palette-search>
+      <svg
+        class="command-palette__search-icon"
+        viewBox="0 0 24 24"
+        width="18"
+        height="18"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path
+          d="M10 2a8 8 0 1 1-5.3 14l-2.2 2.2a1 1 0 0 1-1.4-1.4L3.3 14.6A8 8 0 0 1 10 2zm0 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"
+          fill="currentColor"
+        />
+      </svg>
+      <input
+        type="search"
+        class="command-palette__input"
+        placeholder="Type to search, or browse below…"
+        aria-label="Search the site"
+        aria-controls="command-palette-results"
+        aria-expanded="false"
+        role="combobox"
+        aria-autocomplete="list"
+        autocomplete="off"
+        autocorrect="off"
+        spellcheck="false"
+        data-command-palette-input
+      />
+      <span
+        class="command-palette__status"
+        data-command-palette-count
+        aria-live="polite"
+        aria-atomic="true"></span>
+      <button
+        type="button"
+        class="command-palette__clear"
+        data-command-palette-clear
+        aria-label="Clear search"
+        tabindex="-1"
+        hidden>×</button>
+      <kbd class="command-palette__kbd command-palette__kbd--hint" aria-hidden="true">ESC</kbd>
+    </div>
+
+    <div
+      class="command-palette__scopes"
+      role="toolbar"
+      aria-label="Filter by type"
+      data-command-palette-scopes
+    >
+      <button
+        type="button"
+        class="command-palette__scope"
+        data-scope="all"
+        aria-pressed="true"
+        tabindex="0"
+      >
+        <span class="command-palette__scope-glyph" aria-hidden="true">◆</span>
+        <span class="command-palette__scope-label">All</span>
+        <span class="command-palette__scope-count" data-scope-count="all" aria-hidden="true"></span>
+      </button>
+      <button
+        type="button"
+        class="command-palette__scope"
+        data-scope="praxis"
+        aria-pressed="false"
+        tabindex="-1"
+      >
+        <span class="command-palette__scope-glyph" aria-hidden="true">P</span>
+        <span class="command-palette__scope-label">Praxis</span>
+        <span class="command-palette__scope-count" data-scope-count="praxis" aria-hidden="true"></span>
+      </button>
+      <button
+        type="button"
+        class="command-palette__scope"
+        data-scope="lexicon"
+        aria-pressed="false"
+        tabindex="-1"
+      >
+        <span class="command-palette__scope-glyph" aria-hidden="true">L</span>
+        <span class="command-palette__scope-label">Lexicon</span>
+        <span class="command-palette__scope-count" data-scope-count="lexicon" aria-hidden="true"></span>
+      </button>
+      <button
+        type="button"
+        class="command-palette__scope"
+        data-scope="engagement"
+        aria-pressed="false"
+        tabindex="-1"
+      >
+        <span class="command-palette__scope-glyph" aria-hidden="true">E</span>
+        <span class="command-palette__scope-label">Engagements</span>
+        <span class="command-palette__scope-count" data-scope-count="engagement" aria-hidden="true"></span>
+      </button>
+      <button
+        type="button"
+        class="command-palette__scope"
+        data-scope="page"
+        aria-pressed="false"
+        tabindex="-1"
+      >
+        <span class="command-palette__scope-glyph" aria-hidden="true">§</span>
+        <span class="command-palette__scope-label">Pages</span>
+        <span class="command-palette__scope-count" data-scope-count="page" aria-hidden="true"></span>
+      </button>
+    </div>
+
+    <ul
+      id="command-palette-results"
+      class="command-palette__results"
+      role="listbox"
+      aria-label="Search results"
+      data-command-palette-results
+    ></ul>
+
+    <div class="command-palette__empty" data-command-palette-empty hidden>
+      <p class="command-palette__empty-title">No matches for that query.</p>
+      <p class="command-palette__empty-hint">
+        Try a different term, browse the <a href="/lexicon/">lexicon</a>, or
+        <a href="/contact/">open a transmission</a>.
+      </p>
+    </div>
+
+    <footer class="command-palette__footer">
+      <span class="command-palette__hint">
+        <kbd>↑</kbd><kbd>↓</kbd><span>navigate</span>
+      </span>
+      <span class="command-palette__hint">
+        <kbd>⏎</kbd><span>open</span>
+      </span>
+      <span class="command-palette__hint command-palette__hint--optional">
+        <kbd>⌘</kbd><kbd>⏎</kbd><span>new tab</span>
+      </span>
+      <span class="command-palette__hint command-palette__hint--optional">
+        <kbd>tab</kbd><span>scope</span>
+      </span>
+      <span class="command-palette__hint command-palette__hint--right">
+        <kbd>esc</kbd><span>close</span>
+      </span>
+    </footer>
+  </div>
+</div>
+
+<!--
+  Palette styles are authored global (not scoped) on purpose. The result
+  rows are created dynamically by src/scripts/command-palette.js, so the
+  <a>, <div>, <span> children never pick up Astro's `data-astro-cid-*`
+  scoping attribute and scoped selectors silently fail to match them
+  (the visible failure: rows render as vertically-stacked unstyled
+  text). Every class here is prefixed `command-palette__`, so there is
+  zero collision risk with the rest of the site.
+-->
+<style is:global>
+  /* ---- Palette chrome ------------------------------------------------- */
+
+  .command-palette {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: min(12vh, 108px) 20px 20px;
+    pointer-events: none;
+  }
+
+  .command-palette:not([hidden]) {
+    pointer-events: auto;
+  }
+
+  .command-palette__backdrop {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    background: radial-gradient(
+        ellipse at 50% 0%,
+        rgba(0, 212, 255, 0.08),
+        rgba(5, 10, 14, 0) 55%
+      ),
+      rgba(4, 8, 12, 0.62);
+    backdrop-filter: blur(10px) saturate(1.1);
+    -webkit-backdrop-filter: blur(10px) saturate(1.1);
+    cursor: default;
+    opacity: 0;
+    transition: opacity 180ms ease-out;
+  }
+
+  .command-palette:not([hidden]) .command-palette__backdrop {
+    opacity: 1;
+  }
+
+  .command-palette__panel {
+    position: relative;
+    width: min(680px, 100%);
+    max-height: min(74vh, 720px);
+    display: flex;
+    flex-direction: column;
+    /* Double gradient: a soft cyan halo at the top, layered over a
+       charcoal gradient that fades toward black at the base. Mirrors
+       the Praxis dossier chrome so the palette reads as the same
+       object family — not a generic modal. */
+    background:
+      radial-gradient(
+        ellipse at 20% -10%,
+        rgba(0, 212, 255, 0.10),
+        rgba(0, 212, 255, 0) 50%
+      ),
+      linear-gradient(180deg, rgba(18, 26, 34, 0.96) 0%, rgba(9, 14, 19, 0.96) 100%);
+    border: 1px solid rgba(0, 212, 255, 0.22);
+    border-radius: 10px;
+    box-shadow:
+      0 30px 80px rgba(0, 0, 0, 0.55),
+      0 10px 30px rgba(0, 0, 0, 0.35),
+      0 0 0 1px rgba(0, 212, 255, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    overflow: hidden;
+    transform: translateY(-10px) scale(0.995);
+    opacity: 0;
+    transition:
+      transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 180ms ease-out;
+  }
+
+  .command-palette:not([hidden]) .command-palette__panel {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+
+  /* Corner ticks — subtle dossier accent matching Praxis seal chrome. */
+  .command-palette__corner {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    pointer-events: none;
+    z-index: 1;
+    border-color: rgba(0, 212, 255, 0.45);
+    border-style: solid;
+    border-width: 0;
+  }
+  .command-palette__corner--tl { top: 0; left: 0; border-top-width: 1px; border-left-width: 1px; border-top-left-radius: 10px; }
+  .command-palette__corner--tr { top: 0; right: 0; border-top-width: 1px; border-right-width: 1px; border-top-right-radius: 10px; }
+  .command-palette__corner--bl { bottom: 0; left: 0; border-bottom-width: 1px; border-left-width: 1px; border-bottom-left-radius: 10px; }
+  .command-palette__corner--br { bottom: 0; right: 0; border-bottom-width: 1px; border-right-width: 1px; border-bottom-right-radius: 10px; }
+
+  /* ---- Head --------------------------------------------------------- */
+
+  .command-palette__head {
+    padding: 20px 22px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative;
+  }
+
+  .command-palette__head::after {
+    /* Gold hairline tick under the head — same accent used on Praxis
+       dossier panels and lexicon entry rows. Signals "this is the
+       same artifact vocabulary." */
+    content: '';
+    position: absolute;
+    left: 22px;
+    bottom: -1px;
+    width: 28px;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(224, 199, 131, 0.75), rgba(224, 199, 131, 0));
+  }
+
+  .command-palette__head-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .command-palette__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono, ui-monospace, 'SFMono-Regular', Menlo, monospace);
+    font-size: 0.68rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: rgba(0, 212, 255, 0.85);
+    line-height: 1;
+  }
+
+  .command-palette__eyebrow-glyph {
+    color: rgba(0, 212, 255, 0.9);
+    font-weight: 700;
+  }
+
+  .command-palette__head-kbd {
+    display: inline-flex;
+    gap: 2px;
+  }
+
+  .command-palette__head-kbd kbd {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 4px 7px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(220, 220, 220, 0.85);
+  }
+
+  .command-palette__title {
+    font-family: var(--font-heading, system-ui, sans-serif);
+    font-size: 1.35rem;
+    font-weight: 500;
+    line-height: 1.15;
+    margin: 10px 0 4px;
+    color: #fff;
+    letter-spacing: -0.01em;
+  }
+
+  .command-palette__subtitle {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: rgba(200, 196, 190, 0.7);
+  }
+
+  .command-palette__subtitle kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.05);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.72rem;
+    line-height: 1;
+    vertical-align: 1px;
+    color: rgba(220, 220, 220, 0.85);
+  }
+
+  /* ---- Search row --------------------------------------------------- */
+
+  .command-palette__search {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 22px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.015);
+  }
+
+  .command-palette__search-icon {
+    color: rgba(0, 212, 255, 0.75);
+    flex-shrink: 0;
+  }
+
+  .command-palette__input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: 0;
+    outline: none;
+    color: #fff;
+    font-family: var(--font-body, system-ui, sans-serif);
+    font-size: 1rem;
+    line-height: 1.4;
+    padding: 0;
+    /* iOS Safari zooms any <input> whose computed font-size is under
+       16px on focus — at 1rem (=16px default) we already clear the
+       bar, but the explicit 16px on coarse pointers protects against
+       downstream :root font-size changes. */
+  }
+
+  @media (pointer: coarse) {
+    .command-palette__input {
+      font-size: 16px;
+    }
+  }
+
+  /* Remove the platform clear-X the browser adds to type=search so we
+     can render our own styled clear button. */
+  .command-palette__input::-webkit-search-cancel-button,
+  .command-palette__input::-webkit-search-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .command-palette__input::placeholder {
+    color: rgba(255, 255, 255, 0.32);
+  }
+
+  .command-palette__status {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(200, 196, 190, 0.55);
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .command-palette__clear {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    color: rgba(200, 196, 190, 0.55);
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+
+  /* AAA 44x44: the clear-X is next to the search input on a modal
+     overlay — mis-taps steal focus from the input. Keep the visible
+     disc at 22px but expand the hit zone via width/height on touch. */
+  @media (pointer: coarse) {
+    .command-palette__clear {
+      width: 44px;
+      height: 44px;
+      font-size: 1.4rem;
+    }
+  }
+
+  .command-palette__clear:hover,
+  .command-palette__clear:focus-visible {
+    background: rgba(255, 255, 255, 0.07);
+    color: #fff;
+    outline: none;
+  }
+
+  .command-palette__kbd,
+  .command-palette__footer kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.04);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.7rem;
+    line-height: 1;
+    color: rgba(220, 220, 220, 0.85);
+  }
+
+  .command-palette__kbd--hint {
+    color: rgba(200, 196, 190, 0.7);
+    flex-shrink: 0;
+  }
+
+  /* ---- Scope toolbar ------------------------------------------------ */
+
+  .command-palette__scopes {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .command-palette__scopes::-webkit-scrollbar { display: none; }
+
+  .command-palette__scope {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    appearance: none;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(200, 196, 190, 0.72);
+    padding: 6px 11px 6px 8px;
+    border-radius: 4px;
+    font-family: var(--font-body, system-ui, sans-serif);
+    font-size: 0.78rem;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease,
+      color 140ms ease;
+  }
+
+  /* Scope chips live in a dense horizontal rail; keep the visual
+     footprint tight on desktop and only expand for coarse pointers.
+     44x44 hit zone but the label/glyph stay visually compact. */
+  @media (pointer: coarse) {
+    .command-palette__scope {
+      min-height: 44px;
+      padding: 10px 14px 10px 11px;
+    }
+  }
+
+  .command-palette__scope:hover,
+  .command-palette__scope:focus-visible {
+    border-color: rgba(0, 212, 255, 0.35);
+    color: #fff;
+    outline: none;
+  }
+
+  .command-palette__scope[aria-pressed='true'] {
+    background: rgba(0, 212, 255, 0.12);
+    border-color: rgba(0, 212, 255, 0.55);
+    color: #fff;
+    box-shadow: 0 0 0 1px rgba(0, 212, 255, 0.18) inset;
+  }
+
+  .command-palette__scope-glyph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.04);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: rgba(200, 196, 190, 0.72);
+  }
+
+  .command-palette__scope[aria-pressed='true'] .command-palette__scope-glyph {
+    background: rgba(0, 212, 255, 0.22);
+    color: #e8f7ff;
+  }
+
+  .command-palette__scope-count {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.68rem;
+    color: rgba(200, 196, 190, 0.45);
+    min-width: 1ch;
+    text-align: right;
+  }
+
+  .command-palette__scope[aria-pressed='true'] .command-palette__scope-count {
+    color: rgba(0, 212, 255, 0.85);
+  }
+
+  /* ---- Results ------------------------------------------------------ */
+
+  .command-palette__results {
+    list-style: none;
+    margin: 0;
+    padding: 6px 0 10px;
+    overflow-y: auto;
+    min-height: 0;
+    flex: 1;
+  }
+
+  .command-palette__results:empty {
+    display: none;
+  }
+
+  .command-palette__section {
+    padding: 12px 22px 6px;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.62rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(200, 196, 190, 0.5);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .command-palette__section::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
+  }
+
+  .command-palette__item {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 12px;
+    align-items: start;
+    padding: 10px 22px 10px 18px;
+    color: #ddd;
+    text-decoration: none;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease,
+      color 120ms ease;
+  }
+
+  .command-palette__item[aria-selected='true'],
+  .command-palette__item:hover {
+    background: rgba(0, 212, 255, 0.07);
+    border-left-color: rgba(0, 212, 255, 0.85);
+    color: #fff;
+  }
+
+  .command-palette__item-glyph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 4px;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(200, 196, 190, 0.85);
+    margin-top: 2px;
+  }
+
+  .command-palette__item-glyph[data-type='praxis'] {
+    color: rgba(0, 212, 255, 0.95);
+    border-color: rgba(0, 212, 255, 0.28);
+    background: rgba(0, 212, 255, 0.08);
+  }
+
+  .command-palette__item-glyph[data-type='lexicon'] {
+    color: rgba(224, 199, 131, 0.95);
+    border-color: rgba(224, 199, 131, 0.32);
+    background: rgba(224, 199, 131, 0.08);
+  }
+
+  .command-palette__item-glyph[data-type='engagement'] {
+    color: rgba(175, 140, 255, 0.95);
+    border-color: rgba(175, 140, 255, 0.32);
+    background: rgba(175, 140, 255, 0.08);
+  }
+
+  .command-palette__item-body {
+    min-width: 0;
+  }
+
+  .command-palette__item-title {
+    font-weight: 500;
+    font-size: 0.95rem;
+    line-height: 1.3;
+    margin: 0 0 2px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    color: #fff;
+  }
+
+  .command-palette__item mark.command-palette__mark {
+    background: rgba(224, 199, 131, 0.22);
+    color: #fff;
+    border-radius: 2px;
+    padding: 0 2px;
+  }
+
+  .command-palette__item-badge {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(224, 199, 131, 0.9);
+    border: 1px solid rgba(224, 199, 131, 0.35);
+    background: rgba(224, 199, 131, 0.08);
+    padding: 2px 6px;
+    border-radius: 2px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .command-palette__item[aria-selected='true'] .command-palette__item-badge,
+  .command-palette__item:hover .command-palette__item-badge {
+    color: rgba(224, 199, 131, 1);
+    border-color: rgba(224, 199, 131, 0.55);
+    background: rgba(224, 199, 131, 0.14);
+  }
+
+  .command-palette__item-summary {
+    font-size: 0.82rem;
+    color: rgba(200, 196, 190, 0.7);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin: 0 0 4px;
+  }
+
+  .command-palette__item-meta {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(200, 196, 190, 0.45);
+    line-height: 1;
+  }
+
+  .command-palette__item-meta:empty { display: none; }
+
+  .command-palette__item-enter {
+    align-self: center;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.9rem;
+    color: rgba(0, 212, 255, 0);
+    transition: color 120ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+    transform: translateX(-4px);
+  }
+
+  .command-palette__item[aria-selected='true'] .command-palette__item-enter,
+  .command-palette__item:hover .command-palette__item-enter {
+    color: rgba(0, 212, 255, 0.9);
+    transform: translateX(0);
+  }
+
+  /* ---- Empty state ------------------------------------------------- */
+
+  .command-palette__empty {
+    padding: 32px 22px 40px;
+    text-align: center;
+    margin: 0;
+  }
+
+  .command-palette__empty-title {
+    font-family: var(--font-heading, system-ui, sans-serif);
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #fff;
+    margin: 0 0 6px;
+  }
+
+  .command-palette__empty-hint {
+    margin: 0;
+    color: rgba(200, 196, 190, 0.7);
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
+  .command-palette__empty a {
+    color: var(--cyan-core, #00d4ff);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.4);
+    transition: border-color 120ms ease;
+  }
+
+  .command-palette__empty a:hover,
+  .command-palette__empty a:focus-visible {
+    border-bottom-color: rgba(0, 212, 255, 0.9);
+    outline: none;
+  }
+
+  /* ---- Footer ------------------------------------------------------ */
+
+  .command-palette__footer {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 22px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(0, 0, 0, 0.2);
+    font-size: 0.7rem;
+    color: rgba(200, 196, 190, 0.55);
+    flex-wrap: wrap;
+  }
+
+  .command-palette__hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1;
+  }
+
+  .command-palette__hint--right {
+    margin-left: auto;
+  }
+
+  /* Footer hints beyond the core three ("navigate", "open", "close")
+     hide on narrow viewports so the row never wraps awkwardly. */
+  @media (max-width: 540px) {
+    .command-palette__hint--optional { display: none; }
+  }
+
+  /* Small-screen adjustments: tighter padding, sub-headline hidden. */
+  @media (max-width: 480px) {
+    .command-palette__panel {
+      max-height: 86vh;
+      border-radius: 8px;
+    }
+    .command-palette__head {
+      padding: 16px 18px 12px;
+    }
+    .command-palette__head-row {
+      gap: 8px;
+    }
+    .command-palette__title {
+      font-size: 1.15rem;
+    }
+    .command-palette__subtitle {
+      display: none;
+    }
+    .command-palette__search,
+    .command-palette__scopes,
+    .command-palette__footer {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+    .command-palette__item {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .command-palette__backdrop,
+    .command-palette__panel,
+    .command-palette__item,
+    .command-palette__item-enter,
+    .command-palette__scope {
+      transition: none;
+    }
+    .command-palette__panel {
+      transform: none;
+    }
+    .command-palette__item-enter {
+      transform: none;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .command-palette__backdrop {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      background: rgba(5, 10, 14, 0.9);
+    }
+    .command-palette__panel {
+      background: #0b1218;
+    }
+  }
+
+  @media (prefers-contrast: more) {
+    .command-palette__panel {
+      border-color: rgba(0, 212, 255, 0.7);
+    }
+    .command-palette__item[aria-selected='true'],
+    .command-palette__item:hover {
+      background: rgba(0, 212, 255, 0.18);
+    }
+    .command-palette__subtitle,
+    .command-palette__item-summary,
+    .command-palette__item-meta,
+    .command-palette__status {
+      color: rgba(230, 228, 224, 0.95);
+    }
+  }
+
+  /* Global scroll-lock + background inert state applied to <html> while
+     the palette is open. `overscroll-behavior: contain` stops iOS
+     rubber-band from pulling the locked document behind the dialog. */
+  html.command-palette-open,
+  html.command-palette-open body {
+    overflow: hidden !important;
+    overscroll-behavior: contain;
+  }
+</style>
+
+<script>
+  import { initCommandPalette } from '../scripts/command-palette.js';
+  initCommandPalette();
+  document.addEventListener('astro:page-load', initCommandPalette);
+</script>

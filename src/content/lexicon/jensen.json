@@ -1,0 +1,14 @@
+{
+  "num": "04",
+  "term": "Jensen",
+  "category": "substrate",
+  "lastReviewed": "2026-04-18",
+  "definition": "Jensen is Sarif's intelligence layer. A graph-grounded reasoning system that metabolizes every engagement's context into a persistent operating memory. Jensen is how a single operator runs work that would otherwise require a team: research, synthesis, modeling, strategy, documentation and risk analysis are orchestrated through one coherent substrate rather than distributed across disconnected roles.",
+  "matters": "It names the operating reality of the firm and makes the \"one operator, one intelligence layer\" claim concrete rather than marketing. It also creates the anchor for future surfaces (reading room, portal, API) without requiring them to exist today.",
+  "appears": "About page (named as the intelligence layer). Engagements page (referenced as the orchestration substrate behind case outcomes). Methodology essays. Portal interior (when live). Lexicon footer of every Praxis post.",
+  "related": [
+    { "id": "ucim", "label": "UCIM" },
+    { "id": "architectural-depth", "label": "Architectural Depth" },
+    { "id": "trace", "label": "Trace" }
+  ]
+}

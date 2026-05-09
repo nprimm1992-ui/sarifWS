@@ -1,0 +1,530 @@
+---
+import { ClientRouter } from 'astro:transitions';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import Nav from '../components/Nav.astro';
+import CapabilityTicker from '../components/CapabilityTicker.astro';
+import EngagementTicker from '../components/EngagementTicker.astro';
+import Footer from '../components/Footer.astro';
+import CommandPalette from '../components/CommandPalette.astro';
+import '../styles/global.css';
+import '../styles/materialize.css';
+
+/** Raster in `/public`; used unless a page overrides `ogImage` (e.g. Praxis hero). */
+const DEFAULT_OG_IMAGE = '/Create_a_premium_luxury_logo_for_SARIF_CONSULTING_-1776279344571.png';
+
+/** Build-time check: only emit the HDR preload hint on landing if the
+ *  asset actually shipped. Absent HDR → synthetic hemisphere IBL takes
+ *  over in the lobby module at runtime, no preload required. The check
+ *  runs once per SSG page build (cheap fs.existsSync); any mutation in
+ *  public/env/ between builds is automatically picked up. */
+const hdrEnvPath = fileURLToPath(new URL('../../public/env/lobby-studio.hdr', import.meta.url));
+const hdrEnvMapShipped = existsSync(hdrEnvPath);
+const hdrMobileEnvPath = fileURLToPath(new URL('../../public/env/lobby-studio-mobile.hdr', import.meta.url));
+const hdrMobileEnvShipped = existsSync(hdrMobileEnvPath);
+
+const isHomepage = Astro.url.pathname === '/' || Astro.url.pathname === '';
+const pathNorm = Astro.url.pathname.replace(/\/+$/, '') || '/';
+const isServicesPage = pathNorm === '/services';
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+  /** When true, omit this URL from search engine indexes (page may still be linked internally). */
+  noindex?: boolean;
+  /** Extra JSON-LD structured-data blocks (array of plain JS objects) appended after the global ProfessionalService block. */
+  jsonLd?: Record<string, unknown>[];
+  /**
+   * Optional override for the lobby camera pose. When set, takes
+   * precedence over pathname-based resolution. Use for pages whose
+   * URL doesn't convey the intended framing — e.g. the 404 page when
+   * served as a fallback for typo'd URLs. Value must match a key in
+   * src/scripts/lobby-route-poses.js (e.g. `/404`).
+   */
+  lobbyPose?: string;
+}
+
+const {
+  title = 'Sarif Consulting — AI-Augmented Strategic Consulting',
+  description = 'Production-grade research, development and strategic materials. Full methodology. Days not months.',
+  ogImage = DEFAULT_OG_IMAGE,
+  noindex = false,
+  jsonLd = [],
+  lobbyPose,
+} = Astro.props;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+
+// Breadcrumbs: derive from pathname segments. Home always comes first; the
+// current page is the last segment, title-cased for display. A single-level
+// URL (e.g. /about/) yields a two-item list (Home → About).
+function buildBreadcrumbs(pathname: string, site: URL | undefined) {
+  const base = (site && site.origin) || 'https://sarifconsulting.ai';
+  const segments = pathname.split('/').filter(Boolean);
+  const items = [
+    {
+      '@type': 'ListItem',
+      position: 1,
+      name: 'Home',
+      item: `${base}/`,
+    },
+  ];
+  let acc = '';
+  segments.forEach((seg, idx) => {
+    acc += '/' + seg;
+    const pretty = seg
+      .split('-')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+    items.push({
+      '@type': 'ListItem',
+      position: idx + 2,
+      name: pretty,
+      item: `${base}${acc}/`,
+    });
+  });
+  return items;
+}
+
+const breadcrumbItems = buildBreadcrumbs(Astro.url.pathname, Astro.site);
+const hasBreadcrumbs = breadcrumbItems.length > 1;
+
+const isPraxisPage = pathNorm === '/praxis';
+
+/** Cloudflare Web Analytics — set in Pages → Settings → Environment variables as PUBLIC_CF_BEACON_TOKEN (token from Web Analytics / beacon snippet). Omit to skip beacon and avoid broken RUM/CORS in the console. */
+const cfBeaconToken =
+  typeof import.meta.env.PUBLIC_CF_BEACON_TOKEN === 'string'
+    ? import.meta.env.PUBLIC_CF_BEACON_TOKEN.trim()
+    : '';
+---
+
+<!doctype html>
+<html lang="en" data-materialize="pending">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- interactive-widget=resizes-content keeps Android Chrome's shrinking
+         URL bar from reflowing the visual viewport mid-scroll, which used to
+         produce a visible jitter as the bar collapsed / expanded. The cover
+         keyword preserves safe-area notch handling for iOS. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
+
+    <link rel="canonical" href={canonicalURL} />
+    <link rel="alternate" hreflang="en-US" href={canonicalURL} />
+    <link rel="alternate" hreflang="x-default" href={canonicalURL} />
+    {isPraxisPage && (
+      <link
+        rel="alternate"
+        type="application/atom+xml"
+        title="Sarif Consulting — Praxis"
+        href={new URL('/praxis/rss.xml', Astro.site)}
+      />
+    )}
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={new URL(ogImage, Astro.site)} />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={new URL(ogImage, Astro.site)} />
+
+    <!-- Raster favicons only. No SVG link: browsers prefer SVG over PNG when
+         both are declared, and the in-repo favicon.svg vector does not match
+         the canonical golden-winged emblem. Full modern size ladder declared
+         so every surface (Retina tab, Windows taskbar, Android launcher,
+         Chrome PWA, iOS home screen) picks a native-resolution source
+         instead of downscaling from a small master. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/favicon-512.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#1a2e3c" />
+    <meta name="color-scheme" content="dark" />
+
+    <!-- Self-hosted fonts — see src/styles/fonts.css. Preload the four
+         weights that render above-the-fold on every page so the first
+         paint never falls back to system fonts. -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/orbitron-700.woff2" crossorigin="anonymous" />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/inter-400.woff2" crossorigin="anonymous" />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/space-grotesk-500.woff2" crossorigin="anonymous" />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/space-grotesk-700.woff2" crossorigin="anonymous" />
+
+    {isHomepage && <link rel="preload" href="/wing-emblem-3d-model.glb" as="fetch" type="model/gltf-binary" crossorigin="anonymous" />}
+    {isHomepage && hdrEnvMapShipped && <link rel="preload" href="/env/lobby-studio.hdr" as="fetch" type="image/vnd.radiance" crossorigin="anonymous" />}
+    {isHomepage && hdrMobileEnvShipped && (
+      <link rel="preload" href="/env/lobby-studio-mobile.hdr" as="fetch" type="image/vnd.radiance" crossorigin="anonymous" />
+    )}
+    {lobbyPose && <meta name="lobby-pose" content={lobbyPose} />}
+    {hdrEnvMapShipped && <meta name="lobby-hdr-desktop" content="1" />}
+    {hdrMobileEnvShipped && <meta name="lobby-hdr-mobile" content="1" />}
+
+    {/* Round-4 §3.4 — build stamp meta.
+        Consumed by the command palette and the Praxis "ask" field to
+        append ?v=<id> to /search-index.json fetches and to invalidate
+        their in-memory caches when the document is served from a newer
+        deploy than the still-open tab is running. Value comes from
+        astro.config.mjs's vite.define BUILD_ID injection (CF_PAGES_COMMIT_SHA
+        / GITHUB_SHA on CI, timestamp for local builds). */}
+    <meta name="build" content={import.meta.env.BUILD_ID ?? 'dev'} />
+
+    <title>{title}</title>
+
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "ProfessionalService",
+      "name": "Sarif Consulting",
+      "description": "AI-augmented consulting. Production-grade research, development and strategic materials.",
+      "url": "https://sarifconsulting.ai",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Portland",
+        "addressRegion": "OR",
+        "addressCountry": "US"
+      },
+      "email": "info@sarifconsulting.ai",
+      "areaServed": "Worldwide",
+      "priceRange": "$$-$$$",
+      "sameAs": ["https://sarifconsulting.ai"]
+    })} />
+    {jsonLd.map((block) => (
+      <script type="application/ld+json" set:html={JSON.stringify(block)} />
+    ))}
+    {hasBreadcrumbs && (
+      <script type="application/ld+json" set:html={JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: breadcrumbItems,
+      })} />
+    )}
+
+    <ClientRouter />
+
+    <!-- Speculation rules: moderate prerender for five primary routes (Chromium 121+).
+         Document-wide prefetch was removed — it issued aggressive cross-origin fetches
+         (incl. /) that correlated with 503s and ERR_ABORTED under load; ClientRouter
+         already handles instant navigation elsewhere. -->
+    <script type="speculationrules" set:html={JSON.stringify({
+      prerender: [
+        {
+          source: 'list',
+          urls: ['/about/', '/services/', '/engagements/', '/praxis/', '/contact/'],
+          eagerness: 'moderate',
+        },
+      ],
+    })} />
+
+    {cfBeaconToken ? (
+      <script
+        defer
+        src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon={JSON.stringify({ token: cfBeaconToken })}
+      ></script>
+    ) : null}
+
+    <noscript>
+      <style>{`[data-materialize-text]{color:inherit!important}html[data-materialize="pending"]{animation:none!important}`}</style>
+    </noscript>
+  </head>
+
+  <body>
+    <!-- Persistent background canvases — authored here (not JS-injected) so
+         Astro's ClientRouter keeps them across view transitions. The lobby
+         WebGL context and the atmosphere 2D context survive every navigation,
+         so pages feel like overlays inside a single continuous spatial
+         environment rather than hero/page handoffs. view-transition-name:none
+         prevents the browser View Transitions API from trying to crossfade
+         the canvas bitmap during a swap. -->
+    <canvas
+      id="lobby-canvas"
+      aria-hidden="true"
+      transition:persist="sarif-lobby"
+    ></canvas>
+    <canvas
+      id="atmosphere-canvas"
+      aria-hidden="true"
+      transition:persist="sarif-atmosphere"
+    ></canvas>
+
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <div class="scroll-progress" aria-hidden="true">
+      <div class="scroll-progress__bar" id="scroll-bar"></div>
+    </div>
+
+    <Nav />
+    {isHomepage && <CapabilityTicker />}
+    <div id="perspective-root">
+      <main id="main-content">
+        <slot />
+      </main>
+    </div>
+    {isServicesPage && (
+      <div class="site-eng-ticker-wrap" aria-hidden="true">
+        <EngagementTicker />
+      </div>
+    )}
+    <Footer />
+
+    <CommandPalette />
+
+    <script>
+      import '../scripts/materialize.js';
+    </script>
+
+    <script>
+      import '../scripts/reveal.js';
+      import '../scripts/telemetry.js';
+      import '../scripts/network-status.js';
+      import '../scripts/cta-telemetry.js';
+      import '../scripts/magnetic-cta.js';
+      import '../scripts/spring-tilt.js';
+    </script>
+
+    <!-- 3D Lobby Environment — dynamic import after idle to reduce main-thread
+         contention during first paint. Loaded on every page navigation; the
+         lobby module itself decides whether to render (landing path only). -->
+    <script>
+      const LOBBY_IDLE_TIMEOUT_MS = 600;
+      let lobbyDomContentLoadedHooked = false;
+
+      function scheduleLobbyImport() {
+        /* requestIdleCallback is correct for first-paint hygiene, but a few
+           browser profiles (and some embedded previews vs standalone tabs)
+           schedule idle work differently. Use a single-flight guard plus a
+           hard setTimeout ceiling so initLobby always runs even if idle is
+           starved. import() is module-cached — safe if both paths fire. */
+        let ran = false;
+        const run = () => {
+          if (ran) return;
+          ran = true;
+          import('../scripts/lobby-scene.js').then((m) => m.initLobby());
+        };
+        if (typeof requestIdleCallback === 'function') {
+          requestIdleCallback(run, { timeout: LOBBY_IDLE_TIMEOUT_MS });
+        } else {
+          requestAnimationFrame(() => requestAnimationFrame(run));
+        }
+        setTimeout(run, LOBBY_IDLE_TIMEOUT_MS + 200);
+      }
+
+      function startLobby() {
+        if (document.readyState === 'loading') {
+          if (!lobbyDomContentLoadedHooked) {
+            lobbyDomContentLoadedHooked = true;
+            document.addEventListener('DOMContentLoaded', scheduleLobbyImport, { once: true });
+          }
+        } else {
+          scheduleLobbyImport();
+        }
+      }
+
+      startLobby();
+      document.addEventListener('astro:page-load', startLobby);
+    </script>
+
+    <!-- Atmospheric particle overlay — always initialized; the module self-limits
+         on reduced-motion and scales particle count by viewport. -->
+    <script>
+      import { initAtmosphere } from '../scripts/atmosphere.js';
+
+      function startAtmosphere() {
+        initAtmosphere();
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startAtmosphere, { once: true });
+      } else {
+        startAtmosphere();
+      }
+      document.addEventListener('astro:page-load', startAtmosphere);
+    </script>
+
+    <!-- Ambient audio system -->
+    <script>
+      import { initAudio } from '../scripts/audio.js';
+
+      function startAudio() {
+        initAudio();
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startAudio, { once: true });
+      } else {
+        startAudio();
+      }
+      document.addEventListener('astro:page-load', startAudio);
+    </script>
+
+    <!-- Homepage inertial smooth-scroll (Lenis). Scoped to '/'; the module
+         itself bails on other paths and on prefers-reduced-motion. Must
+         tear down on astro:before-swap so the interior route boots with
+         untouched native scroll; re-inits on astro:after-swap if the new
+         route is the homepage. -->
+    <script>
+      import {
+        initHomeSmoothScroll,
+        teardownHomeSmoothScroll,
+      } from '../scripts/home-smooth-scroll.js';
+
+      function startHomeSmoothScroll() {
+        initHomeSmoothScroll();
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startHomeSmoothScroll, { once: true });
+      } else {
+        startHomeSmoothScroll();
+      }
+
+      /* astro:before-swap fires before the new DOM is committed; tear down
+         Lenis here so its scroll-container reference (the outgoing
+         scrollingElement) is released cleanly. astro:after-swap re-inits
+         only if the new pathname is the homepage (guard inside the module). */
+      document.addEventListener('astro:before-swap', teardownHomeSmoothScroll);
+      document.addEventListener('astro:after-swap', startHomeSmoothScroll);
+    </script>
+
+    <style>
+      /* Services page: engagement marquee above footer (outside perspective-root, matches CapabilityTicker) */
+      .site-eng-ticker-wrap {
+        position: relative;
+        z-index: 2;
+        margin-top: clamp(40px, 7vw, 88px);
+        margin-bottom: clamp(20px, 4vw, 40px);
+      }
+
+      /* Stacking + positioning context for the content pane. Perspective is
+         intentionally NOT declared here: a page-sized 3D context promoted the
+         entire main layer to the compositor and forced a re-rasterise on every
+         scroll-tick, even on pages that never tilt any child. ServiceCard
+         applies its own scoped perspective only where card tilt exists. */
+      #perspective-root {
+        position: relative;
+        z-index: 1;
+      }
+    </style>
+
+    <script>
+      /* Scroll progress bar — progressive-enhancement strategy.
+       *
+       * Tier 1 (modern engines; Chromium 115+, Firefox 139+): the CSS
+       *   `@supports (animation-timeline: scroll())` block in global.css
+       *   drives the bar entirely on the compositor. JS does nothing.
+       *
+       * Tier 2 (Safari, older browsers): a single dirty-flag subscriber on
+       *   the unified main-ticker writes `transform: scaleX(p)`. The scroll
+       *   event's only job is to set the dirty flag (constant time, no
+       *   layout thrash). The ticker owns the rAF + visibility pause.
+       *
+       * What was removed:
+       *   - A mobile-only continuous rAF loop that ran whether or not the
+       *     user had scrolled.
+       *   - A platform-conditional MediaQueryList path ("mobile drives from
+       *     rAF, desktop drives from scroll event") — replaced with one
+       *     code path that is correct on every device.
+       *   - Ad-hoc visibilitychange / pageshow wiring — the ticker handles
+       *     both lifecycle events centrally. */
+      import {
+        getDocumentScrollProgress,
+        subscribeScrollableLayoutUpdates,
+      } from '../scripts/document-scroll-progress.js';
+      import {
+        subscribe as tickerSubscribe,
+        unsubscribe as tickerUnsubscribe,
+        PRIORITY_UI,
+      } from '../scripts/main-ticker.js';
+
+      /* Minimum scaleX delta (0–1) that triggers a DOM write. 0.0004 is the
+       *   visual threshold below which two adjacent scaleX values produce
+       *   identical pixel output for a 2px-tall, viewport-wide bar. Avoids
+       *   needless style recalcs when the scroll position micro-oscillates. */
+      const BAR_EPSILON = 0.0004;
+      const SUPPORTS_SCROLL_TIMELINE =
+        typeof CSS !== 'undefined' &&
+        typeof CSS.supports === 'function' &&
+        CSS.supports('animation-timeline: scroll()');
+
+      let _barScrollHandler = null;
+      let _barLayoutUnsub = null;
+      let _barPageShowHandler = null;
+      let _barTickerToken = null;
+      let _barDirty = true;
+      let _lastBarScaleX = -1;
+
+      function teardownScrollProgress() {
+        if (_barTickerToken) {
+          tickerUnsubscribe(_barTickerToken);
+          _barTickerToken = null;
+        }
+        if (_barLayoutUnsub) {
+          _barLayoutUnsub();
+          _barLayoutUnsub = null;
+        }
+        if (_barScrollHandler) {
+          window.removeEventListener('scroll', _barScrollHandler);
+          window.removeEventListener('resize', _barScrollHandler);
+          _barScrollHandler = null;
+        }
+        if (_barPageShowHandler) {
+          window.removeEventListener('pageshow', _barPageShowHandler);
+          _barPageShowHandler = null;
+        }
+      }
+
+      function initScrollProgress() {
+        teardownScrollProgress();
+        const bar = document.getElementById('scroll-bar');
+        if (!bar) return;
+
+        /* Tier 1: CSS handles it. Ensure the inline transform (from any
+           previous page render) is cleared so the CSS animation takes over
+           cleanly, then bail. */
+        if (SUPPORTS_SCROLL_TIMELINE) {
+          bar.style.transform = '';
+          return;
+        }
+
+        /* Tier 2: JS dirty-flag path. */
+        _barDirty = true;
+        _lastBarScaleX = -1;
+
+        _barScrollHandler = () => { _barDirty = true; };
+        window.addEventListener('scroll', _barScrollHandler, { passive: true });
+        window.addEventListener('resize', _barScrollHandler, { passive: true });
+        _barLayoutUnsub = subscribeScrollableLayoutUpdates(_barScrollHandler);
+
+        /* pageshow including bfcache restore — layout/scrollTop could differ
+           from what we last rendered. Force a write on the next tick. */
+        _barPageShowHandler = () => { _barDirty = true; };
+        window.addEventListener('pageshow', _barPageShowHandler);
+
+        const tick = () => {
+          if (!_barDirty || !bar.isConnected) return;
+          const p = Math.max(0, Math.min(1, getDocumentScrollProgress()));
+          _barDirty = false;
+          if (_lastBarScaleX < 0 || Math.abs(p - _lastBarScaleX) > BAR_EPSILON) {
+            bar.style.transform = `scaleX(${p})`;
+            _lastBarScaleX = p;
+          }
+        };
+
+        _barTickerToken = tickerSubscribe(tick, PRIORITY_UI);
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initScrollProgress, { once: true });
+      } else {
+        initScrollProgress();
+      }
+      document.addEventListener('astro:page-load', initScrollProgress);
+    </script>
+  </body>
+</html>

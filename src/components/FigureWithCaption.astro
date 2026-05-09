@@ -1,0 +1,149 @@
+---
+/*
+ * Pillar 6e — FigureWithCaption
+ *
+ * Documentary-style figure wrapper. Pairs Astro's <Picture> (AVIF → WebP
+ * → fallback) with an optional classification eyebrow and caption body.
+ * Intended for Praxis mastheads, proof galleries, and methodology spreads.
+ *
+ * Why AVIF + WebP:
+ * - AVIF wins quality-at-bitrate for photographic content on supporting
+ *   browsers (~95 % global, per caniuse at time of writing).
+ * - WebP covers the long tail (older Safari, specific webviews).
+ * - Original format (png / jpg / webp) is the fallback so the <img> src
+ *   always resolves even in engines without <picture> support.
+ *
+ * LCP hygiene:
+ * - Callers place a `fetchpriority="high"` + `loading="eager"` on the
+ *   hero figure of a page and leave subsequent figures on the defaults
+ *   (`fetchpriority="auto"`, `loading="lazy"`). This matches the LCP
+ *   recommendation from web.dev: preload the largest above-fold image
+ *   without letting below-fold images eat bandwidth on slow connections.
+ *
+ * Slots:
+ * - `classification` (optional) — small uppercase eyebrow, e.g. "FIELD OBS / PRAXIS No. 07"
+ * - `caption` (optional) — prose caption; plain text recommended.
+ *
+ * PII / injection posture:
+ * - Slot contents are rendered as-authored; callers are responsible for
+ *   escaping any user-supplied text before passing it in.
+ */
+import { Picture } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+export interface Props {
+  src: ImageMetadata;
+  alt: string;
+  widths?: number[];
+  sizes?: string;
+  class?: string;
+  fetchpriority?: 'high' | 'low' | 'auto';
+  loading?: 'eager' | 'lazy';
+  decoding?: 'async' | 'sync' | 'auto';
+  classification?: string;
+  caption?: string;
+}
+
+const {
+  src,
+  alt,
+  widths = [400, 800, 1200, 1600],
+  sizes = '(min-width: 960px) 800px, 100vw',
+  class: className,
+  fetchpriority = 'auto',
+  loading = 'lazy',
+  decoding = 'async',
+  classification,
+  caption,
+} = Astro.props;
+
+const formats: Array<'avif' | 'webp'> = ['avif', 'webp'];
+const hasClassification = Boolean(classification) || Astro.slots.has('classification');
+const hasCaption = Boolean(caption) || Astro.slots.has('caption');
+const hasFigcaption = hasClassification || hasCaption;
+---
+
+<figure class:list={['figure-with-caption', className]}>
+  <div class="figure-with-caption__frame">
+    <Picture
+      src={src}
+      alt={alt}
+      widths={widths}
+      sizes={sizes}
+      formats={formats}
+      loading={loading}
+      decoding={decoding}
+      fetchpriority={fetchpriority}
+      pictureAttributes={{ class: 'figure-with-caption__picture' }}
+    />
+  </div>
+  {hasFigcaption && (
+    <figcaption class="figure-with-caption__caption">
+      {hasClassification && (
+        <span class="figure-with-caption__classification ui-eyebrow">
+          <slot name="classification">{classification}</slot>
+        </span>
+      )}
+      {hasCaption && (
+        <span class="figure-with-caption__body">
+          <slot name="caption">{caption}</slot>
+        </span>
+      )}
+    </figcaption>
+  )}
+</figure>
+
+<style>
+  .figure-with-caption {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .figure-with-caption__frame {
+    position: relative;
+    overflow: hidden;
+    clip-path: var(--clip-sm);
+    background: rgba(0, 212, 255, 0.04);
+    border: 1px solid rgba(0, 212, 255, 0.12);
+    aspect-ratio: auto;
+  }
+
+  .figure-with-caption__frame :global(.figure-with-caption__picture),
+  .figure-with-caption__frame :global(.figure-with-caption__picture img) {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .figure-with-caption__caption {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 2px;
+  }
+
+  .figure-with-caption__classification {
+    font-family: var(--font-heading);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--cyan-bright);
+    text-shadow: var(--cyan-glow-text);
+  }
+
+  .figure-with-caption__body {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    color: var(--text-muted);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .figure-with-caption__frame {
+      background: transparent;
+    }
+  }
+</style>

@@ -1,0 +1,14 @@
+{
+  "num": "10",
+  "term": "Briefing",
+  "category": "engagement",
+  "lastReviewed": "2026-04-18",
+  "definition": "The public entry point to working with Sarif. A Briefing is a scoped, fixed-fee engagement: the firm studies a single question, delivers a signed dossier with trace, and ends. No retainer, no open-ended commitment. Many Briefings become deeper engagements; many remain standalone. Both outcomes are legitimate.",
+  "matters": "It lowers activation energy for new clients while preserving Sarif's standards. It is also the only tier publicly visible on the site, which keeps the firm's posture institutional rather than transactional. Deeper tiers exist but are introduced inside the relationship, not advertised on a pricing page.",
+  "appears": "Contact page (as the offer behind the Transmission). Engagements page (several of the case studies are Briefings). Homepage secondary CTA candidate.",
+  "related": [
+    { "id": "transmission", "label": "Transmission" },
+    { "id": "architectural-depth", "label": "Architectural Depth" },
+    { "id": "trace", "label": "Trace" }
+  ]
+}

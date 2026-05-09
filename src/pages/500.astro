@@ -1,0 +1,158 @@
+---
+/*
+ * /500.astro — Cloudflare Pages serves this as the response body when a
+ * Pages Function throws an unhandled exception (and for any other 5xx
+ * origin path that maps here). Keeping the lobby shell under an error
+ * boundary preserves continuity with the rest of the site; users don't
+ * drop into a generic browser error screen.
+ *
+ * Pillar 4e design rules:
+ *  - Must not introduce any runtime dependency the main app doesn't
+ *    already ship. Pure markup + the default Base layout.
+ *  - Copy language mirrors the transmission metaphor used throughout
+ *    the site ("Transmission interrupted", "Principal notified").
+ *  - Pose = /500 (see lobby-route-poses.js) — deeper dolly-back than
+ *    /404 so the user intuits "this is off-nominal and the room is
+ *    farther away than usual".
+ *  - lobbyPose meta override ensures the pose resolves correctly even
+ *    if Cloudflare serves the HTML under a URL that doesn't match.
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base
+  title="500 — Sarif Consulting"
+  description="Sarif Consulting — transmission interrupted. The principal has been notified. Return home or reach us via Contact."
+  noindex={true}
+  lobbyPose="/500"
+>
+  <section class="error-page section" aria-labelledby="error-heading">
+    <div class="container error-inner page-reads-over-lobby">
+      <p class="error-code">500</p>
+      <h1 id="error-heading" class="error-title">Transmission Interrupted</h1>
+      <p class="error-subtitle">Server-side fault</p>
+      <p class="error-body">
+        Something went wrong on our side. The principal has been notified and
+        the fault is logged. You can return to base or reach us directly.
+      </p>
+      <div class="error-actions">
+        <a href="/" class="btn-gold cyan-gold-label lane-cta"><span class="sarif-hover-sheen">Return to Base</span></a>
+        <a href="/contact/" class="error-link error-link--prominent">Reach out directly</a>
+      </div>
+      <nav class="error-recovery" aria-label="Recovery links">
+        <a href="/about/" class="error-link">About</a>
+        <span class="error-link-sep" aria-hidden="true">&#183;</span>
+        <a href="/services/" class="error-link">Services</a>
+        <span class="error-link-sep" aria-hidden="true">&#183;</span>
+        <a href="/engagements/" class="error-link">Engagements</a>
+        <span class="error-link-sep" aria-hidden="true">&#183;</span>
+        <a href="/praxis/" class="error-link">Praxis</a>
+      </nav>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .error-page {
+    min-height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .error-inner {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    max-width: 560px;
+    margin-inline: auto;
+  }
+
+  .error-code {
+    font-family: var(--font-heading);
+    font-size: clamp(4rem, 10vw, 8rem);
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    color: var(--cyan-bright);
+    text-shadow: var(--cyan-glow-text);
+    line-height: 1;
+    opacity: 0.8;
+  }
+
+  .error-title {
+    font-size: var(--text-section);
+    letter-spacing: 0.3em;
+    background: linear-gradient(
+      180deg,
+      var(--chrome-dark) 0%,
+      var(--chrome-light) 45%,
+      var(--chrome-highlight) 50%,
+      var(--chrome-light) 55%,
+      var(--chrome-dark) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .error-subtitle {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    text-transform: none;
+    letter-spacing: 0.05em;
+    margin-top: -12px;
+  }
+
+  .error-body {
+    color: var(--text-secondary);
+    max-width: 420px;
+    line-height: 1.7;
+    text-transform: none;
+    letter-spacing: 0;
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+  }
+
+  .error-actions {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .error-recovery {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .error-link {
+    font-family: var(--font-heading);
+    font-size: 0.65rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-muted);
+    transition: color 0.2s ease;
+  }
+
+  .error-link:hover {
+    color: var(--cyan-core);
+  }
+
+  .error-link-sep {
+    color: var(--text-muted);
+    opacity: 0.4;
+  }
+
+  .error-link--prominent {
+    color: var(--text-secondary);
+  }
+</style>

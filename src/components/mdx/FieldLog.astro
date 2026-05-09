@@ -1,0 +1,67 @@
+---
+/**
+ * MDX FieldLog — dossier-style timestamped entry for in-article notes.
+ *
+ * Usage:
+ *   <FieldLog timestamp="2024-10-12 14:02 EDT" source="Field team dispatch">
+ *     Content describing the observation goes here.
+ *   </FieldLog>
+ */
+interface Props {
+  timestamp: string;
+  source?: string;
+  class?: string;
+}
+
+const { timestamp, source, class: className } = Astro.props;
+const dateTime = timestamp.replace(/\s+/g, ' ').trim();
+---
+
+<article class:list={['mdx-field-log', className]} aria-label={source ? `Field log — ${source}` : 'Field log'}>
+  <header class="mdx-field-log__meta">
+    <time class="mdx-field-log__time" datetime={dateTime}>{timestamp}</time>
+    {source && <span class="mdx-field-log__source">{source}</span>}
+  </header>
+  <div class="mdx-field-log__body">
+    <slot />
+  </div>
+</article>
+
+<style>
+  .mdx-field-log {
+    margin: clamp(24px, 3vw, 36px) 0;
+    padding: clamp(18px, 2.5vw, 24px);
+    border-left: 2px solid var(--sarif-gold);
+    background: rgba(255, 255, 255, 0.03);
+    font-family: var(--font-body);
+  }
+
+  .mdx-field-log__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: baseline;
+    margin-bottom: 10px;
+    font-family: var(--font-heading);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .mdx-field-log__time {
+    color: var(--sarif-gold);
+  }
+
+  .mdx-field-log__source {
+    color: var(--text-secondary);
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+    padding-left: 12px;
+  }
+
+  .mdx-field-log__body {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-primary);
+  }
+</style>

@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="sarif-gold-a" x1="18%" y1="92%" x2="82%" y2="8%" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6b5420"/>
+      <stop offset="45%" stop-color="#c9a227"/>
+      <stop offset="78%" stop-color="#e8d089"/>
+      <stop offset="100%" stop-color="#f5edd4"/>
+    </linearGradient>
+    <linearGradient id="sarif-gold-b" x1="22%" y1="88%" x2="78%" y2="12%" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5c4a1c"/>
+      <stop offset="50%" stop-color="#d4af37"/>
+      <stop offset="100%" stop-color="#faf3dc"/>
+    </linearGradient>
+  </defs>
+  <!-- Stylized phoenix / wing emblem: flowing strokes, transparent canvas -->
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <!-- Left wing cluster -->
+    <path
+      d="M 256 398 C 208 340 152 220 88 96"
+      stroke="url(#sarif-gold-a)"
+      stroke-width="18"
+    />
+    <path
+      d="M 256 404 C 214 352 176 268 132 148"
+      stroke="url(#sarif-gold-b)"
+      stroke-width="14"
+    />
+    <path
+      d="M 258 410 C 228 378 204 310 188 210"
+      stroke="url(#sarif-gold-a)"
+      stroke-width="11"
+    />
+    <!-- Right wing cluster (mirrored) -->
+    <path
+      d="M 256 398 C 304 340 360 220 424 96"
+      stroke="url(#sarif-gold-a)"
+      stroke-width="18"
+    />
+    <path
+      d="M 256 404 C 298 352 336 268 380 148"
+      stroke="url(#sarif-gold-b)"
+      stroke-width="14"
+    />
+    <path
+      d="M 254 410 C 284 378 308 310 324 210"
+      stroke="url(#sarif-gold-a)"
+      stroke-width="11"
+    />
+    <!-- Lower center flourish -->
+    <path
+      d="M 256 412 C 246 448 238 472 256 488 C 274 472 266 448 256 412"
+      stroke="url(#sarif-gold-b)"
+      stroke-width="12"
+    />
+  </g>
+</svg>

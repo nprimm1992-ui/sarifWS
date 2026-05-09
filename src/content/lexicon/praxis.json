@@ -1,0 +1,14 @@
+{
+  "num": "11",
+  "term": "Praxis",
+  "category": "engagement",
+  "lastReviewed": "2026-04-18",
+  "definition": "Practice made public. The Sarif publication where operational thinking, methodology in progress and architectural observations are published as they are developed, not retrofitted into polished deliverables. Praxis is the substrate between internal work and client output — the layer where the firm does its thinking in the open.",
+  "matters": "It names the substance of what Sarif publishes rather than the medium. The word means the active application of theory, which is what every piece in Praxis is: an operational position that has already been tested against real engagements before it is written up.",
+  "appears": "Primary nav label. Section URL (/praxis). Page header. Each piece carries a sequential identifier — Praxis No. 01, No. 02 — so the archive reads as a single ongoing series rather than a dated feed. Category and date are secondary metadata; the number is the identity. Lexicon cross-links from About, Methodology essays and Contact page.",
+  "related": [
+    { "id": "metabolic-knowledge", "label": "Metabolic Knowledge" },
+    { "id": "architectural-depth", "label": "Architectural Depth" },
+    { "id": "trace", "label": "Trace" }
+  ]
+}

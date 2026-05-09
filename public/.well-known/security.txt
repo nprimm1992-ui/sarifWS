@@ -1,0 +1,4 @@
+Contact: mailto:info@sarifconsulting.ai
+Expires: 2027-04-12T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://sarifconsulting.ai/.well-known/security.txt

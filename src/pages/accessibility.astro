@@ -1,0 +1,163 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base
+  title="Accessibility — Sarif Consulting"
+  description="Accessibility commitment for Sarif Consulting: WCAG 2.1 AA where feasible, limitations of WebGL and motion, and how to request accommodations."
+>
+  <section class="policy-hero section" aria-label="Accessibility statement header">
+    <div class="container policy-hero-inner">
+      <p class="section-label">Commitment</p>
+      <h1 class="section-header">Accessibility</h1>
+      <p class="policy-meta">Last updated: April 2026</p>
+    </div>
+  </section>
+
+  <section class="policy-body section cv-auto" data-cv-size="xxl" aria-label="Accessibility statement content">
+    <div class="container policy-content page-reads-over-lobby">
+      <div class="policy-section">
+        <h2 class="policy-heading">Our commitment</h2>
+        <p>
+          Sarif Consulting strives to meet <strong>WCAG 2.1 Level AA</strong> for core site content
+          (navigation, text, forms and legal pages) where it is reasonably achievable. We treat
+          accessibility as an ongoing practice, not a one-time checklist.
+        </p>
+      </div>
+
+      <div class="policy-section">
+        <h2 class="policy-heading">Known limitations</h2>
+        <p>
+          Parts of this site use <strong>WebGL</strong>, <strong>motion</strong> and optional
+          <strong>ambient audio</strong> for an immersive experience. These layers may be difficult
+          or impossible to use with some assistive technologies, on low-power devices, or when motion
+          is reduced. The audio control in the footer is <strong>off by default</strong> and only
+          activates if you opt in; we respect <code>prefers-reduced-motion</code> by hiding the
+          ambient-audio toggle when reduced motion is requested.
+        </p>
+        <p>
+          <strong>Core paths</strong> — including contact, services overview, legal policies and
+          this statement — are designed to remain usable without relying on the 3D lobby or
+          decorative motion.
+        </p>
+      </div>
+
+      <div class="policy-section">
+        <h2 class="policy-heading">Feedback and accommodations</h2>
+        <p>
+          If you encounter a barrier or need information in a different format, contact us at
+          <a href="mailto:info@sarifconsulting.ai" class="policy-link">info@sarifconsulting.ai</a>.
+          We will work with you on reasonable accommodations where we can. For how we handle
+          personal data when you reach out, see our
+          <a href="/privacy/" class="policy-link">Privacy Policy</a>.
+        </p>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .policy-hero {
+    padding-bottom: 40px;
+  }
+
+  .policy-hero-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .policy-meta {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    opacity: 0.6;
+    text-transform: none;
+    letter-spacing: 0;
+    margin-top: 16px;
+  }
+
+  .policy-body {
+    padding-top: 0;
+  }
+
+  .policy-content {
+    max-width: 800px;
+    margin-inline: auto;
+  }
+
+  .policy-section {
+    margin-bottom: 52px;
+    padding-bottom: 52px;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.06);
+  }
+
+  .policy-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+  }
+
+  .policy-heading {
+    font-family: var(--font-heading);
+    font-size: clamp(0.8rem, 1.2vw, 1rem);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--cyan-bright);
+    text-shadow: var(--cyan-glow-text);
+    margin-bottom: 20px;
+  }
+
+  .policy-content p {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    line-height: 1.8;
+    text-transform: none;
+    letter-spacing: 0;
+    margin-bottom: 16px;
+  }
+
+  .policy-content p:last-child {
+    margin-bottom: 0;
+  }
+
+  .policy-content code {
+    font-family: ui-monospace, monospace;
+    font-size: 0.9em;
+    color: var(--chrome-dark);
+    background: rgba(0, 212, 255, 0.08);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+  }
+
+  .policy-link {
+    color: var(--cyan-core);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: rgba(0, 212, 255, 0.4);
+    transition: color 0.2s ease, text-decoration-color 0.2s ease;
+  }
+
+  .policy-link:hover {
+    color: var(--cyan-bright);
+    text-decoration-color: rgba(0, 212, 255, 0.7);
+  }
+
+  .policy-link:focus {
+    outline: none;
+  }
+
+  .policy-link:focus-visible {
+    outline: 2px solid var(--cyan-core);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .policy-link {
+      transition: none;
+    }
+  }
+</style>

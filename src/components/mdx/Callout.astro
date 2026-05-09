@@ -1,0 +1,82 @@
+---
+/**
+ * MDX Callout — note/warning/classified advisory blocks.
+ *
+ * Usage:
+ *   <Callout kind="warning" title="Pressure-test before use">
+ *     Content goes here.
+ *   </Callout>
+ *
+ * Uses existing .panel-frost-base so tokens stay consistent with the rest of
+ * the site; accent color varies by kind.
+ */
+type CalloutKind = 'note' | 'warning' | 'classified';
+
+interface Props {
+  kind?: CalloutKind;
+  title?: string;
+  class?: string;
+}
+
+const { kind = 'note', title, class: className } = Astro.props;
+---
+
+<aside
+  class:list={['mdx-callout', 'panel-frost-base', `mdx-callout--${kind}`, className]}
+  role={kind === 'warning' ? 'note' : undefined}
+  data-kind={kind}
+>
+  {title && <p class="mdx-callout__title ui-eyebrow">{title}</p>}
+  <div class="mdx-callout__body">
+    <slot />
+  </div>
+</aside>
+
+<style>
+  .mdx-callout {
+    margin: clamp(24px, 3vw, 36px) 0;
+    padding: clamp(20px, 3vw, 32px) clamp(24px, 3vw, 36px);
+    clip-path: var(--clip-card);
+    border-left: 2px solid var(--accent, var(--cyan-core));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .mdx-callout--note {
+    --accent: var(--cyan-core);
+  }
+
+  .mdx-callout--warning {
+    --accent: var(--sarif-gold);
+  }
+
+  .mdx-callout--classified {
+    --accent: var(--gold-bright);
+  }
+
+  .mdx-callout__title {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .mdx-callout__body {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    line-height: 1.7;
+    color: var(--text-primary);
+  }
+
+  .mdx-callout__body > :global(p:first-child) {
+    margin-top: 0;
+  }
+
+  .mdx-callout__body > :global(p:last-child) {
+    margin-bottom: 0;
+  }
+</style>

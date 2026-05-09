@@ -1,0 +1,17 @@
+---
+/**
+ * NoLex — opt-out guard for the rehype-lexicon-link auto-linker (P9b).
+ *
+ * Wrap a span/block of prose that should NOT be auto-linked. The rehype
+ * plugin skips descendants of this component. Example:
+ *   <NoLex>Jensen, for us, is just a placeholder here.</NoLex>
+ */
+---
+
+<span class="no-lex">
+  <slot />
+</span>
+
+<style>
+  .no-lex { all: unset; }
+</style>

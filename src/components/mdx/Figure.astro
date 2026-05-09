@@ -1,0 +1,33 @@
+---
+/**
+ * MDX Figure — thin re-export of FigureWithCaption for MDX ergonomics.
+ *
+ * Usage (inside .mdx):
+ *   import fabric from './assets/fabric.jpg';
+ *   <Figure src={fabric} alt="Deployment matrix detail" caption="Section 4 — Fiscal flows" />
+ *
+ * Keeps one canonical Picture wrapper (FigureWithCaption) while letting MDX
+ * authors call a short name.
+ */
+import FigureWithCaption from '../FigureWithCaption.astro';
+import type { ImageMetadata } from 'astro';
+
+export interface Props {
+  src: ImageMetadata;
+  alt: string;
+  classification?: string;
+  caption?: string;
+  widths?: number[];
+  sizes?: string;
+  fetchpriority?: 'high' | 'low' | 'auto';
+  loading?: 'eager' | 'lazy';
+  class?: string;
+}
+
+const props = Astro.props;
+---
+
+<FigureWithCaption {...props}>
+  {props.classification && <Fragment slot="classification">{props.classification}</Fragment>}
+  {props.caption && <Fragment slot="caption">{props.caption}</Fragment>}
+</FigureWithCaption>

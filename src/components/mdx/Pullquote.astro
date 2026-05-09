@@ -1,0 +1,88 @@
+---
+/**
+ * MDX Pullquote — large quote with classification eyebrow.
+ *
+ * Usage (inside .mdx):
+ *   <Pullquote attribution="Praxis No. 02" classification="FIELD OBS">
+ *     The substrate between internal work and client output.
+ *   </Pullquote>
+ *
+ * Renders as a <figure> + <blockquote> so assistive tech follows the
+ * quoted-material semantic (not a heading). Caller supplies the quote body
+ * via the default slot; Astro's MDX runtime escapes it verbatim.
+ */
+interface Props {
+  attribution?: string;
+  classification?: string;
+  class?: string;
+}
+
+const { attribution, classification, class: className } = Astro.props;
+---
+
+<figure class:list={['mdx-pullquote', 'panel-frost-base', className]}>
+  {classification && (
+    <span class="mdx-pullquote__classification ui-eyebrow">{classification}</span>
+  )}
+  <blockquote class="mdx-pullquote__body">
+    <slot />
+  </blockquote>
+  {attribution && (
+    <figcaption class="mdx-pullquote__attribution">{attribution}</figcaption>
+  )}
+</figure>
+
+<style>
+  .mdx-pullquote {
+    position: relative;
+    margin: clamp(28px, 4vw, 44px) 0;
+    padding: clamp(28px, 4vw, 44px);
+    clip-path: var(--clip-card);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .mdx-pullquote__classification {
+    font-family: var(--font-heading);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--gold-bright);
+    text-shadow: var(--gold-glow-soft);
+  }
+
+  .mdx-pullquote__body {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: clamp(1.15rem, 2.2vw, 1.5rem);
+    font-weight: 300;
+    line-height: 1.45;
+    letter-spacing: 0.01em;
+    color: var(--text-primary);
+    quotes: '\201C' '\201D';
+  }
+
+  .mdx-pullquote__body::before {
+    content: open-quote;
+    color: var(--cyan-core);
+    margin-right: 0.1em;
+  }
+
+  .mdx-pullquote__body::after {
+    content: close-quote;
+    color: var(--cyan-core);
+    margin-left: 0.1em;
+  }
+
+  .mdx-pullquote__attribution {
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+  }
+  .mdx-pullquote__attribution::before {
+    content: '— ';
+  }
+</style>

@@ -1,0 +1,155 @@
+---
+/**
+ * LexiconChip — shared chip vocabulary for lexicon surfaces.
+ *
+ * Rendered in three variants, all of them clip-chamfered and keyed off
+ * the dossier palette tokens so the chip looks identical wherever it
+ * appears (popover preview, pinned popover, expanded page entry,
+ * category filter bar).
+ *
+ *   default  — cyan. Primary cross-reference chip. Used for outgoing
+ *              `related` links and active filter chips.
+ *   muted    — neutral. Used for incoming `referenced by` backlinks so
+ *              they read as secondary navigation, not primary calls to
+ *              action.
+ *   category — gold. Used for category badges. Color differentiation
+ *              is paired with an always-present text label so the chip
+ *              doesn't rely on color alone (WCAG).
+ *
+ * Not every chip is a link. When `href` is omitted we render a
+ * `<span>` with identical chrome so filter chips / deprecated badges
+ * don't falsely claim click affordance.
+ */
+export interface Props {
+  href?: string;
+  variant?: 'default' | 'muted' | 'category';
+  /** For filter chips: rendered as a <button> with aria-pressed. */
+  pressed?: boolean;
+  /** data-lex-category: optional tag for filter/scroll targeting. */
+  category?: string;
+  class?: string;
+}
+
+const { href, variant = 'default', pressed, category, class: klass } = Astro.props;
+const isButton = typeof pressed === 'boolean';
+const Tag = isButton ? 'button' : href ? 'a' : 'span';
+const extraAttrs: Record<string, string | undefined> = {};
+if (isButton) {
+  extraAttrs['type'] = 'button';
+  extraAttrs['aria-pressed'] = pressed ? 'true' : 'false';
+}
+if (href && !isButton) extraAttrs['href'] = href;
+if (category) extraAttrs['data-lex-category'] = category;
+---
+
+<Tag class:list={['lex-chip', `lex-chip--${variant}`, klass]} {...extraAttrs}>
+  <slot />
+</Tag>
+
+<style>
+  .lex-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-heading);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 6px 11px;
+    min-height: 26px;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    background: rgba(0, 212, 255, 0.06);
+    color: var(--cyan-core);
+    clip-path: var(--clip-sm);
+    transition:
+      color 0.15s ease,
+      border-color 0.15s ease,
+      background 0.15s ease,
+      transform 0.15s ease;
+  }
+
+  /* span variants shouldn't look clickable */
+  span.lex-chip {
+    cursor: default;
+  }
+
+  /* Touch targets: only the interactive variants (<a>, <button>) grow.
+     Span display-chips keep their 26px height so entry metadata rows
+     stay dense. 40px sits above the WCAG 2.2 AA floor (24px) and the
+     AA Level "2.5.5 Target Size" recommended 44px is reached once you
+     include the 4px row gap on adjacent chips — combined with the
+     :focus-visible 2px outline and 2px outline-offset (another 4px
+     between targets), the effective separation clears AAA. */
+  @media (pointer: coarse) {
+    a.lex-chip,
+    button.lex-chip {
+      min-height: 40px;
+      padding: 10px 14px;
+    }
+  }
+
+  .lex-chip:hover,
+  .lex-chip:focus-visible {
+    color: var(--cyan-bright);
+    border-color: rgba(0, 212, 255, 0.6);
+    background: rgba(0, 212, 255, 0.12);
+  }
+
+  .lex-chip:focus-visible {
+    outline: 2px solid var(--cyan-bright);
+    outline-offset: 2px;
+  }
+
+  .lex-chip:active {
+    transform: translateY(1px);
+  }
+
+  .lex-chip--muted {
+    border-color: rgba(200, 196, 190, 0.2);
+    background: rgba(200, 196, 190, 0.035);
+    color: var(--text-secondary);
+  }
+
+  .lex-chip--muted:hover,
+  .lex-chip--muted:focus-visible {
+    color: var(--cyan-bright);
+    border-color: rgba(0, 212, 255, 0.45);
+    background: rgba(0, 212, 255, 0.08);
+  }
+
+  .lex-chip--category {
+    border-color: rgba(221, 184, 61, 0.35);
+    background: rgba(221, 184, 61, 0.055);
+    color: rgba(236, 214, 150, 0.95);
+    letter-spacing: 0.2em;
+  }
+
+  .lex-chip--category:hover,
+  .lex-chip--category:focus-visible {
+    color: var(--gold-bright);
+    border-color: rgba(221, 184, 61, 0.65);
+    background: rgba(221, 184, 61, 0.12);
+  }
+
+  /* Button variant: aria-pressed="true" = filter is active */
+  button.lex-chip[aria-pressed='true'] {
+    color: var(--cyan-bright);
+    border-color: rgba(0, 212, 255, 0.75);
+    background: rgba(0, 212, 255, 0.18);
+    box-shadow: inset 0 0 0 1px rgba(0, 212, 255, 0.28);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lex-chip {
+      transition: none;
+    }
+    .lex-chip:active {
+      transform: none;
+    }
+  }
+</style>

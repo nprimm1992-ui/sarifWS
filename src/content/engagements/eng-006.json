@@ -1,0 +1,20 @@
+{
+  "num": "006",
+  "classification": "Engagement 006 — Digital Platform & Spatial Design",
+  "sector": "Design",
+  "accent": "digital",
+  "statValue": "48hrs",
+  "statLabel": "Concept to production deployment",
+  "leads": [
+    "The brief was a website. What we built was an environment. A six-page immersive platform designed to feel like stepping into a near-future corporate lobby."
+  ],
+  "highlights": [
+    "Real-time 3D rendering with atmospheric particle systems",
+    "Spatial depth through layered parallax and WebGL",
+    "Angular design system with zero border-radius constraint",
+    "Serverless contact infrastructure",
+    "View transitions between pages with full responsive architecture",
+    "Concept to production deployment in under 48hrs."
+  ],
+  "sort": 6
+}

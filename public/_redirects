@@ -1,0 +1,14 @@
+/insights         /praxis/          301
+/insights/*       /praxis/:splat    301
+
+# Force trailing-slash canonical form (Cloudflare Pages auto-redirects no-slash → slash
+# for existing /foo/index.html, so these are belt-and-suspenders for safety).
+/about            /about/           301
+/services         /services/        301
+/engagements      /engagements/     301
+/praxis           /praxis/          301
+/contact          /contact/         301
+/privacy          /privacy/         301
+/terms            /terms/           301
+/accessibility    /accessibility/   301
+/lexicon          /lexicon/         301

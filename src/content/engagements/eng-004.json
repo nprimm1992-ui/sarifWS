@@ -1,0 +1,21 @@
+{
+  "num": "004",
+  "classification": "Engagement 004 — Business Transformation Architecture",
+  "sector": "Founder strategy",
+  "accent": "founder",
+  "statValue": "$73.7B",
+  "statLabel": "Market entered with full architecture",
+  "leads": [
+    "A solo founder was entering a $73.7B market with conviction but no strategic infrastructure. Every decision was load-bearing and none of them were documented. We built an 8-document system where every artifact reinforces every other."
+  ],
+  "highlights": [
+    "Strategic blueprint with 5 core design principles and a 3-tier pricing architecture",
+    "Comprehensive competitor and market landscape across 4 competitor categories",
+    "18-month tactical playbook with week-by-week execution specificity",
+    "3-year financial projection modeling conservative, base and aggressive scenarios ($228K to $1.18M revenue trajectory)",
+    "Metrics dashboard with 3-tier measurement system and pre-built scenario response protocols",
+    "Risk management framework covering 11 identified threats across 3 priority tiers",
+    "Every document cross-references every other document in a self-navigating strategic system."
+  ],
+  "sort": 4
+}

@@ -1,0 +1,1234 @@
+---
+import { getCollection, getEntry, render } from 'astro:content';
+import { Picture } from 'astro:assets';
+import Base from '../../layouts/Base.astro';
+import PraxisOutro from '../../components/PraxisOutro.astro';
+import { mdxComponents } from '../../components/mdx/mdx-components';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('praxis', (entry) => !entry.data.draft);
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entryId: entry.id },
+  }));
+}
+
+interface Props {
+  entryId: string;
+}
+
+const { entryId } = Astro.props;
+
+const entry = await getEntry('praxis', entryId);
+if (!entry) {
+  return Astro.redirect('/404/');
+}
+
+const { Content } = await render(entry);
+const data = entry.data;
+
+// Related articles: prefer explicit frontmatter, then shared-lens fallback.
+const allArticles = await getCollection('praxis', (e) => !e.data.draft && e.id !== entry.id);
+const explicitRelated = (data.relatedArticles ?? [])
+  .map((slug) => allArticles.find((e) => e.id === slug))
+  .filter((e): e is (typeof allArticles)[number] => Boolean(e));
+
+const sameLens = allArticles
+  .filter((e) => e.data.lens === data.lens && !explicitRelated.includes(e))
+  .slice(0, 2);
+
+const related = [...explicitRelated, ...sameLens].slice(0, 2);
+
+// Sequential Praxis number across published articles, sorted by publishDate asc.
+const orderedIds = [...allArticles, entry]
+  .sort((a, b) => a.data.publishDate.getTime() - b.data.publishDate.getTime())
+  .map((e) => e.id);
+const seqIndex = orderedIds.indexOf(entry.id) + 1;
+const praxisNumber = `No. ${String(seqIndex).padStart(2, '0')}`;
+/** Ring path radius (user units) — midway between inner r=48 and outer r=63. */
+const SEAL_RING_R = 55.5;
+const SEAL_CX = 70;
+const SEAL_CY = 70;
+
+/** Arc length in user units for `<textPath textLength>`. */
+function sealArcLength(r: number, sweepDeg: number): number {
+  return Number(((Math.PI * r * Math.abs(sweepDeg)) / 180).toFixed(3));
+}
+
+/** Circular arc.
+ *  `sweepDeg > 0` → SVG-positive-angle direction (clockwise in y-down).
+ *  `sweepDeg < 0` → negative direction (counter-clockwise in y-down).
+ *  The sign picks which side of the chord the arc lives on, which is how we
+ *  get the top arc to curve over the top AND the bottom arc to curve under
+ *  the bottom while text on each arc still lands upright to the viewer. */
+function sealArcPath(cx: number, cy: number, r: number, startDeg: number, sweepDeg: number): string {
+  const t0 = (startDeg * Math.PI) / 180;
+  const t1 = ((startDeg + sweepDeg) * Math.PI) / 180;
+  const x0 = cx + r * Math.cos(t0);
+  const y0 = cy + r * Math.sin(t0);
+  const x1 = cx + r * Math.cos(t1);
+  const y1 = cy + r * Math.sin(t1);
+  const largeArc = Math.abs(sweepDeg) > 180 ? 1 : 0;
+  const sweepFlag = sweepDeg >= 0 ? 1 : 0;
+  return `M ${x0.toFixed(3)} ${y0.toFixed(3)} A ${r} ${r} 0 ${largeArc} ${sweepFlag} ${x1.toFixed(3)} ${y1.toFixed(3)}`;
+}
+
+/* Classic circular-seal layout:
+ *   • SARIF curves across the TOP (centered on 12 o’clock); default
+ *     SVG text-on-path placement puts caps outward → upright at top.
+ *   • CONSULTING curves across the BOTTOM (centered on 6 o’clock). Path is
+ *     drawn with a negative sweep so the arc lives under the chord; default
+ *     text placement then puts caps inward → upright at bottom.
+ *   • Small diamonds fill the 3- and 9-o’clock gaps between the two arcs.
+ *   • Density (arc length ÷ letter count) is matched across top and bottom. */
+const SEAL_TOP_SWEEP = 65;
+const SEAL_BOTTOM_SWEEP = -130;
+const SEAL_TOP_START_DEG = 270 - SEAL_TOP_SWEEP / 2;
+const SEAL_BOTTOM_START_DEG = 90 - SEAL_BOTTOM_SWEEP / 2;
+
+const sealTopPathD = sealArcPath(SEAL_CX, SEAL_CY, SEAL_RING_R, SEAL_TOP_START_DEG, SEAL_TOP_SWEEP);
+const sealBottomPathD = sealArcPath(SEAL_CX, SEAL_CY, SEAL_RING_R, SEAL_BOTTOM_START_DEG, SEAL_BOTTOM_SWEEP);
+
+const sealTopPathLength = sealArcLength(SEAL_RING_R, SEAL_TOP_SWEEP);
+const sealBottomPathLength = sealArcLength(SEAL_RING_R, SEAL_BOTTOM_SWEEP);
+
+const publishedLabel = data.publishDate.toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+
+const classification = data.classification ?? `Praxis ${praxisNumber}`;
+
+// View-Transition names for hero + title (P8b). Per-article unique so Astro
+// ClientRouter can morph the /praxis card → /praxis/[slug] page pair.
+const vtHeroName = `praxis-hero-${entry.id}`;
+const vtTitleName = `praxis-title-${entry.id}`;
+
+const tagList = data.tags.length > 0 ? data.tags.join(' · ') : null;
+const description = data.summary;
+
+/* Round-4 §3.6 — per-article OG / JSON-LD image.
+ *
+ * The hero image is already authored in the article frontmatter
+ * (`heroImage`), so promoting it to the social-embed / structured-data
+ * surface gives Praxis posts a bespoke preview card on every platform
+ * that reads og:image (Twitter / X, LinkedIn, Slack, Discord, etc.)
+ * instead of falling back to the site-wide default OG raster. Absolute
+ * URL is required for both consumers. */
+const heroImageAbsolute = data.heroImage
+  ? new URL(data.heroImage, Astro.site).toString()
+  : undefined;
+
+const articleJsonLd: Record<string, unknown> = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: data.title,
+  description: data.summary,
+  datePublished: data.publishDate.toISOString(),
+  author: { '@type': 'Organization', name: 'Sarif Consulting' },
+  publisher: { '@type': 'Organization', name: 'Sarif Consulting' },
+  mainEntityOfPage: new URL(`/praxis/${entry.id}/`, Astro.site).toString(),
+};
+if (heroImageAbsolute) {
+  articleJsonLd.image = heroImageAbsolute;
+}
+---
+
+<Base
+  title={`${data.title} — Praxis — Sarif Consulting`}
+  description={description}
+  ogImage={data.heroImage ?? undefined}
+  lobbyPose="/praxis/article"
+  jsonLd={[articleJsonLd]}
+>
+  {/* Round-7 — Dossier case.
+      Masthead, hero, body, and seal live inside a single clipped chrome.
+      File ref + phase + published date sit in the case header strip
+      (no separate sidebar) so metadata and body read as one artifact.
+      Eyebrow carries classification; header carries ref + date once;
+      title meta carries tags only. Decorative seal/footer/stamp stay
+      aria-hidden. */}
+  <article
+    class="praxis-article"
+    aria-labelledby="praxis-article-title"
+    data-praxis-slug={entry.id}
+  >
+    <div class="praxis-case" data-praxis-case>
+      <header class="praxis-case__header">
+        <div class="praxis-case__header-meta">
+          <span class="praxis-case__ref">
+            <span class="praxis-case__ref-prefix">PRX-</span>
+            <span class="praxis-case__ref-num">{praxisNumber.replace('No. ', '')}</span>
+            <span class="praxis-case__ref-sep">·</span>
+            <span class="praxis-case__ref-state">{data.phase}</span>
+          </span>
+          <span class="praxis-case__header-sep" aria-hidden="true"> · </span>
+          <time class="praxis-case__header-date" datetime={data.publishDate.toISOString()}>
+            {publishedLabel}
+          </time>
+        </div>
+        <span class="praxis-case__hud" aria-hidden="true">
+          <span class="praxis-case__hud-label">Read</span>
+          <span class="praxis-case__hud-count" data-praxis-progress>0</span>
+          <span class="praxis-case__hud-sep">%</span>
+        </span>
+      </header>
+
+      <section class="praxis-case__title-plate">
+        <p class="praxis-case__eyebrow ui-eyebrow">{classification}</p>
+        <h1
+          id="praxis-article-title"
+          class="praxis-case__title"
+          style={`--vt-title: ${vtTitleName};`}
+        >
+          {data.title}
+        </h1>
+        <p class="praxis-case__summary">{data.summary}</p>
+        {tagList && (
+          <div class="praxis-case__meta">
+            <span class="praxis-case__tags">{tagList}</span>
+          </div>
+        )}
+      </section>
+
+      <figure class="praxis-case__hero" style={`--vt-hero: ${vtHeroName};`}>
+        <Picture
+          src={data.heroImage}
+          alt={data.heroAlt}
+          widths={[600, 960, 1280, 1600]}
+          sizes="(min-width: 1040px) 860px, 100vw"
+          formats={['avif', 'webp']}
+          loading="eager"
+          decoding="async"
+          fetchpriority="high"
+          pictureAttributes={{ class: 'praxis-case__hero-picture' }}
+        />
+        <img
+          class="praxis-case__hero-watermark"
+          src="/phoenix-emblem.png"
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          decoding="async"
+          width="512"
+          height="512"
+        />
+        <span class="praxis-case__stamp" aria-hidden="true">Classified</span>
+        {/* No <figcaption> — the image's `alt` already carries the
+            description; adding a visually-hidden caption would cause
+            screen readers to announce the same text twice. */}
+      </figure>
+
+      <section class="praxis-case__body praxis-body">
+        <Content components={mdxComponents} />
+      </section>
+
+      {/* Outro sits inside the case panel and ABOVE the "End of file"
+          footer so the footer remains the dossier's true closer
+          (Continue → Related → Subscribe → End of file). Prior layouts
+          either placed the outro as a detached sibling of .praxis-case,
+          or nested it after the footer — both weakened the dossier
+          closure semantics. */}
+      <PraxisOutro
+        slug={entry.id}
+        title={data.title}
+        intent={data.outroIntent}
+        related={related.map((e) => ({
+          id: e.id,
+          title: e.data.title,
+          summary: e.data.summary,
+          lens: e.data.lens,
+        }))}
+      >
+        <div slot="seal" class="praxis-case__seal" aria-hidden="true">
+          <svg class="praxis-case__seal-ring" viewBox="0 0 140 140" role="presentation" focusable="false">
+            <defs>
+              <path id={`praxis-seal-top-${entry.id}`} d={sealTopPathD} fill="none" />
+              <path id={`praxis-seal-bottom-${entry.id}`} d={sealBottomPathD} fill="none" />
+            </defs>
+            <circle cx="70" cy="70" r="63" fill="none" stroke="rgba(0,212,255,0.28)" stroke-width="1" />
+            <circle cx="70" cy="70" r="48" fill="none" stroke="rgba(221,184,61,0.42)" stroke-width="1" />
+            <path class="praxis-case__seal-ornament" d="M 125.5 67.8 L 127.7 70 L 125.5 72.2 L 123.3 70 Z" />
+            <path class="praxis-case__seal-ornament" d="M 14.5 67.8 L 16.7 70 L 14.5 72.2 L 12.3 70 Z" />
+            <text class="praxis-case__seal-text" dominant-baseline="central">
+              <textPath
+                href={`#praxis-seal-top-${entry.id}`}
+                startOffset="0%"
+                textLength={sealTopPathLength}
+                lengthAdjust="spacing"
+              >
+                SARIF
+              </textPath>
+            </text>
+            <text class="praxis-case__seal-text" dominant-baseline="central">
+              <textPath
+                href={`#praxis-seal-bottom-${entry.id}`}
+                startOffset="0%"
+                textLength={sealBottomPathLength}
+                lengthAdjust="spacing"
+              >
+                CONSULTING
+              </textPath>
+            </text>
+          </svg>
+          <img
+            class="praxis-case__seal-emblem"
+            src="/phoenix-emblem.png"
+            alt=""
+            aria-hidden="true"
+            loading="lazy"
+            decoding="async"
+            width="512"
+            height="512"
+          />
+        </div>
+      </PraxisOutro>
+
+      <footer class="praxis-case__footer" aria-hidden="true">
+        <span class="praxis-case__rule"></span>
+        <img
+          class="praxis-case__mark"
+          src="/phoenix-emblem.png"
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          decoding="async"
+          width="512"
+          height="512"
+        />
+        <span class="praxis-case__rule"></span>
+        <span class="praxis-case__footer-label">End of file · {praxisNumber}</span>
+      </footer>
+
+      {/* Live region for screen-reader reading-progress announcements.
+          Updated in ~10% steps by praxis-dossier-open.js so AT users
+          hear a concise "read N percent" update without noise. Uses
+          `.sr-only` (the project-wide SR-only utility in global.css);
+          the earlier `.visually-hidden` class had no matching rule and
+          would have rendered as visible text. */}
+      <span class="sr-only" aria-live="polite" data-praxis-progress-sr></span>
+    </div>
+  </article>
+
+  {/* Client runtime: sealed→opened animation + reading-progress HUD +
+      session-guard. Kept inline-module so Astro hashes it into the
+      script-src CSP and can tree-shake per-page. */}
+  <script>
+    import '../../scripts/praxis-dossier-open.js';
+  </script>
+</Base>
+
+<style>
+  /* Round-7 — Praxis dossier.
+     Single column: bound case + outro. Case inherits the signal-panel
+     visual vocabulary (dark inset gradient, cyan hairline, octagonal
+     clip-path). File metadata lives in the case header strip. */
+  .praxis-article {
+    max-width: 1080px;
+    margin: clamp(120px, 14vw, 180px) auto clamp(80px, 10vw, 140px);
+    padding: 0 clamp(20px, 4vw, 40px);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'case';
+    gap: clamp(24px, 3vw, 48px);
+    position: relative;
+  }
+
+  /* Outro sits directly beneath the body inside the dossier, so we
+     override the component-default margin-top (which assumed the
+     outro was a standalone surface with air above it). The outro's
+     own gold hairline border-top + internal padding still provide
+     the visual break between prose and the CTA block. */
+  .praxis-case > :global(.praxis-outro) {
+    margin-top: 0;
+  }
+
+  /* ─── Case: the bound artifact ────────────────────────────── */
+  .praxis-case {
+    grid-area: case;
+    position: relative;
+    background:
+      linear-gradient(180deg, rgba(10, 22, 32, 0.94) 0%, rgba(6, 16, 24, 0.97) 100%);
+    border: 1px solid rgba(0, 212, 255, 0.22);
+    clip-path: var(--clip-card);
+    box-shadow:
+      inset 0 1px 0 rgba(0, 212, 255, 0.14),
+      inset 0 0 0 1px rgba(0, 212, 255, 0.03),
+      0 24px 56px rgba(6, 18, 28, 0.28),
+      0 4px 18px rgba(0, 0, 0, 0.16);
+    overflow: hidden;
+  }
+
+  /* Engines without clip-path fall back to a subtle chamfer. */
+  @supports not (clip-path: polygon(0 0)) {
+    .praxis-case {
+      clip-path: none;
+      border-radius: 2px;
+    }
+  }
+
+  /* ─── File-strip header (ref + date + read HUD) ───────────── */
+  .praxis-case__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    padding: 14px clamp(20px, 3vw, 32px);
+    border-bottom: 1px solid rgba(0, 212, 255, 0.14);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(0, 212, 255, 0.72);
+    user-select: none;
+  }
+
+  .praxis-case__header-meta {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0 2px;
+    min-width: 0;
+  }
+
+  .praxis-case__header-sep {
+    color: rgba(255, 255, 255, 0.22);
+    margin: 0 4px;
+  }
+
+  .praxis-case__header-date {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: none;
+    font-variant-numeric: tabular-nums;
+    color: var(--sarif-gold);
+  }
+
+  .praxis-case__ref {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    color: rgba(0, 212, 255, 0.62);
+  }
+
+  .praxis-case__ref-num {
+    color: rgba(0, 212, 255, 0.9);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .praxis-case__ref-sep {
+    color: rgba(255, 255, 255, 0.2);
+    margin: 0 8px;
+  }
+
+  .praxis-case__ref-state {
+    color: rgba(221, 184, 61, 0.82);
+    letter-spacing: 0.14em;
+  }
+
+  .praxis-case__hud {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    color: rgba(255, 255, 255, 0.55);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .praxis-case__hud-label {
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  .praxis-case__hud-count {
+    color: rgba(0, 212, 255, 0.92);
+    min-width: 2ch;
+    text-align: right;
+  }
+
+  .praxis-case__hud-sep {
+    color: rgba(255, 255, 255, 0.35);
+  }
+
+  /* ─── Title plate ─────────────────────────────────────────── */
+  .praxis-case__title-plate {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: clamp(24px, 4vw, 40px) clamp(24px, 4vw, 44px) clamp(20px, 3vw, 32px);
+  }
+
+  .praxis-case__eyebrow {
+    margin: 0;
+    color: var(--gold-bright);
+    text-shadow: var(--gold-glow-soft);
+    font-size: 0.72rem;
+    letter-spacing: 0.22em;
+  }
+
+  .praxis-case__title {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: clamp(1.85rem, 4.6vw, 2.9rem);
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: 0.01em;
+    color: var(--cyan-bright);
+    text-shadow: var(--cyan-glow-text);
+    /* Loose enough for a 5-7 word title to sit on two lines at
+       desktop while still forcing a rag on very long headlines. */
+    max-width: 30ch;
+    text-wrap: balance;
+  }
+
+  .praxis-case__summary {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: clamp(1.02rem, 1.5vw, 1.15rem);
+    line-height: 1.65;
+    color: var(--text-primary);
+    max-width: 62ch;
+  }
+
+  .praxis-case__meta {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    font-family: var(--font-heading);
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .praxis-case__tags {
+    color: var(--text-muted);
+  }
+
+  /* ─── Hero plate: full-bleed, 16/9, seam rules ────────────── */
+  .praxis-case__hero {
+    position: relative;
+    margin: 0;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-top: 1px solid rgba(0, 212, 255, 0.14);
+    border-bottom: 1px solid rgba(0, 212, 255, 0.14);
+    background: #0a1016;
+  }
+
+  .praxis-case__hero :global(.praxis-case__hero-picture),
+  .praxis-case__hero :global(.praxis-case__hero-picture img) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+  }
+
+  /* Low-opacity emblem in top-right of hero as a letterhead motif.
+     Sits behind the CLASSIFIED stamp so the stamp remains legible. */
+  .praxis-case__hero-watermark {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: clamp(120px, 14vw, 180px);
+    height: auto;
+    max-height: clamp(120px, 14vw, 180px);
+    object-fit: contain;
+    opacity: 0.08;
+    pointer-events: none;
+    z-index: 1;
+    mix-blend-mode: screen;
+  }
+
+  .praxis-case__stamp {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    padding: 5px 12px;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(221, 184, 61, 0.92);
+    border: 1px solid rgba(221, 184, 61, 0.48);
+    background: rgba(10, 22, 32, 0.72);
+    backdrop-filter: blur(2px);
+    clip-path: var(--clip-button);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* ─── Body ────────────────────────────────────────────────── */
+  /* Modern long-form "content-grid" (Stripe Press / Tailwind UI):
+     - prose column capped at 82ch so line length stays inside the
+       evidence-based 45–85 CPL comfort range (Baymard, Nielsen);
+     - figures, code blocks, and pull-quotes opt out of that cap
+       and break out to the full container for visual presence;
+     - `counter-reset: praxis-section` seeds the H2 section counter
+       used by the "§ 01 · " eyebrow below. */
+  .praxis-case__body {
+    padding: clamp(24px, 4vw, 40px) 0 clamp(28px, 4vw, 48px);
+    display: grid;
+    grid-template-columns:
+      [full-start] clamp(24px, 4vw, 44px)
+      [prose-start] minmax(0, 82ch) [prose-end]
+      1fr
+      clamp(24px, 4vw, 44px) [full-end];
+    counter-reset: praxis-section;
+  }
+
+  .praxis-case__body > :global(*) {
+    grid-column: prose;
+    min-width: 0;
+  }
+
+  .praxis-case__body > :global(figure),
+  .praxis-case__body > :global(pre),
+  .praxis-case__body > :global(blockquote) {
+    grid-column: full;
+  }
+
+  .praxis-body {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    color: var(--text-primary);
+    /* Typographic polish applied to all descendants:
+       - tnum  → tabular numerals so dollar figures / percentages
+                 line up vertically across paragraphs;
+       - liga/calt → enable standard + contextual ligatures in Inter;
+       - `text-wrap: pretty` keeps last-line widows/orphans sane;
+       - `hanging-punctuation` lets leading/trailing quotes hang
+         into the margin on Safari (no-op elsewhere, harmless). */
+    font-feature-settings: 'tnum' on, 'liga' on, 'calt' on, 'ss01' on;
+    font-variant-numeric: tabular-nums;
+    text-wrap: pretty;
+    hanging-punctuation: first last allow-end;
+  }
+
+  /* Opening lede — the first paragraph of every dossier article
+     gets a cooler tint, slightly larger size, tighter leading, and
+     a hair of extra tracking so the article reads as having an
+     actual "lead line" before the main body rhythm sets in.
+     `:first-of-type` keeps this robust even when authored content
+     starts with components (Pullquote, Callout, etc) — the scoped
+     MDX wrapper still guarantees a real <p> comes first when the
+     markdown file begins with a paragraph. */
+  .praxis-case__body > :global(p):first-of-type {
+    font-size: clamp(1.1rem, 1.4vw, 1.22rem);
+    line-height: 1.6;
+    letter-spacing: 0.002em;
+    color: rgba(245, 240, 232, 0.96);
+    margin-bottom: 1.35em;
+  }
+
+  .praxis-body :global(h1),
+  .praxis-body :global(h2) {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--cyan-bright);
+    text-shadow: var(--cyan-glow-text);
+    margin-top: clamp(40px, 5.5vw, 64px);
+    margin-bottom: 20px;
+    text-wrap: balance;
+  }
+
+  .praxis-body :global(h1) { display: none; }
+
+  .praxis-body :global(h2) {
+    font-size: clamp(1.35rem, 2.5vw, 1.6rem);
+    position: relative;
+    padding-left: 20px;
+    counter-increment: praxis-section;
+    scroll-margin-top: 96px;
+  }
+
+  /* Eyebrow prefix: "§ 01 · " rendered in the dossier mono
+     vocabulary (same family + spacing as the header file-strip),
+     aligned to the heading's cap-height so it reads as a filing
+     identifier rather than body text. Built via CSS counter so
+     authors never hand-number anything. */
+  .praxis-body :global(h2)::before {
+    content: '§\00a0' counter(praxis-section, decimal-leading-zero) '\00a0\2009·\2009';
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.62em;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(0, 212, 255, 0.62);
+    font-weight: 500;
+    vertical-align: 0.22em;
+    text-shadow: none;
+    margin-right: 0.1em;
+  }
+
+  /* Vertical rail — the file-tab accent. Moved to ::after so
+     ::before is free to carry the counter eyebrow. */
+  .praxis-body :global(h2)::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.22em;
+    bottom: 0.22em;
+    width: 2px;
+    background: var(--cyan-core);
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
+    border-radius: 1px;
+  }
+
+  .praxis-body :global(h3) {
+    font-family: var(--font-heading);
+    font-size: clamp(1.02rem, 1.9vw, 1.18rem);
+    color: var(--gold-bright);
+    margin-top: 36px;
+    margin-bottom: 14px;
+    letter-spacing: 0.06em;
+    position: relative;
+    padding-left: 16px;
+    text-wrap: balance;
+    scroll-margin-top: 96px;
+  }
+
+  /* Gold diamond tick — echoes the seal ornaments in the dossier
+     chrome, so H3 sub-sections visually descend from the same
+     vocabulary as the masthead seal and HR ornaments below. */
+  .praxis-body :global(h3)::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.58em;
+    width: 5px;
+    height: 5px;
+    background: var(--sarif-gold, #ddb83d);
+    transform: rotate(45deg);
+    box-shadow: 0 0 6px rgba(221, 184, 61, 0.4);
+  }
+
+  .praxis-body :global(p) {
+    margin: 0 0 1.1em;
+  }
+
+  /* Custom UL / OL markers.
+     UL: cyan chevron (›) rendered via ::marker for native hanging
+         alignment. Falls back to disc on browsers that ignore
+         ::marker content (older WebKit), which is acceptable.
+     OL: tabular-nums + dossier colouring via ::marker. */
+  .praxis-body :global(ul),
+  .praxis-body :global(ol) {
+    padding-left: 1.6em;
+    margin: 0 0 1.4em;
+  }
+
+  .praxis-body :global(ul) {
+    list-style: none;
+  }
+
+  .praxis-body :global(ul > li) {
+    position: relative;
+  }
+
+  .praxis-body :global(ul > li)::before {
+    content: '›';
+    position: absolute;
+    left: -1.25em;
+    top: 0;
+    color: var(--cyan-core);
+    font-weight: 700;
+    font-size: 1.05em;
+    line-height: inherit;
+  }
+
+  .praxis-body :global(ol) {
+    list-style: decimal;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .praxis-body :global(ol > li::marker) {
+    color: rgba(0, 212, 255, 0.78);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9em;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+
+  .praxis-body :global(li) {
+    margin-bottom: 0.55em;
+  }
+
+  .praxis-body :global(li > :global(ul)),
+  .praxis-body :global(li > :global(ol)) {
+    margin-top: 0.4em;
+    margin-bottom: 0.4em;
+  }
+
+  .praxis-body :global(strong) {
+    color: var(--cyan-core);
+    font-weight: 600;
+  }
+
+  .praxis-body :global(em) {
+    color: rgba(255, 255, 255, 0.95);
+  }
+
+  .praxis-body :global(a) {
+    color: var(--cyan-core);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.4);
+    transition: color 160ms ease, border-color 160ms ease;
+  }
+
+  .praxis-body :global(a:hover),
+  .praxis-body :global(a:focus-visible) {
+    color: var(--cyan-bright);
+    border-bottom-color: var(--cyan-bright);
+    outline: none;
+  }
+
+  .praxis-body :global(abbr[title]) {
+    text-decoration: underline dotted rgba(0, 212, 255, 0.45);
+    text-underline-offset: 3px;
+    cursor: help;
+  }
+
+  /* Inline code: compact gold terminal pill. The site already uses
+     cyan for emphasis and link affordance; switching code to the
+     gold accent keeps signal traffic separate and reads as a
+     filename / symbol / literal. */
+  .praxis-body :global(code) {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.88em;
+    color: var(--gold-bright, #f0d174);
+    background: rgba(221, 184, 61, 0.08);
+    border: 1px solid rgba(221, 184, 61, 0.22);
+    border-radius: 2px;
+    padding: 1px 6px;
+    word-break: break-word;
+  }
+
+  /* Fenced code blocks: full-bleed (grid-column: full), chamfered
+     dossier chrome. Reset the inline pill for nested <code>. */
+  .praxis-body :global(pre) {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(0, 212, 255, 0.16);
+    border-radius: 4px;
+    padding: clamp(16px, 2vw, 20px) clamp(18px, 2.4vw, 24px);
+    margin: clamp(20px, 2.5vw, 28px) 0;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9em;
+    line-height: 1.7;
+    color: rgba(225, 220, 210, 0.92);
+    tab-size: 2;
+  }
+
+  .praxis-body :global(pre code) {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+
+  /* Blockquote — parchment-toned strip with a gold rail. The
+     project's <Pullquote> component handles the heavy editorial
+     pulls; this rule covers any authored `> ` markdown quotes. */
+  .praxis-body :global(blockquote) {
+    margin: clamp(24px, 3vw, 36px) 0;
+    padding: clamp(18px, 2.6vw, 24px) clamp(22px, 3vw, 30px);
+    border-left: 2px solid rgba(191, 163, 100, 0.55);
+    background: linear-gradient(
+      90deg,
+      rgba(191, 163, 100, 0.05) 0%,
+      rgba(191, 163, 100, 0) 70%
+    );
+    font-style: italic;
+    color: rgba(245, 238, 225, 0.92);
+    font-size: clamp(1.02rem, 1.4vw, 1.1rem);
+    line-height: 1.65;
+  }
+
+  .praxis-body :global(blockquote p) {
+    margin: 0 0 0.6em;
+  }
+
+  .praxis-body :global(blockquote p:last-child) {
+    margin: 0;
+  }
+
+  /* HR — two gold hairlines flanking a centred diamond. Echoes
+     the seal's 3 and 9 o'clock ornaments. Stays width-capped to
+     the prose column (HRs are prose-level dividers, not full-bleed
+     structural seams). */
+  .praxis-body :global(hr) {
+    border: 0;
+    height: 10px;
+    margin: clamp(36px, 4.5vw, 52px) 0;
+    position: relative;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(191, 163, 100, 0) 6%,
+      rgba(191, 163, 100, 0.35) 42%,
+      rgba(191, 163, 100, 0) 48%,
+      rgba(191, 163, 100, 0) 52%,
+      rgba(191, 163, 100, 0.35) 58%,
+      rgba(191, 163, 100, 0) 94%,
+      transparent 100%
+    );
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 100% 1px;
+  }
+
+  .praxis-body :global(hr)::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    background: rgba(191, 163, 100, 0.75);
+    transform: translate(-50%, -50%) rotate(45deg);
+    box-shadow: 0 0 8px rgba(191, 163, 100, 0.4);
+  }
+
+  /* Selection: cyan tint inside the dossier body only. Keeps the
+     rest of the page at whatever the OS provides so system
+     conventions win outside prose. */
+  .praxis-body :global(::selection) {
+    background: rgba(0, 212, 255, 0.24);
+    color: #ffffff;
+    text-shadow: none;
+  }
+
+  /* <kbd> in running prose — borrow the palette chrome for
+     consistency across the site's kbd conventions. */
+  .praxis-body :global(kbd) {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.78em;
+    padding: 1px 6px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(230, 230, 225, 0.95);
+    line-height: 1;
+  }
+
+  /* ─── Dossier seal (emblem + ring copy) ───────────────────────
+     Slotted into `.praxis-outro`; positioned to that section’s
+     top-right (outro is `position: relative` in PraxisOutro). */
+  .praxis-case__seal {
+    position: absolute;
+    top: clamp(10px, 1.8vw, 18px);
+    right: clamp(10px, 1.8vw, 18px);
+    bottom: auto;
+    width: 120px;
+    height: 120px;
+    opacity: 0.92;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  @media (max-width: 900px) {
+    .praxis-case__seal {
+      width: 96px;
+      height: 96px;
+      top: clamp(8px, 1.6vw, 14px);
+      right: clamp(8px, 1.6vw, 14px);
+      opacity: 0.85;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .praxis-case__seal {
+      width: 80px;
+      height: 80px;
+      top: 6px;
+      right: 8px;
+      opacity: 0.82;
+    }
+  }
+
+  .praxis-case__seal-ring {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform-origin: center;
+    animation: praxis-seal-spin 48s linear infinite;
+  }
+
+  .praxis-case__seal-text {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    fill: rgba(236, 214, 150, 0.95);
+    stroke: rgba(8, 14, 22, 0.45);
+    stroke-width: 0.22px;
+    paint-order: stroke fill;
+    text-rendering: geometricPrecision;
+  }
+
+  .praxis-case__seal-ornament {
+    fill: rgba(0, 212, 255, 0.78);
+  }
+
+  .praxis-case__seal-emblem {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 6px rgba(221, 184, 61, 0.25));
+  }
+
+  @keyframes praxis-seal-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  /* ─── End-of-file footer ──────────────────────────────────── */
+  .praxis-case__footer {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px clamp(20px, 3vw, 32px);
+    border-top: 1px solid rgba(0, 212, 255, 0.14);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(0, 212, 255, 0.42);
+    user-select: none;
+  }
+
+  .praxis-case__rule {
+    flex: 1 1 auto;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(0, 212, 255, 0), rgba(0, 212, 255, 0.35), rgba(0, 212, 255, 0));
+  }
+
+  .praxis-case__mark {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    opacity: 0.72;
+  }
+
+  .praxis-case__footer-label {
+    flex: 0 0 auto;
+    color: rgba(221, 184, 61, 0.6);
+  }
+
+  @media (max-width: 640px) {
+    .praxis-case__footer-label {
+      display: none;
+    }
+
+    /* Mobile hero: the 120px-wide phoenix watermark and the 'CLASSIFIED'
+       stamp both pin to the top-right corner. On phone widths the stamp
+       overlaps the watermark and produces a cramped, visually noisy
+       read. The watermark is purely decorative chrome at 8% opacity —
+       on mobile the 3D background already carries the atmosphere, so
+       hide it and let the stamp own the corner cleanly.
+
+       Reduced-transparency users already see this hidden (line 1321);
+       here we generalise the rule to all narrow viewports. */
+    .praxis-case__hero-watermark {
+      display: none;
+    }
+  }
+
+  /* ─── Round-3 P8b — View Transition morph target ──────────── */
+  @supports (view-transition-name: none) {
+    @media (prefers-reduced-motion: no-preference) {
+      .praxis-case__title {
+        view-transition-name: var(--vt-title);
+      }
+      .praxis-case__hero {
+        view-transition-name: var(--vt-hero);
+      }
+    }
+  }
+
+  /* ─── Sealed → opened cinematic (runtime driver) ─────────── */
+  /* Initial state applied only when JS + motion allowed. The
+     `[data-praxis-open='sealed']` attribute is written by
+     praxis-dossier-open.js before the page paints (inline script
+     boot guard) so we never flash an opened case first. */
+  .praxis-case[data-praxis-open='sealed'] {
+    clip-path: inset(48% 5% 48% 5% round 2px);
+    opacity: 0.85;
+  }
+  .praxis-case[data-praxis-open='sealed'] .praxis-case__title-plate,
+  .praxis-case[data-praxis-open='sealed'] .praxis-case__body,
+  .praxis-case[data-praxis-open='sealed'] .praxis-case__footer,
+  .praxis-case[data-praxis-open='sealed'] .praxis-case__hero-watermark,
+  .praxis-case[data-praxis-open='sealed'] .praxis-case__stamp {
+    opacity: 0;
+  }
+  .praxis-case[data-praxis-open='sealed'] .praxis-case__hero :global(.praxis-case__hero-picture img) {
+    transform: scale(1.04);
+  }
+  .praxis-case[data-praxis-open='sealed'] .praxis-case__seal {
+    transform: scale(1.35) rotate(-6deg);
+    opacity: 0;
+  }
+
+  /* Cyan scanline that sweeps top → bottom on open. Runtime adds
+     `data-praxis-open='opening'` for the duration, then 'open'. */
+  .praxis-case[data-praxis-open='opening']::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(0, 212, 255, 0) 0%,
+      rgba(0, 212, 255, 0.35) 48%,
+      rgba(0, 212, 255, 0.6) 50%,
+      rgba(0, 212, 255, 0.35) 52%,
+      rgba(0, 212, 255, 0) 100%
+    );
+    mix-blend-mode: screen;
+    pointer-events: none;
+    z-index: 4;
+    animation: praxis-case-scanline 900ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+
+  @keyframes praxis-case-scanline {
+    from { transform: translateY(-100%); opacity: 0.9; }
+    to   { transform: translateY(100%);  opacity: 0;   }
+  }
+
+  /* ─── Reduced motion / transparency / print ───────────────── */
+  @media (prefers-reduced-motion: reduce) {
+    .praxis-case__seal-ring { animation: none; }
+    /* Sealed state and scanline are never written when reduced
+       motion is set, but double-suppress here as a safety net. */
+    .praxis-case[data-praxis-open='sealed'] {
+      clip-path: var(--clip-card);
+      opacity: 1;
+    }
+    .praxis-case[data-praxis-open='sealed'] .praxis-case__title-plate,
+    .praxis-case[data-praxis-open='sealed'] .praxis-case__body,
+    .praxis-case[data-praxis-open='sealed'] .praxis-case__footer,
+    .praxis-case[data-praxis-open='sealed'] .praxis-case__hero-watermark,
+    .praxis-case[data-praxis-open='sealed'] .praxis-case__stamp,
+    .praxis-case[data-praxis-open='sealed'] .praxis-case__seal {
+      opacity: 1;
+      transform: none;
+    }
+    .praxis-case[data-praxis-open='opening']::after { display: none; }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .praxis-case__hero-watermark { display: none; }
+    .praxis-case__stamp { backdrop-filter: none; background: rgba(10, 22, 32, 0.9); }
+  }
+
+  @media print {
+    .praxis-article {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: 'case' 'outro';
+    }
+    .praxis-case {
+      clip-path: none;
+      border: 1px solid #000;
+      background: white;
+      box-shadow: none;
+    }
+    .praxis-case__header,
+    .praxis-case__footer,
+    .praxis-case__stamp {
+      color: #000;
+      border-color: #000;
+    }
+    .praxis-case__hero-watermark,
+    .praxis-case__seal-ring {
+      display: none;
+    }
+    .praxis-case__title,
+    .praxis-body :global(h2),
+    .praxis-body :global(h3) {
+      color: #000;
+      text-shadow: none;
+    }
+    .praxis-body :global(h2)::before {
+      color: #444;
+    }
+    .praxis-body :global(h2)::after {
+      background: #000;
+      box-shadow: none;
+    }
+    .praxis-body :global(h3)::before {
+      background: #444;
+      box-shadow: none;
+    }
+    .praxis-body :global(hr) {
+      background: #888;
+      background-size: 100% 1px;
+    }
+    .praxis-body :global(hr)::after {
+      background: #444;
+      box-shadow: none;
+    }
+    .praxis-body :global(code) {
+      color: #444;
+      background: #f5f5f5;
+      border-color: #ccc;
+    }
+    .praxis-body :global(strong) {
+      color: #000;
+    }
+    .praxis-body :global(ul > li)::before,
+    .praxis-body :global(ol > li::marker) {
+      color: #555;
+    }
+    .praxis-case__body {
+      color: #000;
+    }
+  }
+
+  /* Reduced motion: strip the link transitions — state changes
+     still happen, they just don't animate. */
+  @media (prefers-reduced-motion: reduce) {
+    .praxis-body :global(a) {
+      transition: none;
+    }
+  }
+
+  /* RTL: mirror decorative emblems and hero stamp placement; seal
+     in outro mirrors to top-left. */
+  [dir='rtl'] .praxis-case__hero-watermark,
+  [dir='rtl'] .praxis-case__stamp {
+    right: auto;
+    left: 12px;
+  }
+  [dir='rtl'] .praxis-case__seal {
+    right: auto;
+    left: clamp(10px, 1.8vw, 18px);
+  }
+  @media (max-width: 900px) {
+    [dir='rtl'] .praxis-case__seal {
+      right: auto;
+      left: clamp(8px, 1.6vw, 14px);
+    }
+  }
+  @media (max-width: 520px) {
+    [dir='rtl'] .praxis-case__seal {
+      right: auto;
+      left: 8px;
+    }
+  }
+  [dir='rtl'] .praxis-case__seal-emblem,
+  [dir='rtl'] .praxis-case__mark {
+    transform: scaleX(-1);
+  }
+</style>

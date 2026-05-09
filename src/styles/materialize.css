@@ -1,0 +1,150 @@
+/* ============================================================
+   SARIF CONSULTING — MATERIALIZATION TEXT DECODE
+   Text elements transition from cipher characters to real content,
+   synchronized with the lobby's WebGL boot transition.
+
+   No overlay layer. The dark canvas IS the visual substrate.
+   ============================================================ */
+
+/* --- Decode Text: Parent Container ---
+   Forms the positioning context for the cipher overlay.
+   Works in flex, grid, and inline contexts. */
+[data-materialize-text] {
+  position: relative;
+}
+
+/* --- Decode Text: Real Content ---
+   Holds the actual readable text. Remains in-flow to preserve
+   natural dimensions and line-breaking. Hidden via opacity during
+   the decode sequence. */
+.materialize-real {
+  opacity: 1;
+  transition: opacity 0.18s ease;
+}
+
+[data-materialize-text="pending"] .materialize-real,
+[data-materialize-text="decoding"] .materialize-real {
+  opacity: 0;
+}
+
+/* --- Decode Text: Cipher Overlay ---
+   Absolutely positioned over the real text. Same font metrics
+   ensure identical dimensions. Pointer-events disabled so
+   interactive elements (links, buttons) remain clickable. */
+.materialize-cipher {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  line-height: inherit;
+  color: var(--cyan-core, #00d4ff);
+}
+
+[data-materialize-text="pending"] .materialize-cipher {
+  opacity: 0.5;
+}
+
+[data-materialize-text="decoding"] .materialize-cipher {
+  opacity: 1;
+  text-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
+  transition: opacity 0.1s ease;
+}
+
+[data-materialize-text="resolved"] .materialize-cipher {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* --- Content Visibility Control ---
+   Before JS runs, text is transparent (hidden against the dark
+   canvas). Once the sequence completes (or JS never loads), text
+   becomes immediately readable. */
+html[data-materialize="pending"] [data-materialize-text="pending"] {
+  color: transparent;
+}
+
+html[data-materialize="complete"] [data-materialize-text],
+html:not([data-materialize]) [data-materialize-text] {
+  color: inherit !important;
+}
+
+html:not([data-materialize]) .materialize-cipher,
+html[data-materialize="complete"] .materialize-cipher {
+  display: none !important;
+}
+
+/* --- CSS-only Timeout Fallback ---
+   If JS fails to stamp "complete" within 3s, reveal content
+   unconditionally so the page is never permanently invisible.
+   Animation callback triggers a custom property the next rule reads. */
+@keyframes materializeFallbackReveal {
+  to { --materialize-fallback: 1; }
+}
+
+html[data-materialize="pending"] {
+  animation: materializeFallbackReveal 0s 3s forwards;
+}
+
+html[data-materialize="pending"][style*="--materialize-fallback"] [data-materialize-text] {
+  color: inherit !important;
+}
+
+html[data-materialize="pending"][style*="--materialize-fallback"] .materialize-cipher {
+  display: none !important;
+}
+
+/* --- Mobile Tuning ---
+   Reduce text-shadow intensity on smaller screens where high-DPI
+   makes glow effects feel overly bright. */
+@media (max-width: 768px) {
+  [data-materialize-text="decoding"] .materialize-cipher {
+    text-shadow: 0 0 4px rgba(0, 212, 255, 0.2);
+  }
+}
+
+/* --- Accessibility: Reduced Motion ---
+   Skip all decode animation. Text is immediately readable. */
+@media (prefers-reduced-motion: reduce) {
+  [data-materialize-text] {
+    color: inherit !important;
+  }
+
+  .materialize-real {
+    opacity: 1 !important;
+  }
+
+  .materialize-cipher {
+    display: none !important;
+  }
+
+  html[data-materialize="pending"] [data-materialize-text] {
+    color: inherit !important;
+  }
+
+  html[data-materialize="pending"] {
+    animation: none !important;
+  }
+}
+
+/* --- Accessibility: Forced Colors ---
+   OS high-contrast mode: no custom colors, no cipher. */
+@media (forced-colors: active) {
+  [data-materialize-text] {
+    color: CanvasText !important;
+  }
+
+  .materialize-real {
+    opacity: 1 !important;
+  }
+
+  .materialize-cipher {
+    display: none !important;
+  }
+}

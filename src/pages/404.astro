@@ -1,0 +1,133 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base
+  title="404 — Sarif Consulting"
+  description="Sarif Consulting — the page you requested could not be found. Return home or jump to Services, Engagements, Praxis or Contact."
+  noindex={true}
+  lobbyPose="/404"
+>
+  <section class="error-page section" aria-labelledby="error-heading">
+    <div class="container error-inner page-reads-over-lobby">
+      <p class="error-code">404</p>
+      <h1 id="error-heading" class="error-title">Signal Lost</h1>
+      <p class="error-subtitle">Page not found</p>
+      <p class="error-body">
+        The requested resource could not be located. Verify your coordinates and try again.
+      </p>
+      <div class="error-actions">
+        <a href="/" class="btn-gold cyan-gold-label lane-cta"><span class="sarif-hover-sheen">Return to Base</span></a>
+      </div>
+      <nav class="error-recovery" aria-label="Recovery links">
+        <a href="/about/" class="error-link">About</a>
+        <span class="error-link-sep" aria-hidden="true">&#183;</span>
+        <a href="/services/" class="error-link">Services</a>
+        <span class="error-link-sep" aria-hidden="true">&#183;</span>
+        <a href="/engagements/" class="error-link">Engagements</a>
+        <span class="error-link-sep" aria-hidden="true">&#183;</span>
+        <a href="/praxis/" class="error-link">Praxis</a>
+        <span class="error-link-sep" aria-hidden="true">&#183;</span>
+        <a href="/contact/" class="error-link">Contact</a>
+      </nav>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .error-page {
+    min-height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .error-inner {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    max-width: 560px;
+    margin-inline: auto;
+  }
+
+  .error-code {
+    font-family: var(--font-heading);
+    font-size: clamp(4rem, 10vw, 8rem);
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    color: var(--cyan-bright);
+    text-shadow: var(--cyan-glow-text);
+    line-height: 1;
+    opacity: 0.8;
+  }
+
+  .error-title {
+    font-size: var(--text-section);
+    letter-spacing: 0.3em;
+    background: linear-gradient(
+      180deg,
+      var(--chrome-dark) 0%,
+      var(--chrome-light) 45%,
+      var(--chrome-highlight) 50%,
+      var(--chrome-light) 55%,
+      var(--chrome-dark) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .error-subtitle {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    text-transform: none;
+    letter-spacing: 0.05em;
+    margin-top: -12px;
+  }
+
+  .error-body {
+    color: var(--text-secondary);
+    max-width: 420px;
+    line-height: 1.7;
+    text-transform: none;
+    letter-spacing: 0;
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+  }
+
+  .error-actions {
+    margin-top: 8px;
+  }
+
+  .error-recovery {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    row-gap: 8px;
+    margin-top: 12px;
+  }
+
+  .error-link {
+    font-family: var(--font-heading);
+    font-size: 0.65rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-muted);
+    transition: color 0.2s ease;
+  }
+
+  .error-link:hover {
+    color: var(--cyan-core);
+  }
+
+  .error-link-sep {
+    color: var(--text-muted);
+    opacity: 0.4;
+  }
+</style>

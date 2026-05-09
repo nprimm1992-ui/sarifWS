@@ -1,0 +1,19 @@
+{
+  "num": "003",
+  "classification": "Engagement 003 — Investor Materials",
+  "sector": "Venture capital",
+  "accent": "venture",
+  "statValue": "$4.2B",
+  "statLabel": "Combined addressable market framed",
+  "leads": [
+    "A seed-stage venture needed to present to a 180-partner fund. The existing narrative undersold the competitive position and misstated the addressable market. We rebuilt the story from the data up."
+  ],
+  "highlights": [
+    "Competitive landscape mapped against six named platforms including a $7.2B incumbent",
+    "$2.5M use of proceeds modeled across five allocation categories with 18-month milestone projections",
+    "Market sizing reframed from generic TAM to a $4.2B combined addressable market with sector-specific entry wedges",
+    "7 rounds of forensic audit against canonical data sources",
+    "Submitted through institutional portal. Zero factual errors in the final version."
+  ],
+  "sort": 3
+}

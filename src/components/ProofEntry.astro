@@ -1,0 +1,287 @@
+---
+export type EngagementAccent = 'policy' | 'civic' | 'venture' | 'founder' | 'education' | 'digital';
+
+interface Props {
+  classification: string;
+  content?: string;
+  id?: string;
+  num?: string;
+  class?: string;
+  sector?: string;
+  statValue?: string;
+  statLabel?: string;
+  leads?: string[];
+  highlights?: string[];
+  accent?: EngagementAccent;
+}
+
+const {
+  classification,
+  content,
+  id,
+  num,
+  class: className,
+  sector,
+  statValue,
+  statLabel,
+  leads = [],
+  highlights = [],
+  accent,
+} = Astro.props;
+
+const isDossier = highlights.length > 0 && leads.length > 0;
+---
+
+<article
+  class:list={['proof-entry', 'panel-frost-base', 'panel-dossier', 'panel-dossier--interactive', className]}
+  data-reveal-item
+  data-eng-accent={accent}
+  id={id}
+>
+  <div class="proof-entry__accent" aria-hidden="true"></div>
+  {num && <span class="proof-entry__num" aria-hidden="true">{num}</span>}
+
+  {
+    isDossier ? (
+      <>
+        {sector && <p class="proof-entry__sector sarif-gold-cap-line">{sector}</p>}
+        <h2 class="proof-entry__classification ui-eyebrow">{classification}</h2>
+        {statValue && (
+          <div class="proof-entry__stat" aria-hidden="true">
+            <span class="proof-entry__stat-value">{statValue}</span>
+            {statLabel && <span class="proof-entry__stat-label">{statLabel}</span>}
+          </div>
+        )}
+        {leads.map((lead) => (
+          <p class="proof-entry__lead">{lead}</p>
+        ))}
+        {/*
+          highlights strings are rendered with set:html for optional inline
+          markup (e.g. <strong>). Author-controlled, compile-time-static data
+          only — do NOT pass user-submitted or external strings through this
+          prop without escaping. Any literal < > & characters in plain copy
+          must be written as &lt; &gt; &amp; or they will be interpreted as markup.
+        */}
+        <ul class="proof-entry__highlights" role="list">
+          {highlights.map((line) => (
+            <li class="sarif-gold-cap-line" set:html={line} />
+          ))}
+        </ul>
+      </>
+    ) : (
+      <>
+        <h2 class="proof-entry__classification ui-eyebrow">{classification}</h2>
+        {content && <p class="proof-entry__content">{content}</p>}
+      </>
+    )
+  }
+</article>
+
+<style>
+  .proof-entry {
+    padding: 36px 36px 36px 40px;
+    position: relative;
+    overflow: hidden;
+    clip-path: var(--clip-card);
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      box-shadow 0.3s ease,
+      border-color 0.3s ease;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  .proof-entry.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      box-shadow 0.3s ease,
+      border-color 0.3s ease;
+  }
+
+  .proof-entry__accent {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(to bottom, var(--cyan-core), rgba(0, 212, 255, 0.2));
+  }
+
+  .proof-entry[data-eng-accent='policy'] .proof-entry__accent {
+    background: linear-gradient(
+      to bottom,
+      var(--cyan-core) 0%,
+      rgba(0, 212, 255, 0.45) 40%,
+      rgba(221, 184, 61, 0.55) 100%
+    );
+  }
+
+  .proof-entry[data-eng-accent='civic'] .proof-entry__accent {
+    background: linear-gradient(to bottom, var(--cyan-bright), rgba(0, 153, 187, 0.25));
+  }
+
+  .proof-entry[data-eng-accent='venture'] .proof-entry__accent {
+    background: linear-gradient(
+      to bottom,
+      var(--sarif-gold) 0%,
+      rgba(221, 184, 61, 0.5) 45%,
+      rgba(0, 212, 255, 0.35) 100%
+    );
+  }
+
+  .proof-entry[data-eng-accent='founder'] .proof-entry__accent {
+    background: linear-gradient(to bottom, var(--cyan-core), rgba(0, 212, 255, 0.35));
+  }
+
+  .proof-entry[data-eng-accent='education'] .proof-entry__accent {
+    background: linear-gradient(
+      to bottom,
+      rgba(221, 184, 61, 0.85) 0%,
+      var(--cyan-core) 55%,
+      rgba(0, 212, 255, 0.2) 100%
+    );
+  }
+
+  .proof-entry[data-eng-accent='digital'] .proof-entry__accent {
+    background: linear-gradient(to bottom, var(--cyan-bright), var(--cyan-core));
+  }
+
+  .proof-entry__num {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    font-family: var(--font-heading);
+    font-size: 48px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: var(--sarif-gold);
+    opacity: 0.12;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* Hover lift only — border/shadow is carried by the shared
+     `.panel-dossier--interactive:hover` in global.css so the carousel
+     and standalone proof entries both read with the same cyan-only
+     hover signature the rest of the dossier family uses. */
+  .proof-entry:hover {
+    transform: translateY(-6px);
+  }
+
+  /* Carousel variant keeps its denser frost alpha (harmless on the
+     opaque dossier fill, but preserved for the non-dossier legacy
+     path if it's ever used without panel-dossier). The warm gold
+     border-top seam was dropped — it fought the cyan border of the
+     dossier palette. */
+  .proof-entry--carousel {
+    --panel-frost-fill-alpha: 0.1;
+  }
+
+  .proof-entry__sector {
+    margin: 0 0 10px;
+    max-width: 100%;
+  }
+
+  h2.proof-entry__classification {
+    margin: 0 0 14px;
+  }
+
+  .proof-entry__stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 0 0 22px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.12);
+  }
+
+  .proof-entry__stat-value {
+    font-family: var(--font-heading);
+    font-size: clamp(2rem, 5.5vw, 3rem);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.05;
+    color: var(--gold-bright);
+    text-shadow: var(--gold-glow-soft);
+    filter: brightness(1.08);
+  }
+
+  .proof-entry__stat-label {
+    font-family: var(--font-heading);
+    font-size: clamp(0.58rem, 1.2vw, 0.68rem);
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    line-height: 1.35;
+    max-width: 22rem;
+  }
+
+  .proof-entry__lead {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    line-height: 1.82;
+    margin: 0 0 16px;
+  }
+
+  .proof-entry__lead:last-of-type {
+    margin-bottom: 18px;
+  }
+
+  .proof-entry__highlights {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* Gold ink + diamond marker — mirrors services lane-list-item + .sarif-gold-cap-line */
+  .proof-entry__highlights li {
+    position: relative;
+    padding-left: 16px;
+    margin-bottom: 8px;
+    text-align: left;
+  }
+
+  .proof-entry__highlights li:last-child {
+    margin-bottom: 0;
+  }
+
+  .proof-entry__highlights li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 4px;
+    height: 4px;
+    background: var(--gold-bright);
+    box-shadow: 0 0 6px rgba(221, 184, 61, 0.45);
+    transform: rotate(45deg);
+  }
+
+  .proof-entry__content {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    line-height: 1.8;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .proof-entry {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+
+    .proof-entry__stat-value {
+      filter: none;
+    }
+
+    .proof-entry__highlights li::before {
+      box-shadow: none;
+    }
+  }
+</style>

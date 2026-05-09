@@ -1,0 +1,342 @@
+---
+import ProofEntry from './ProofEntry.astro';
+import type { EngagementAccent } from './ProofEntry.astro';
+
+interface EngagementItem {
+  id: string;
+  num: string;
+  classification: string;
+  sector: string;
+  accent: EngagementAccent;
+  statValue: string;
+  statLabel: string;
+  leads: string[];
+  highlights: string[];
+  content?: string;
+}
+
+interface Props {
+  items: EngagementItem[];
+}
+
+const { items } = Astro.props;
+const total = items.length;
+---
+
+<div
+  class="eng-carousel"
+  data-eng-carousel
+  data-reveal-group
+  aria-roledescription="carousel"
+>
+  <span class="sr-only" aria-live="polite" data-carousel-status></span>
+
+  <nav class="eng-carousel__pills reveal-on-scroll" aria-label="Engagement index">
+    <ul class="eng-carousel__pill-list" role="list">
+      {
+        items.map((eng) => (
+          <li>
+            <button
+              type="button"
+              class="eng-carousel__pill"
+              data-carousel-pill
+              aria-label={`Show engagement ${eng.num}, ${eng.sector}`}
+            >
+              <span class="eng-carousel__pill-label" aria-hidden="true">{eng.num}</span>
+            </button>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+
+  <div class="eng-carousel__chrome">
+    <button
+      type="button"
+      class="eng-carousel__arrow eng-carousel__arrow--prev"
+      data-carousel-prev
+      aria-label="Previous engagement"
+    >
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path
+          d="M12 4L6 10l6 6"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linecap="square"
+          stroke-linejoin="miter"></path>
+      </svg>
+    </button>
+
+    <div
+      class="eng-carousel__viewport"
+      data-carousel-viewport
+      tabindex="0"
+      role="region"
+      aria-label={`Engagement dossiers, ${total} records. Use arrow keys to move between engagements.`}
+    >
+      <ul class="eng-carousel__track" role="list">
+        {
+          items.map((eng, i) => (
+            <li
+              class="eng-carousel__slide"
+              data-carousel-slide
+              data-carousel-slide-id={eng.id}
+              aria-label={`${i + 1} of ${total}`}
+            >
+              <ProofEntry
+                id={eng.id}
+                num={eng.num}
+                classification={eng.classification}
+                sector={eng.sector}
+                accent={eng.accent}
+                statValue={eng.statValue}
+                statLabel={eng.statLabel}
+                leads={eng.leads}
+                highlights={eng.highlights}
+                content={eng.content}
+                class="proof-entry--carousel"
+              />
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <button
+      type="button"
+      class="eng-carousel__arrow eng-carousel__arrow--next"
+      data-carousel-next
+      aria-label="Next engagement"
+    >
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path
+          d="M8 4l6 6-6 6"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linecap="square"
+          stroke-linejoin="miter"></path>
+      </svg>
+    </button>
+  </div>
+
+  <p class="eng-carousel__swipe-hint" aria-hidden="true" data-swipe-hint>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M3 8h10M10 5l3 3-3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>Swipe to explore</span>
+  </p>
+</div>
+
+<script src="../scripts/engagement-carousel.js"></script>
+
+<style>
+  .eng-carousel {
+    width: 100%;
+    max-width: 1000px;
+    margin-inline: auto;
+  }
+
+  .eng-carousel__pills {
+    margin-bottom: 28px;
+    text-align: center;
+  }
+
+  .eng-carousel__pill-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: inline-flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .eng-carousel__pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 52px;
+    padding: 6px 14px;
+    font-family: var(--font-heading);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: transparent;
+    text-decoration: none;
+    border: 1px solid rgba(191, 163, 100, 0.25);
+    clip-path: var(--clip-sm);
+    background: rgba(191, 163, 100, 0.06);
+    cursor: pointer;
+    transition: background 0.25s ease, border-color 0.25s ease;
+  }
+
+  /* Pill label sheen: global.css (.eng-carousel__pill-label) */
+
+  .eng-carousel__pill-label {
+    display: inline-block;
+  }
+
+  .eng-carousel__pill:hover,
+  .eng-carousel__pill:focus-visible {
+    background: rgba(191, 163, 100, 0.15);
+    border-color: rgba(191, 163, 100, 0.5);
+    outline: none;
+  }
+
+  .eng-carousel__pill.is-active {
+    background: rgba(191, 163, 100, 0.22);
+    border-color: rgba(191, 163, 100, 0.55);
+    box-shadow: 0 0 20px rgba(201, 162, 39, 0.12);
+  }
+
+  .eng-carousel__chrome {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: stretch;
+    gap: clamp(8px, 2vw, 20px);
+  }
+
+  .eng-carousel__viewport {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    outline: none;
+    border-radius: 0;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .eng-carousel__viewport::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .eng-carousel__viewport:focus-visible {
+    box-shadow: 0 0 0 2px var(--cyan-core);
+  }
+
+  .eng-carousel__track {
+    display: flex;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    min-height: 100%;
+  }
+
+  .eng-carousel__slide {
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    box-sizing: border-box;
+    padding-inline: 2px;
+    transition: opacity 0.35s ease, transform 0.35s ease;
+  }
+
+  .eng-carousel__slide:not(.is-active) {
+    opacity: 0.72;
+  }
+
+  .eng-carousel__slide.is-active {
+    opacity: 1;
+  }
+
+  .eng-carousel__arrow {
+    align-self: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    color: var(--cyan-core);
+    background: rgba(0, 212, 255, 0.06);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    clip-path: var(--clip-sm);
+    cursor: pointer;
+    transition:
+      background 0.25s ease,
+      border-color 0.25s ease,
+      color 0.25s ease,
+      opacity 0.25s ease;
+  }
+
+  .eng-carousel__arrow:hover:not(:disabled),
+  .eng-carousel__arrow:focus-visible:not(:disabled) {
+    background: rgba(0, 212, 255, 0.12);
+    border-color: rgba(0, 212, 255, 0.45);
+    color: var(--cyan-bright);
+    outline: none;
+  }
+
+  .eng-carousel__arrow:disabled {
+    opacity: 0.28;
+    cursor: not-allowed;
+  }
+
+  .eng-carousel__swipe-hint {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 16px;
+    color: var(--text-muted);
+    font-family: var(--font-heading);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 1;
+    transition: opacity 0.5s ease;
+  }
+
+  .eng-carousel__swipe-hint.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  @media (max-width: 640px) {
+    .eng-carousel__chrome {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .eng-carousel__arrow {
+      display: none;
+    }
+
+    .eng-carousel__viewport {
+      scroll-padding-inline: 16px;
+    }
+
+    .eng-carousel__swipe-hint {
+      display: flex;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .eng-carousel__viewport {
+      scroll-behavior: auto;
+    }
+
+    .eng-carousel__slide {
+      transition: none;
+    }
+
+    .eng-carousel__slide:not(.is-active) {
+      opacity: 1;
+    }
+
+    .eng-carousel__pill {
+      transition: none;
+    }
+
+    .eng-carousel__arrow {
+      transition: none;
+    }
+  }
+</style>

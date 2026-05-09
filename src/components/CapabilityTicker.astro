@@ -1,0 +1,243 @@
+---
+const items = [
+  'STRATEGIC INTELLIGENCE',
+  'DIGITAL PRODUCTION',
+  'NARRATIVE ARCHITECTURE',
+  'MEDIA SYSTEMS',
+  'AI META-ORCHESTRATION',
+  'ARCHITECTURAL DEPTH',
+  'SPRINT SPEED',
+];
+---
+
+<div class="cap-ticker" aria-hidden="true">
+  <div class="cap-ticker__track">
+    {[0, 1].map(() => (
+      <span class="cap-ticker__set">
+        {items.map((item) => (
+          <>
+            <span class="cap-ticker__item">{item}</span>
+            <span class="cap-ticker__sep">&#9670;</span>
+          </>
+        ))}
+      </span>
+    ))}
+  </div>
+</div>
+
+<style>
+  /* Fixed (not sticky): sticky reserved ~36px in document flow and pushed the hero below the
+     viewport top on load. Fixed layers under the nav like the nav bar itself. */
+  .cap-ticker {
+    position: fixed;
+    top: 72px;
+    left: 0;
+    right: 0;
+    z-index: 999;
+    height: 36px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+
+    background: rgba(8, 16, 24, 0.65);
+    backdrop-filter: blur(16px) saturate(1.2);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+
+    border-bottom: 1px solid rgba(0, 212, 255, var(--ticker-glow));
+    animation: capBorderPulse 7s ease-in-out infinite;
+
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 80px, black calc(100% - 80px), transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0%, black 80px, black calc(100% - 80px), transparent 100%);
+
+    transform: translateY(0);
+    opacity: 1;
+    transition: opacity 0.4s ease, transform 0.35s ease;
+
+    /* Inline-size query container so the scan-sweep band's travel
+       distance can be expressed in `cqw` units. See EngagementTicker
+       for rationale. */
+    container-type: inline-size;
+  }
+
+  /* Noise grain texture */
+  .cap-ticker::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--noise-texture-url);
+    pointer-events: none;
+    z-index: 1;
+    mix-blend-mode: soft-light;
+  }
+
+  /* Scan line sweep.
+     50px narrow band positioned at left: 0, translated into place
+     via `transform: translateX()` using cqw units so the band
+     sweeps the container's full inline axis exactly once per cycle —
+     matching the original `left: -50px → 100%` travel. Runs on the
+     compositor with zero layout. */
+  .cap-ticker::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50px;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(0, 212, 255, 0.07),
+      rgba(0, 212, 255, 0.12),
+      rgba(0, 212, 255, 0.07),
+      transparent
+    );
+    animation: capScanSweep 10s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 2;
+    transform: translateX(-50px);
+    will-change: transform;
+  }
+
+  .cap-ticker__track {
+    display: flex;
+    white-space: nowrap;
+    animation: capTickerScroll 45s linear infinite;
+    will-change: transform;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cap-ticker__set {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .cap-ticker__item {
+    font-family: var(--font-ticker);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--sarif-gold);
+    flex-shrink: 0;
+    padding-inline: 6px;
+  }
+
+  .cap-ticker__sep {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 5px;
+    color: var(--sarif-gold);
+    opacity: 0.5;
+    flex-shrink: 0;
+    padding-inline: 8px;
+    text-shadow: 0 0 6px rgba(201, 162, 39, 0.4);
+  }
+
+  /* Scroll-driven fade: retracts upward under the nav */
+  .cap-ticker--hidden {
+    opacity: 0;
+    transform: translateY(-100%);
+    pointer-events: none;
+  }
+
+  /* Mobile menu takeover: when the hamburger menu is open, the ticker
+     would otherwise animate inside the stacking context behind the
+     full-viewport overlay — wasted compositor work, and the ticker's
+     cyan scan sweep can bleed through the frosted background at the
+     top edge. Mirror the scroll-hidden state via :has() so the ticker
+     retracts as soon as [aria-expanded="true"] appears anywhere on the
+     toggle, with zero JS coupling.
+
+     :has() is Baseline (wide) since late 2023; browsers that lack it
+     (< 1% by 2026) fall back to the previous behaviour (ticker visible
+     behind the overlay). That's a visual nit, not a functional break. */
+  :root:has(#nav-toggle[aria-expanded='true']) .cap-ticker {
+    opacity: 0;
+    transform: translateY(-100%);
+    pointer-events: none;
+  }
+
+  @keyframes capTickerScroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  @keyframes capBorderPulse {
+    0%, 100% { --ticker-glow: 0.08; }
+    50% { --ticker-glow: 0.25; }
+  }
+
+  @keyframes capScanSweep {
+    0% { transform: translateX(-50px); opacity: 0; }
+    5% { opacity: 1; }
+    95% { opacity: 1; }
+    100% { transform: translateX(100cqw); opacity: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cap-ticker {
+      animation: none;
+      --ticker-glow: 0.15;
+      transition: none;
+    }
+    .cap-ticker__track {
+      animation: none;
+    }
+    .cap-ticker::after {
+      display: none;
+    }
+  }
+
+  @media (prefers-contrast: more) {
+    .cap-ticker {
+      border-bottom-color: rgba(0, 212, 255, 0.4);
+      animation: none;
+    }
+    .cap-ticker::before,
+    .cap-ticker::after {
+      display: none;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .cap-ticker {
+      -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 40px, black calc(100% - 40px), transparent 100%);
+      mask-image: linear-gradient(90deg, transparent 0%, black 40px, black calc(100% - 40px), transparent 100%);
+    }
+  }
+</style>
+
+<script>
+  function initCapTickerFade() {
+    const ticker = document.querySelector('.cap-ticker');
+    const nav = document.getElementById('site-nav');
+    if (!ticker || !nav) return;
+    if (ticker._capTickerBound) return;
+    ticker._capTickerBound = true;
+
+    function sync() {
+      ticker.classList.toggle('cap-ticker--hidden', nav.classList.contains('scrolled'));
+    }
+
+    sync();
+
+    const mo = new MutationObserver(sync);
+    mo.observe(nav, { attributes: true, attributeFilter: ['class'] });
+
+    function teardown() {
+      mo.disconnect();
+      document.removeEventListener('astro:before-swap', teardown);
+    }
+    document.addEventListener('astro:before-swap', teardown, { once: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCapTickerFade, { once: true });
+  } else {
+    initCapTickerFade();
+  }
+  document.addEventListener('astro:page-load', initCapTickerFade);
+</script>

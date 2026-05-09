@@ -1,0 +1,353 @@
+---
+/**
+ * P9d — RAG-lite Praxis assistant.
+ *
+ * A retrieval-only "ask our field notes" surface placed on /praxis.
+ * The component renders an ARIA combobox (input + listbox) that
+ * performs fuzzy token-intersection matching against the static
+ * `/search-index.json` filtered to `type === 'praxis'`. Top three
+ * articles with short summaries + permalinks render inline. No
+ * generative answer is produced — we never want to fabricate
+ * consulting positions we don't hold.
+ *
+ * Why retrieval-only (for now):
+ *   - Trust: a wrong answer on a consulting site is worse than no
+ *     answer. Retrieval makes the provenance obvious.
+ *   - Latency: client-side ranking is instant; no cold-start tax.
+ *   - Cost: zero LLM spend while we gather query signal.
+ *
+ * Query signal is POSTed to /api/ask (debounced) so we can see what
+ * readers actually ask. See migrations/0010_ask_queries.sql and
+ * functions/api/ask.js for the full PII posture.
+ */
+---
+
+<section
+  class="praxis-ask content-back-panel reveal-on-scroll"
+  aria-labelledby="praxis-ask-heading"
+  data-praxis-ask
+>
+  <header class="praxis-ask__header">
+    <p class="ui-eyebrow">Field-notes assistant</p>
+    <h2 id="praxis-ask-heading" class="praxis-ask__heading">Ask our field notes</h2>
+    <p class="praxis-ask__hint">
+      Type a question or topic. We surface the three most relevant Praxis articles. No generative answers — just the source material.
+    </p>
+  </header>
+
+  {/* ARIA APG 1.2 "Combobox with Listbox Popup" — the single owner of
+      the combobox role is the input. The wrapper is layout-only so screen
+      readers don't treat it as a redundant combobox. */}
+  <div class="praxis-ask__combo">
+    <label class="praxis-ask__label" for="praxis-ask-input">Ask</label>
+    <svg class="praxis-ask__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+      <path d="m16.5 16.5 3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+    </svg>
+    <input
+      id="praxis-ask-input"
+      class="praxis-ask__input"
+      type="search"
+      role="combobox"
+      aria-haspopup="listbox"
+      aria-controls="praxis-ask-list"
+      aria-expanded="false"
+      aria-autocomplete="list"
+      autocomplete="off"
+      autocorrect="off"
+      spellcheck="false"
+      placeholder="e.g. how do we price coherence decay?"
+      data-praxis-ask-input
+    />
+    <button
+      type="button"
+      class="praxis-ask__clear"
+      data-praxis-ask-clear
+      aria-label="Clear question"
+      hidden
+    >
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" width="14" height="14">
+        <path d="M5 5l10 10M15 5 5 15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      </svg>
+    </button>
+  </div>
+
+  <div
+    id="praxis-ask-list"
+    class="praxis-ask__results"
+    role="listbox"
+    aria-label="Matching Praxis articles"
+    data-praxis-ask-results
+    hidden
+  ></div>
+
+  {/* Signal-retention disclosure. The API logs the query text (no PII,
+      daily-salted IP hash, 30-day retention) to feed editorial planning;
+      users see the full posture inline rather than buried in the footer. */}
+  <p class="praxis-ask__disclosure">
+    Questions are logged for editorial review — no IP, no identity, 30-day retention. See <a href="/privacy/#field-notes-assistant">privacy</a>.
+  </p>
+
+  <p class="praxis-ask__status" role="status" aria-live="polite" data-praxis-ask-status></p>
+</section>
+
+<style>
+  /* Shell layout — frost surface + clip from global .content-back-panel (matches Praxis hero card). */
+  .praxis-ask {
+    grid-column: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 960px) {
+    .praxis-ask {
+      grid-column: 1;
+    }
+  }
+
+  .praxis-ask__header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .praxis-ask__heading {
+    margin: 0;
+    font-size: clamp(1.1rem, 1.4vw, 1.35rem);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: var(--text-primary);
+  }
+
+  .praxis-ask__hint {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+    max-width: 60ch;
+  }
+
+  .praxis-ask__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .praxis-ask__combo {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid rgba(0, 212, 255, 0.18);
+    background: rgba(4, 10, 16, 0.55);
+    border-radius: 8px;
+    transition: border-color 180ms ease;
+  }
+
+  .praxis-ask__combo:focus-within {
+    border-color: var(--cyan-core);
+    box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.14);
+  }
+
+  .praxis-ask__icon {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    color: var(--text-muted);
+  }
+
+  .praxis-ask__input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 2px 0;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.95rem;
+  }
+
+  .praxis-ask__input:focus {
+    outline: none;
+  }
+
+  .praxis-ask__input::placeholder {
+    color: rgba(180, 195, 210, 0.45);
+  }
+
+  .praxis-ask__clear {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 160ms ease, border-color 160ms ease;
+  }
+
+  .praxis-ask__clear:hover,
+  .praxis-ask__clear:focus-visible {
+    color: var(--text-primary);
+    border-color: rgba(0, 212, 255, 0.3);
+  }
+
+  .praxis-ask__results {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px;
+    border: 1px solid rgba(0, 212, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(4, 10, 16, 0.45);
+  }
+
+  .praxis-ask__result {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 160ms ease;
+  }
+
+  .praxis-ask__result:hover,
+  .praxis-ask__result[aria-selected='true'],
+  .praxis-ask__result:focus-visible {
+    background: rgba(0, 212, 255, 0.08);
+    outline: none;
+  }
+
+  .praxis-ask__result-meta {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .praxis-ask__result-title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 500;
+    line-height: 1.35;
+    color: var(--text-primary);
+  }
+
+  .praxis-ask__result-summary {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+  }
+
+  .praxis-ask__result-summary mark {
+    background: transparent;
+    color: var(--cyan-bright);
+    font-weight: 500;
+  }
+
+  .praxis-ask__empty,
+  .praxis-ask__error-copy {
+    padding: 12px;
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  /* Round-4 §3.4 — dedicated error surface when /search-index.json
+     fails to load. Uses a subtle red wash (not full-bleed destructive)
+     so it reads as recoverable rather than alarming, and includes an
+     actionable retry affordance that keeps the user in the flow. */
+  .praxis-ask__error {
+    padding: 0;
+    margin: 0;
+    border: 1px solid rgba(255, 120, 120, 0.18);
+    background: rgba(255, 120, 120, 0.04);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .praxis-ask__error-actions {
+    display: flex;
+    justify-content: center;
+    padding: 0 12px 12px;
+  }
+
+  .praxis-ask__error-retry {
+    appearance: none;
+    background: transparent;
+    color: var(--cyan-bright);
+    border: 1px solid rgba(var(--cyan-bright-rgb, 120, 220, 255), 0.35);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+  }
+
+  .praxis-ask__error-retry:hover,
+  .praxis-ask__error-retry:focus-visible {
+    background: rgba(120, 220, 255, 0.08);
+    border-color: rgba(120, 220, 255, 0.6);
+    outline: none;
+  }
+
+  .praxis-ask__error-retry:focus-visible {
+    box-shadow: 0 0 0 2px rgba(120, 220, 255, 0.25);
+  }
+
+  .praxis-ask__disclosure {
+    margin: 0;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: rgba(180, 195, 210, 0.55);
+  }
+
+  .praxis-ask__disclosure a {
+    color: inherit;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+  }
+
+  .praxis-ask__disclosure a:hover,
+  .praxis-ask__disclosure a:focus-visible {
+    color: var(--cyan-bright);
+  }
+
+  .praxis-ask__status {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+</style>
+
+<script>
+  import { initPraxisAsk } from '../scripts/praxis-ask.js';
+  initPraxisAsk();
+</script>
