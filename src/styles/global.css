@@ -272,7 +272,14 @@ body {
   background-image:
     radial-gradient(ellipse at 50% 70%, rgba(0, 212, 255, 0.04) 0%, transparent 50%),
     radial-gradient(ellipse at 50% 100%, rgba(201, 162, 39, 0.06) 0%, transparent 40%);
-  background-attachment: fixed;
+  /* Previously `background-attachment: fixed`. Removed because every scroll
+     event repainted the gradient over the full viewport AND those repainted
+     pixels then had to traverse the chain of `backdrop-filter` layers above
+     (nav, glass-panel, content-back-panel, breath-section, etc.), producing
+     measurable desktop scroll jank on integrated GPUs. The persistent
+     `#lobby-canvas` underneath already provides the perceived depth this
+     gradient was meant to add — the gradient now layers cleanly into the
+     normal flow and scrolls with the document. */
   color: var(--text-primary);
   font-family: var(--font-body);
   font-size: var(--text-base);
@@ -638,11 +645,18 @@ button,
      invisible against the 3D lobby's sandy zones (about CTA, contact
      submit), so the chamfered gold bracket disappeared there while
      reading cleanly on darker sections (hero, engagements CTA). A
-     consistent dark translucent fill + blur gives the button its own
-     surface on every backdrop; hover still swaps to solid --sarif-gold. */
-  background-color: rgba(8, 22, 34, 0.72);
-  backdrop-filter: blur(10px) saturate(1.2);
-  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+     consistent dark translucent fill gives the button its own surface
+     on every backdrop; hover still swaps to solid --sarif-gold.
+
+     Round 2026 perf — backdrop-filter dropped from the resting state.
+     A 10 px blur on every CTA forced an extra compositor pass even
+     when the button was completely covered by content above it; on
+     pages with many CTAs (services lanes, engagements grid) those
+     stacked passes added measurably to scroll-frame cost. The opaque-
+     enough rgba(8, 22, 34, 0.86) plus the existing inset highlight
+     and gold border carry the "glass on dark" read without GPU blur.
+     Hover state stays blur-free (already drops to solid --sarif-gold). */
+  background-color: rgba(8, 22, 34, 0.86);
   color: var(--gold-bright);
   font-family: var(--font-heading);
   font-size: 0.75rem;
@@ -659,14 +673,12 @@ button,
      prep paint for every property on every style recalc — measurable
      on long button grids. transform + box-shadow stay composited;
      color/background/border recolor without layout; text-shadow is
-     included because the .cyan-gold-label hover variants toggle it;
-     backdrop-filter is listed so the glass→solid-gold handoff on
-     hover doesn't snap on engines that animate it. */
+     included because the .cyan-gold-label hover variants toggle it.
+     (backdrop-filter removed from the property list in line with the
+     resting-state rule above; hover now swaps directly to solid gold.) */
   transition:
     color 0.2s ease,
     background-color 0.2s ease,
-    backdrop-filter 0.2s ease,
-    -webkit-backdrop-filter 0.2s ease,
     border-color 0.2s ease,
     box-shadow 0.2s ease,
     text-shadow 0.2s ease,
@@ -677,10 +689,6 @@ button,
   .btn-primary:hover,
   .btn-gold:hover {
     background: var(--sarif-gold);
-    /* Drop the blur once the fill is fully opaque — backdrop-filter has
-       no visual effect behind a solid layer but still costs a GPU pass. */
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
     color: #1a1410;
     transform: translateY(-2px);
     box-shadow:
@@ -798,8 +806,6 @@ button,
   .breath-section .btn-gold:hover,
   .breath-section .btn-primary:hover {
     background: var(--sarif-gold);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
     color: #1a1410;
   }
 }
@@ -1361,10 +1367,10 @@ article.ucim-brief .ucim-brief__cue-text.ui-eyebrow,
     --section-pad: var(--section-pad-tablet);
   }
 
-  /* P0: fixed body background repaints hurt scroll on tablet / large-phone landscape */
-  body {
-    background-attachment: scroll;
-  }
+  /* (background-attachment: fixed already removed at the body rule — it was
+     a desktop-only repaint cost on scroll and was unnecessary on every
+     viewport. Retained mobile media query intentionally empty so a future
+     change here doesn't require re-deriving the breakpoint.) */
 }
 
 @media (max-width: 768px) {
@@ -1479,7 +1485,109 @@ article.ucim-brief .ucim-brief__cue-text.ui-eyebrow,
   z-index: 0;
   pointer-events: none;
   view-transition-name: none;
+  /* Round 2026 — boot transition is now CSS-driven on the canvas
+     itself (was an in-shader chromatic-aberration ShaderPass). The
+     contrast() / brightness() ramp here mirrors the previous
+     "energising" feel without paying a fullscreen fragment shader
+     pass. The `data-lobby-boot` attribute is set/cleared on <html>
+     by lobby-scene.js inside the same 1.4 s window the bloom strength
+     ramps over, so the visual effect compounds with the in-scene
+     bloom — same signature, near-zero cost. */
+  transition: filter 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+  filter: contrast(1) brightness(1);
 }
+
+html[data-lobby-boot='energising'] #lobby-canvas {
+  /* Snap to the "hot" state without animation; the calm ramp below
+     reads as the deceleration. Using contrast+brightness keeps the
+     LUT-graded mid-tones intact while pushing highlights into a
+     slightly hotter exposure for the boot beat. */
+  transition: none;
+  filter: contrast(1.18) brightness(1.18);
+}
+
+html[data-lobby-boot='calm'] #lobby-canvas {
+  filter: contrast(1) brightness(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #lobby-canvas { transition: none; filter: none !important; }
+}
+
+/* --- Vignette overlay (replaces WarmVignetteShader ShaderPass) ---
+   A radial-gradient pinned to the lobby canvas. The mask was a
+   smoothstep(0.8, 2.0, dist) * 0.10 in the old fragment shader; this
+   matches that envelope visually. `mix-blend-mode: multiply` keeps
+   the underlying lobby pixels intact when the vignette is in the
+   "no-darken" interior — equivalent to the shader's identity branch.
+   Pointer-events:none; aria-hidden via parent canvas. */
+#lobby-canvas-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  view-transition-name: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 38%,
+    rgba(0, 0, 0, 0.06) 70%,
+    rgba(0, 0, 0, 0.18) 100%
+  );
+  mix-blend-mode: multiply;
+}
+
+/* --- Film grain overlay (replaces FilmGrainShader ShaderPass) ---
+   SVG fractal-noise tile at 1× scale, animated by translating the
+   noise tile by sub-pixel amounts so the grain shimmers like real
+   sensor noise. The browser caches the SVG raster once; the only
+   per-frame cost is a transform, which the compositor handles for
+   free. Tile size is 256 × 256 (matches the SVG viewBox), repeated.
+   Strength tuned to feel like the previous shader's uAmount=0.020
+   without the animated render-target round-trip. */
+#lobby-canvas-grain {
+  position: fixed;
+  inset: -32px; /* slight overscan so the translate animation never reveals an edge */
+  z-index: 0;
+  pointer-events: none;
+  view-transition-name: none;
+  opacity: 0.085;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+  background-repeat: repeat;
+  animation: lobbyGrainShimmer 0.9s steps(6, end) infinite;
+}
+
+@keyframes lobbyGrainShimmer {
+  0%   { transform: translate3d(0, 0, 0); }
+  16%  { transform: translate3d(-4px, 2px, 0); }
+  33%  { transform: translate3d(3px, -3px, 0); }
+  50%  { transform: translate3d(-2px, -1px, 0); }
+  66%  { transform: translate3d(2px, 3px, 0); }
+  83%  { transform: translate3d(-3px, 1px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+/* Mobile: keep the grain but at lower strength and slower cadence —
+   small displays already amplify perceived noise. */
+@media (max-width: 768px) {
+  #lobby-canvas-grain {
+    opacity: 0.05;
+    animation-duration: 1.4s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #lobby-canvas-grain { animation: none; opacity: 0.04; }
+}
+
+/* Forced-colors users get a flat lobby; suppress decorative overlays
+   that have no semantic meaning. */
+@media (forced-colors: active) {
+  #lobby-canvas-vignette,
+  #lobby-canvas-grain { display: none; }
+}
+
 #atmosphere-canvas {
   position: fixed;
   inset: 0;

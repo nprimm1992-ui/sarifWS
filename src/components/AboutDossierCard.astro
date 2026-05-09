@@ -89,11 +89,11 @@ const videoSrcEncoded = encodePublicMediaUrl(videoSrc ?? '');
     <div class="about-dossier__video-wrap" aria-hidden="true">
       <video
         class="about-dossier__video"
-        src={videoSrcEncoded}
+        data-src={videoSrcEncoded}
         muted
         loop
         playsinline
-        preload="auto"
+        preload="none"
         aria-label={videoAlt}
         data-dossier-video
       />
@@ -341,13 +341,48 @@ const videoSrcEncoded = encodePublicMediaUrl(videoSrc ?? '');
 <script>
   /* HAVE_CURRENT_DATA — first decoded frame available */
   const MIN_READY_STATE_FOR_FRAME = 2;
+  /* Trigger band — the network fetch begins this far below the viewport. We
+     use a wider rootMargin for the *load* decision than for the *play*
+     decision so the bytes are usually on disk by the time the card actually
+     scrolls into view (keeps the perceived play-as-you-arrive feel without
+     blowing the cold-load budget). */
+  const VIDEO_PRELOAD_MARGIN = '0px 0px 600px 0px';
+  const VIDEO_PRELOAD_THRESHOLD = 0;
+  const VIDEO_PLAY_MARGIN = '0px 0px 120px 0px';
+  const VIDEO_PLAY_THRESHOLD = 0.15;
 
-  let _dossierVideoObserver = null;
+  let _dossierVideoLoadObserver = null;
+  let _dossierVideoPlayObserver = null;
+
+  /** Promote a [data-dossier-video] from preload="none" to a real fetchable
+   *  source. Idempotent. The video is muted+loop+playsinline at markup
+   *  time, so once src is set the play() chain below works identically to
+   *  the previous preload="auto" path. */
+  function attachVideoSource(video) {
+    if (video.dataset.dossierLoaded === '1') return;
+    const src = video.getAttribute('data-src');
+    if (!src) return;
+    video.dataset.dossierLoaded = '1';
+    /* Set preload before src so the browser issues the right Range
+       request (preload="metadata" → small initial range; "auto" → may
+       fetch the whole asset). We start with "metadata" and let the
+       play observer below promote to "auto" only when the card is
+       imminently visible. This staircase keeps cold loads cheap while
+       still avoiding the audible-pop / flash that a deferred src+play
+       can cause. */
+    video.setAttribute('preload', 'metadata');
+    video.setAttribute('src', src);
+    video.removeAttribute('data-src');
+  }
 
   function initDossierVideos() {
-    if (_dossierVideoObserver) {
-      _dossierVideoObserver.disconnect();
-      _dossierVideoObserver = null;
+    if (_dossierVideoLoadObserver) {
+      _dossierVideoLoadObserver.disconnect();
+      _dossierVideoLoadObserver = null;
+    }
+    if (_dossierVideoPlayObserver) {
+      _dossierVideoPlayObserver.disconnect();
+      _dossierVideoPlayObserver = null;
     }
 
     const videos = document.querySelectorAll('[data-dossier-video]');
@@ -367,12 +402,44 @@ const videoSrcEncoded = encodePublicMediaUrl(videoSrc ?? '');
       );
     }
 
-    _dossierVideoObserver = new IntersectionObserver(
+    /* Tier 1 — large rootMargin: attach src and let the network fetch start.
+       This is the only step that incurs bytes; everything else is just play
+       state. Once attached, the load observer drops the video. */
+    if (typeof IntersectionObserver !== 'undefined') {
+      _dossierVideoLoadObserver = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            const video = entry.target;
+            if (video instanceof HTMLVideoElement) {
+              attachVideoSource(video);
+              _dossierVideoLoadObserver?.unobserve(video);
+            }
+          }
+        },
+        { rootMargin: VIDEO_PRELOAD_MARGIN, threshold: VIDEO_PRELOAD_THRESHOLD },
+      );
+      for (const v of videos) _dossierVideoLoadObserver.observe(v);
+    } else {
+      /* No IO — degrade to immediate attach so the card never appears as a
+         silent placeholder. The cost is the original preload="auto" cost,
+         which is what we had before this fix; acceptable as a fallback. */
+      for (const v of videos) {
+        if (v instanceof HTMLVideoElement) attachVideoSource(v);
+      }
+    }
+
+    /* Tier 2 — play band: when the card is in the active reading area,
+       promote preload to "auto" (so the rest of the file streams in if it
+       wasn't already) and start playback. Pause + reset on exit. */
+    _dossierVideoPlayObserver = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           const video = entry.target;
           if (!(video instanceof HTMLVideoElement)) continue;
           if (entry.isIntersecting) {
+            attachVideoSource(video);
+            video.setAttribute('preload', 'auto');
             if (prefersReduced) {
               video.pause();
               try {
@@ -383,9 +450,6 @@ const videoSrcEncoded = encodePublicMediaUrl(videoSrc ?? '');
               video.setAttribute('data-playing', '');
               continue;
             }
-
-            /* Reveal once there is frame data — avoids opacity:0 when loadeddata
-             * fired before we subscribed (cached / preload) or when play() is delayed. */
             const reveal = () => {
               video.setAttribute('data-playing', '');
             };
@@ -401,11 +465,11 @@ const videoSrcEncoded = encodePublicMediaUrl(videoSrc ?? '');
           }
         }
       },
-      { rootMargin: '0px 0px 120px 0px', threshold: 0.15 },
+      { rootMargin: VIDEO_PLAY_MARGIN, threshold: VIDEO_PLAY_THRESHOLD },
     );
 
     for (const v of videos) {
-      _dossierVideoObserver.observe(v);
+      _dossierVideoPlayObserver.observe(v);
     }
   }
 

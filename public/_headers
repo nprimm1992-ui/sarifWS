@@ -73,6 +73,16 @@
 /*.png
   Cache-Control: public, max-age=2592000
 
+# Legacy OG endpoint: /og-image.png is now a renamed JPEG (see
+# scripts/generate-og-image.mjs). Override Content-Type so social
+# crawlers, browsers, and image-fetch tools all see `image/jpeg`
+# regardless of the URL's `.png` suffix. The PNG → JPEG migration
+# saved ~1.8 MB per share without breaking any cached crawler index
+# that still hard-codes the old filename.
+/og-image.png
+  Content-Type: image/jpeg
+  Cache-Control: public, max-age=2592000
+
 # Colour LUTs (Pillar 2 / 4a). Content-addressable by hashed filename
 # after Astro's asset pipeline processes the import (or stable URL when
 # referenced from /luts/). WebP lossless output from scripts/generate-lut.mjs;

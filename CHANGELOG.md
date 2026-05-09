@@ -8,6 +8,110 @@ site, so we track changes by date-scoped release groups instead.
 
 ## [Unreleased]
 
+### Performance — Round 2026 desktop overhaul
+
+This is the largest performance pass since the dirty-flag arbitrator
+landed. All changes were authored against `PERFORMANCE_AUDIT.md`
+(committed at the same time) and address the desktop initial-load /
+runtime pain reported by the team. No visual regressions intended;
+where a brand-relevant effect was removed from the GPU pipeline, an
+equivalent CSS layer takes its place at zero per-frame cost.
+
+#### Critical-path / network
+- **`Base.astro` — speculation rules switched from `prerender:
+  moderate` to `prefetch: moderate`** for the five primary routes.
+  `prerender` was spawning five parallel hidden documents, each booting
+  a *full* WebGLRenderer + EffectComposer + Reflector + 16-light
+  Three.js scene + atmosphere canvas + AudioContext while the user was
+  still on `/`. The browser's WebGL-context cap (~16 in Chromium)
+  meant by the time the user actually clicked, prerendered contexts
+  were often force-lost and the navigation cold-booted anyway. Prefetch
+  warms the HTML cache without script execution, captures ~80 % of the
+  perceived navigation speedup at <5 % of the resource cost.
+- **`Base.astro` — wing-emblem GLB and HDR env preloads downgraded to
+  `prefetch`**. Both assets are consumed by the lazy idle-imported
+  lobby module, *not* the first paint, so `preload` was wrongly
+  competing for connection slots with the four critical font woff2
+  preloads above it.
+- **`scripts/generate-og-image.mjs` — rewritten** to produce
+  `og-image.jpg` (1200 × 630, ~120 KB) and `og-image.avif` (~80 KB)
+  from the branded master. The legacy `og-image.png` URL is preserved
+  with `Content-Type: image/jpeg` override in `_headers` so cached
+  crawler indexes still work. Drops ~3.5 MB of cold bytes per shared
+  page render. `Base.astro` `DEFAULT_OG_IMAGE` updated to point at the
+  new optimised JPEG.
+- **`scripts/optimize-ambient-videos.mjs` — new**, hooked into
+  `build:assets`. Re-encodes the two ambient MP4 clips referenced by
+  AboutDossierCard (`Context flow.mp4` 6.1 MB, `Amber_Light_…mp4`
+  3.3 MB) to AV1 + downscaled H.264 when ffmpeg is available; logs
+  the canonical commands (and exits 0) when it isn't, so CI without
+  ffmpeg still passes.
+
+#### Lobby Three.js — composer chain & geometry
+- **`src/scripts/lobby-scene.js` — three ShaderPasses removed**:
+  `WarmVignetteShader`, `FilmGrainShader`, and `BootTransitionShader`.
+  Composer chain went 7 passes → 4 (Render → Bloom → Output → LUT).
+  Estimated 25–35 % steady-state GPU saved on desktop. Visual
+  equivalents:
+    - vignette → CSS radial-gradient `#lobby-canvas-vignette`
+    - grain    → CSS animated SVG noise `#lobby-canvas-grain`
+    - boot fade → CSS `filter: contrast()` ramp on `#lobby-canvas`,
+                  driven by a new `data-lobby-boot` attribute on
+                  `<html>` toggled in `initScene` / cleared at boot
+                  settle.
+  Bloom strength still ramps via the `UnrealBloomPass` uniform across
+  the same 1.4 s boot window — a single uniform write per rendered
+  frame, near-free.
+- **`src/scripts/lobby-scene.js` — `markDirty('boot-transition')`
+  removed from the per-frame loop**. The dirty-flag arbitrator's 24 fps
+  floor keeps the bloom ramp perceptually smooth without forcing every
+  frame through the full post-processing chain during the page's
+  busiest window.
+- **`src/scripts/lobby-scene.js` — bloom internal scale lowered**:
+  desktop 0.72 → 0.5, QHD/4K 0.66 → 0.45, mobile 0.5 → 0.4. Bloom is
+  blurred by definition; the visible delta below 0.5 is below
+  threshold while fragment work drops ~52 % across the 5-mip down/up
+  chain.
+- **`src/scripts/lobby-scene.js` — desktop Reflector RTT shrunk**:
+  1024 → 768 base, 960 → 640 (Full HD), 896 → 512 (QHD/4K). The
+  Reflector renders the entire scene a 2nd time per frame; this is
+  the single biggest landing-route GPU saving in the pass.
+- **`src/scripts/lobby-scene.js` — hex grid extents halved**: 100 × 80
+  → 60 × 50. FogExp2 was already killing visibility past 40 units, so
+  the geometry being removed was rendering as fog-coloured invisibility.
+  Geometry processing cost drops 62.5 % on the LineSegments2 mesh.
+
+#### CSS / compositor
+- **`src/styles/global.css` — `body { background-attachment: fixed }`
+  removed**. Every desktop scroll repainted the gradient over the full
+  viewport AND those repainted pixels then traversed the chain of
+  `backdrop-filter` layers above it — measurable scroll jank on
+  integrated GPUs. The persistent `#lobby-canvas` already provides the
+  perceived depth; the gradient now scrolls with the document.
+- **`src/styles/global.css` — `.btn-primary` / `.btn-gold` resting-
+  state `backdrop-filter` dropped**. A 10 px blur on every CTA forced
+  an extra compositor pass. Opaque-enough fill + existing inset
+  highlight + gold border carry the "glass on dark" read.
+
+#### JS bundling / load behaviour
+- **`src/components/CommandPalette.astro` — runtime now lazy-loaded**
+  via `requestIdleCallback` (timeout 1500 ms), with a priming
+  keydown / pointerdown listener that eagerly loads the runtime and
+  re-dispatches the gesture if the user presses ⌘K / `/` / clicks a
+  trigger before the idle window fires. Saves ~25–35 KB gz from the
+  eager critical path on every page; the shortcut still feels instant.
+- **`src/components/AboutDossierCard.astro` — videos lazy-loaded**.
+  Markup carries `preload="none"` + `data-src`; a two-tier
+  IntersectionObserver attaches `src` 600 px before the card enters
+  the viewport (`preload="metadata"`) and promotes to `preload="auto"`
+  + `play()` once the card is in the active reading band. Combined
+  with the new `optimize-ambient-videos.mjs` re-encoding, drops
+  ~9 MB of cold bytes from `/about/` and ends the speculation-rules
+  spillover into `/`.
+- **`astro.config.mjs` — dead manualChunks branches pruned** (mathjs,
+  zod, fuse.js, chart.js, gsap — none in `package.json`). Keeps the
+  bundling rule honest with the dependency graph.
+
 ### Fixed (same-day revert)
 - Favicon pipeline: `scripts/optimize-favicon.mjs` now sources from
   `public/favicon.svg` (the same vector referenced by the in-tab

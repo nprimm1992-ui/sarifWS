@@ -46,13 +46,28 @@ export default defineConfig({
       chunkSizeWarningLimit: 500,
       rollupOptions: {
         output: {
+          /* Manual chunk policy:
+           *
+           *   - `three`: the WebGL toolkit lives in its own chunk because
+           *     it is large (~165 KB gz at writing) and only loaded on
+           *     idle by the lobby module. Keeping it isolated means a
+           *     future page that doesn't import three at all (e.g. an
+           *     admin route) will not bring it along.
+           *   - `vendor`: every other node_modules import lands here.
+           *
+           *   Round 2026 — pruned dead chunk targets (mathjs / zod /
+           *   fuse.js / chart.js / gsap). None of those packages are
+           *   in package.json, so the regex never matched — but it
+           *   bloated the function and signalled an inconsistent
+           *   dependency story. If any of them are reintroduced in
+           *   the future, add a dedicated branch here AND a real
+           *   dependency entry; do not leave dead matchers behind.
+           */
           manualChunks(id) {
             if (!id.includes('node_modules')) return undefined;
             if (/[\\/]three[\\/]/.test(id) || /[\\/]three-stdlib[\\/]/.test(id)) {
               return 'three';
             }
-            if (/[\\/]gsap[\\/]/.test(id)) return 'gsap';
-            if (/[\\/](mathjs|zod|fuse\.js|chart\.js)[\\/]/.test(id)) return 'libs';
             return 'vendor';
           },
         },
