@@ -81,9 +81,12 @@ html[data-materialize="complete"] .materialize-cipher {
 }
 
 /* --- CSS-only Timeout Fallback ---
-   If JS fails to stamp "complete" within 3s, reveal content
-   unconditionally so the page is never permanently invisible.
-   Animation callback triggers a custom property the next rule reads. */
+   Last-resort reveal if JS never stamps "complete". The animation delay
+   matches the JS FALLBACK_TIMEOUT_MS (3 s). In the normal code path JS
+   fires markComplete() in < 700 ms and immediately flips the attribute
+   to "complete", which removes this element from the match and cancels
+   the animation — so it never fires in the happy path. Only activates
+   when JS is entirely blocked (no-JS, script error, frozen main thread). */
 @keyframes materializeFallbackReveal {
   to { --materialize-fallback: 1; }
 }

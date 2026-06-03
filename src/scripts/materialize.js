@@ -1,16 +1,18 @@
 /**
- * materialize.js — Text decode sequence coordinated with the lobby's
- * boot transition. No overlay, no fake loading screen.
+ * materialize.js — Text decode sequence for the homepage boot window.
+ * No overlay, no fake loading screen.
  *
  * Architecture:
- *   The lobby 3D scene starts in an "energized" state (elevated bloom,
- *   chromatic aberration, scan lines) and transitions to its calm final
- *   state over ~1.4s. During this same window, text elements on the
- *   homepage decode from cipher characters to their real content.
+ *   Text elements decode from cipher characters to real content while
+ *   the lobby 3D scene boots in parallel. The two sequences run
+ *   independently: text completion does not wait for the lobby's bloom
+ *   ramp to finish. `sarif:materialize-complete` fires as soon as all
+ *   glyphs resolve, giving reveal.js the earliest possible signal to
+ *   activate scroll animations.
  *
- *   The dark canvas IS the substrate. Text emerges against the live 3D
- *   scene. The lobby's visual transition IS the materialization — not
- *   a separate layer pretending to be one.
+ *   The lobby still dispatches `sarif:lobby-ready` and
+ *   `sarif:lobby-settled` for any future subsystems that need the
+ *   scene's readiness — materialize listens but no longer gates on them.
  *
  * Scope:
  *   Runs ONCE on the homepage ("/") per module lifecycle.
@@ -18,7 +20,7 @@
  *   Non-homepage entries and subsequent ClientRouter navigations skip.
  *
  * Dependencies: main-ticker (rAF driver), reduced-motion (live pref).
- * Events consumed: sarif:lobby-ready, sarif:lobby-settled.
+ * Events consumed: sarif:lobby-ready (informational).
  * Events dispatched: sarif:materialize-complete.
  */
 
@@ -37,7 +39,6 @@ const CIPHER_CHARS = '01アイウエオ░▒▓█▄▀│┤╡╢╣║╗�
 let _tickerToken = null;
 let _sequenceStartMs = 0;
 let _hasEverCompleted = false;
-let _lobbySettled = false;
 let _isMobile = false;
 let _fallbackTimer = null;
 
@@ -202,23 +203,19 @@ function onTick(timestamp) {
   const elapsed = timestamp - _sequenceStartMs;
   tickDecode(elapsed);
 
-  if (areAllDecodesDone() && _lobbySettled) {
+  if (areAllDecodesDone()) {
     markComplete();
   }
 }
 
 function onLobbyReady() {
-  if (_hasEverCompleted) return;
-  // Lobby first frame rendered — the energized visual is visible.
-  // Text decode is already running; just acknowledge for coordination.
+  // Lobby first frame rendered — informational only; decode is already
+  // running and completes independently of the scene's boot window.
 }
 
 function onLobbySettled() {
-  _lobbySettled = true;
-  if (_hasEverCompleted) return;
-  if (areAllDecodesDone()) {
-    markComplete();
-  }
+  // Scene bloom ramp finished — no longer gates text completion, but
+  // kept as a hook for future subsystems that need the settled signal.
 }
 
 function initMaterialize() {
