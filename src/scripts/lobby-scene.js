@@ -2092,19 +2092,16 @@ function initScene(canvas) {
   const w = canvas.offsetWidth  || window.innerWidth;
   const h = canvas.offsetHeight || window.innerHeight;
 
-  /* Stamp the energising boot attribute immediately so the CSS filter is
-     in its "hot" state before the first WebGL frame — the veil hides the
-     canvas during this setup window, so the filter snap is invisible and
-     the first revealed frame is already in the warm energised look. */
+  /* With the reveal veil covering the canvas during startup, the CSS
+     filter energising effect (contrast/brightness boost) is no longer
+     useful — users never see the hot initial state, they only see the
+     1400ms cool-down which reads as an unwanted dimming after reveal.
+     The in-scene bloom ramp (JS-driven, HOT→CALM) still provides the
+     energising feel; just stamp 'calm' immediately so the CSS filter
+     stays at contrast(1) brightness(1) throughout. */
   const startOnLanding = _isLanding;
-  if (startOnLanding && !_prefersReducedMotionLocked) {
-    if (typeof document !== 'undefined') {
-      document.documentElement.setAttribute('data-lobby-boot', 'energising');
-    }
-  } else {
-    if (typeof document !== 'undefined') {
-      document.documentElement.setAttribute('data-lobby-boot', 'calm');
-    }
+  if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-lobby-boot', 'calm');
   }
 
   renderer = new THREE.WebGLRenderer({
