@@ -1,26 +1,30 @@
 /**
- * materialize.js — Text decode sequence for the homepage boot window.
- * No overlay, no fake loading screen.
+ * materialize.js — Reveal veil + text cipher decode for the homepage.
  *
  * Architecture:
- *   Text elements decode from cipher characters to real content while
- *   the lobby 3D scene boots in parallel. The two sequences run
- *   independently: text completion does not wait for the lobby's bloom
- *   ramp to finish. `sarif:materialize-complete` fires as soon as all
- *   glyphs resolve, giving reveal.js the earliest possible signal to
- *   activate scroll animations.
+ *   Two responsibilities, one coordination point (sarif:first-frame):
  *
- *   The lobby still dispatches `sarif:lobby-ready` and
- *   `sarif:lobby-settled` for any future subsystems that need the
- *   scene's readiness — materialize listens but no longer gates on them.
+ *   1. Reveal veil: lobby-scene.js fires sarif:first-frame after its first
+ *      compositor render. This module lifts the #sarif-veil (420ms fade),
+ *      removing the opaque placeholder that hid the black canvas during
+ *      WebGL initialisation. The scene is already alive behind the veil;
+ *      lifting it reveals an energised, fully-rendered world.
+ *
+ *   2. Text cipher decode: begins at sarif:first-frame in sync with the
+ *      veil lift. Text and scene arrive together as one composed moment.
+ *      Completion fires sarif:materialize-complete to activate scroll
+ *      reveals (~600ms after first-frame).
+ *
+ *   Fallback: if sarif:first-frame never fires (WebGL unsupported, JS
+ *   error, non-homepage), a setTimeout removes the veil and skips the
+ *   cipher sequence so content is always visible within 4s.
  *
  * Scope:
- *   Runs ONCE on the homepage ("/") per module lifecycle.
- *   Hard refresh or new session triggers fresh.
- *   Non-homepage entries and subsequent ClientRouter navigations skip.
+ *   Veil management only on homepage ("/"); veil element is not rendered
+ *   on interior routes. Text decode runs on "/" only; interior routes skip.
  *
  * Dependencies: main-ticker (rAF driver), reduced-motion (live pref).
- * Events consumed: sarif:lobby-ready (informational).
+ * Events consumed: sarif:first-frame, sarif:lobby-settled.
  * Events dispatched: sarif:materialize-complete.
  */
 
@@ -32,7 +36,10 @@ const CHAR_CYCLE_COUNT = 3;
 const MOBILE_BREAKPOINT = 768;
 const MOBILE_TIMING_SCALE = 0.75;
 const STAGGER_PER_ELEMENT_MS = 80;
-const FALLBACK_TIMEOUT_MS = 3000;
+/** Hard fallback: if first-frame never fires, force-remove veil + skip decode. */
+const FALLBACK_TIMEOUT_MS = 4000;
+/** Duration of the veil CSS opacity transition (must match global.css). */
+const VEIL_TRANSITION_MS = 420;
 
 const CIPHER_CHARS = '01アイウエオ░▒▓█▄▀│┤╡╢╣║╗╝┐└┴┬├─┼╞╟╚╔╩╦╠═╬';
 
@@ -41,9 +48,40 @@ let _sequenceStartMs = 0;
 let _hasEverCompleted = false;
 let _isMobile = false;
 let _fallbackTimer = null;
+let _veilRemoveTimer = null;
 
 /** @type {Array<{el: HTMLElement, text: string, stagger: number, state: string, charIndex: number, cycleCount: number, lastTickMs: number, cipherEl: HTMLElement}>} */
 let _decodeTargets = [];
+
+// ---------------------------------------------------------------------------
+// Veil management
+// ---------------------------------------------------------------------------
+
+function liftVeil() {
+  const html = document.documentElement;
+  if (html.dataset.veil === 'gone') return;
+
+  if (isReducedMotion()) {
+    /* Snap the veil away immediately — no fade for reduced-motion users. */
+    html.dataset.veil = 'gone';
+    return;
+  }
+
+  html.dataset.veil = 'lifting';
+
+  /* After the CSS transition completes, pull the element from the
+     compositor entirely so it no longer consumes a layer slot. */
+  _veilRemoveTimer = setTimeout(() => {
+    _veilRemoveTimer = null;
+    if (document.documentElement.dataset.veil === 'lifting') {
+      document.documentElement.dataset.veil = 'gone';
+    }
+  }, VEIL_TRANSITION_MS + 50);
+}
+
+// ---------------------------------------------------------------------------
+// Text cipher decode helpers
+// ---------------------------------------------------------------------------
 
 function getTimingScale() {
   return _isMobile ? MOBILE_TIMING_SCALE : 1;
@@ -59,10 +97,6 @@ function generateCipherString(length) {
   return s;
 }
 
-/**
- * Prepare a decode target: saves original text, inserts a real span
- * (invisible during decode) and a cipher span (visible overlay).
- */
 function setupDecodeTarget(el, index) {
   if (el.querySelector('.materialize-real')) return;
 
@@ -123,6 +157,8 @@ function markComplete() {
 }
 
 function skipSequence() {
+  liftVeil();
+
   _hasEverCompleted = true;
   document.documentElement.dataset.materialize = 'complete';
 
@@ -208,17 +244,32 @@ function onTick(timestamp) {
   }
 }
 
-function onLobbyReady() {
-  // Lobby first frame rendered — informational only; decode is already
-  // running and completes independently of the scene's boot window.
+// ---------------------------------------------------------------------------
+// Boot coordination
+// ---------------------------------------------------------------------------
+
+/**
+ * Called by sarif:first-frame (lobby first GPU render committed).
+ * Lifts the veil and starts text cipher decode simultaneously — one
+ * coordinated reveal moment.
+ */
+function onFirstFrame() {
+  if (_hasEverCompleted) {
+    /* Already skipped (reduced-motion, non-homepage, fallback timeout).
+       Just ensure the veil is gone — decode already completed. */
+    liftVeil();
+    return;
+  }
+
+  liftVeil();
+  startDecode();
 }
 
 function onLobbySettled() {
-  // Scene bloom ramp finished — no longer gates text completion, but
-  // kept as a hook for future subsystems that need the settled signal.
+  // Informational — reserved for future subsystems.
 }
 
-function initMaterialize() {
+function startDecode() {
   if (_hasEverCompleted) return;
 
   if (location.pathname !== '/') {
@@ -235,41 +286,76 @@ function initMaterialize() {
 
   const els = document.querySelectorAll('[data-materialize-text="pending"]');
   if (els.length === 0) {
-    skipSequence();
+    /* Nothing to decode — complete immediately but veil already lifted. */
+    _hasEverCompleted = true;
+    document.documentElement.dataset.materialize = 'complete';
+    if (_fallbackTimer !== null) { clearTimeout(_fallbackTimer); _fallbackTimer = null; }
+    document.dispatchEvent(new CustomEvent('sarif:materialize-complete'));
     return;
   }
 
   els.forEach((el, i) => setupDecodeTarget(el, i));
 
   if (_decodeTargets.length === 0) {
-    skipSequence();
+    _hasEverCompleted = true;
+    document.documentElement.dataset.materialize = 'complete';
+    if (_fallbackTimer !== null) { clearTimeout(_fallbackTimer); _fallbackTimer = null; }
+    document.dispatchEvent(new CustomEvent('sarif:materialize-complete'));
     return;
   }
 
   document.documentElement.dataset.materialize = 'pending';
   _sequenceStartMs = performance.now();
   _tickerToken = tickerSubscribe(onTick, PRIORITY_UI);
-
-  _fallbackTimer = setTimeout(() => {
-    if (!_hasEverCompleted) markComplete();
-  }, FALLBACK_TIMEOUT_MS);
 }
+
+/**
+ * Seed: called immediately on DOMContentLoaded to prepare the decode
+ * targets in the DOM (inject cipher spans) so the structure is ready
+ * before first-frame fires. Does NOT start the ticker — that waits for
+ * first-frame so the text begins decoding in sync with the veil lift.
+ */
+function seedDecode() {
+  if (_hasEverCompleted) return;
+  if (location.pathname !== '/') return;
+  if (isReducedMotion()) return;
+
+  _isMobile = window.innerWidth < MOBILE_BREAKPOINT;
+  document.documentElement.dataset.materialize = 'pending';
+}
+
+// ---------------------------------------------------------------------------
+// Page lifecycle
+// ---------------------------------------------------------------------------
 
 function onPageLoad() {
   if (_hasEverCompleted) {
     document.documentElement.dataset.materialize = 'complete';
     const els = document.querySelectorAll('[data-materialize-text]');
     els.forEach(el => { el.dataset.materializeText = 'resolved'; });
+    /* Veil is already gone from first load; ensure state is correct on
+       soft-nav back to homepage. */
+    if (document.documentElement.dataset.veil !== 'gone') {
+      document.documentElement.dataset.veil = 'gone';
+    }
     return;
   }
-  initMaterialize();
+  seedDecode();
 }
 
 function onBeforeSwap() {
   if (!_hasEverCompleted) {
     skipSequence();
   }
+  if (_veilRemoveTimer !== null) {
+    clearTimeout(_veilRemoveTimer);
+    _veilRemoveTimer = null;
+  }
 }
+
+// ---------------------------------------------------------------------------
+// Module boot
+// ---------------------------------------------------------------------------
 
 subscribeReducedMotion((reduced) => {
   if (reduced && !_hasEverCompleted) {
@@ -277,13 +363,26 @@ subscribeReducedMotion((reduced) => {
   }
 });
 
-document.addEventListener('sarif:lobby-ready', onLobbyReady);
+document.addEventListener('sarif:first-frame', onFirstFrame, { once: true });
 document.addEventListener('sarif:lobby-settled', onLobbySettled);
 document.addEventListener('astro:before-swap', onBeforeSwap);
 document.addEventListener('astro:page-load', onPageLoad);
 
+/* Set a hard fallback timeout: if sarif:first-frame never fires (WebGL
+   unsupported, lobby JS error, etc.), force the veil off and skip the
+   cipher so the page is always usable within FALLBACK_TIMEOUT_MS. */
+_fallbackTimer = setTimeout(() => {
+  _fallbackTimer = null;
+  if (!_hasEverCompleted) {
+    skipSequence();
+  } else {
+    /* Decode already done but veil might still be lifting. */
+    liftVeil();
+  }
+}, FALLBACK_TIMEOUT_MS);
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initMaterialize, { once: true });
+  document.addEventListener('DOMContentLoaded', seedDecode, { once: true });
 } else {
-  initMaterialize();
+  seedDecode();
 }

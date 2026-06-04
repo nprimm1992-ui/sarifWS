@@ -138,6 +138,12 @@ const SMOOTH_REFERENCE_FPS = 30;
 let _lutPass = null;
 let _bloomPass = null;
 
+/** One-shot flag: true after the first compositor frame has been committed.
+ *  When it fires, sarif:first-frame is dispatched — the veil lifts and
+ *  the text cipher decode begins. Reset on cleanup() so re-init (e.g.
+ *  WebGL context-loss recovery) produces a fresh veil-lift. */
+let _firstFrameDispatched = false;
+
 /** Boot transition — CSS-driven fade of the lobby canvas from a slightly
  *  cooler / contrast-boosted "energising" look into its calm steady
  *  state. Replaces the previous in-shader chromatic-aberration pass.
@@ -162,7 +168,11 @@ const SCENE_MAT_FLOAT_DELAY_MS = 150;
 const SCENE_MAT_FLOAT_DURATION_MS = 700;
 const SCENE_MAT_FLOAT_STAGGER_MS = 35;
 const SCENE_MAT_PLANTER_DURATION_MS = 700;
-const SCENE_MAT_EMBLEM_DELAY_MS = 500;
+/* Emblem delay removed — the GLB is now preloaded so the emblem is
+   available from the first frame. It fades in at the start of the
+   scene materialization window alongside the hex floor, arriving
+   as part of the first revealed composition rather than 500ms later. */
+const SCENE_MAT_EMBLEM_DELAY_MS = 0;
 let _sceneMaterializeStartMs = 0;
 let _sceneMaterializeActive = false;
 /** Persists across the full boot window so deferred planter loads still animate
@@ -2082,6 +2092,21 @@ function initScene(canvas) {
   const w = canvas.offsetWidth  || window.innerWidth;
   const h = canvas.offsetHeight || window.innerHeight;
 
+  /* Stamp the energising boot attribute immediately so the CSS filter is
+     in its "hot" state before the first WebGL frame — the veil hides the
+     canvas during this setup window, so the filter snap is invisible and
+     the first revealed frame is already in the warm energised look. */
+  const startOnLanding = _isLanding;
+  if (startOnLanding && !_prefersReducedMotionLocked) {
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-lobby-boot', 'energising');
+    }
+  } else {
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-lobby-boot', 'calm');
+    }
+  }
+
   renderer = new THREE.WebGLRenderer({
     canvas, antialias: !isMobile, alpha: false,
     powerPreference: isMobile ? 'low-power' : 'high-performance',
@@ -2256,7 +2281,6 @@ function initScene(canvas) {
      lerp its strength from "hot" → calm. */
   const bloomScale = resolveBloomInternalScale(isMobile, w, h);
   const calmBloom = isMobile ? BOOT_BLOOM_STRENGTH_CALM_MOBILE : BOOT_BLOOM_STRENGTH_CALM_DESKTOP;
-  const startOnLanding = isLandingPathForString(window.location.pathname);
   _bloomPass = new UnrealBloomPass(
     new THREE.Vector2(canvas.width * bloomScale, canvas.height * bloomScale),
     startOnLanding ? BOOT_BLOOM_STRENGTH_HOT : calmBloom,
@@ -2297,20 +2321,13 @@ function initScene(canvas) {
     _sceneMaterializeActive = true;
     _sceneMaterializeStartMs = performance.now();
     _bootLandingInit = true;
-    /* CSS-driven boot fade. The attribute lives on <html> so the
-       transition's start state is committed before the canvas paints
-       its first frame; the cleanup hook flips it off after
-       BOOT_TRANSITION_MS. */
-    if (typeof document !== 'undefined') {
-      document.documentElement.setAttribute('data-lobby-boot', 'energising');
-    }
+    /* data-lobby-boot='energising' was already set at the top of initScene()
+       so the CSS filter is committed before the first render. */
   } else {
     _bootTransitionActive = false;
     _sceneMaterializeActive = false;
     _bootLandingInit = false;
-    if (typeof document !== 'undefined') {
-      document.documentElement.setAttribute('data-lobby-boot', 'calm');
-    }
+    /* data-lobby-boot='calm' was already set at the top of initScene(). */
   }
 }
 
@@ -2685,6 +2702,18 @@ function animateStep(timestamp, dtSec) {
     if (composer) composer.render();
     else renderer.render(scene, camera);
     onRendered();
+
+    /* First rendered frame — lift the reveal veil and start text decode.
+       This fires once per lobby lifetime (reset by cleanup). The event
+       is the single synchronisation point for all startup-sequence
+       consumers; it supersedes the old DOMContentLoaded-triggered decode
+       start so everything arrives in one coordinated moment. */
+    if (!_firstFrameDispatched) {
+      _firstFrameDispatched = true;
+      document.dispatchEvent(new CustomEvent('sarif:first-frame', {
+        detail: { timestamp },
+      }));
+    }
   }
 }
 
@@ -3205,6 +3234,7 @@ function isLandingPathForString(pathname) {
 
 function cleanup() {
   _lobbySession++;
+  _firstFrameDispatched = false;
   /* Dirty-flag arbitrator holds predicates that closure-capture the
      disposed scene/camera; wipe them before the traversal below tears
      those objects down, so a later ticker frame cannot evaluate a

@@ -161,16 +161,14 @@ const cfBeaconToken =
     <link rel="preload" as="font" type="font/woff2" href="/fonts/space-grotesk-500.woff2" crossorigin="anonymous" />
     <link rel="preload" as="font" type="font/woff2" href="/fonts/space-grotesk-700.woff2" crossorigin="anonymous" />
 
-    {/* Wing-emblem GLB and HDR environment are both consumed by the
-        lazy-loaded lobby module (idle-imported in the body), not the
-        first paint, so `preload` (which raises priority above other
-        critical-path fetches like the four font woff2s above) was
-        wrong here — the GLB+HDR were stealing connection slots from
-        fonts whose CSS metrics drive layout. `prefetch` warms the
-        cache at low priority without contending with above-the-fold
-        critical resources. The lobby module's idle import resolves
-        from cache when it actually needs the GLB. */}
-    {isHomepage && <link rel="prefetch" href="/wing-emblem-3d-model.glb" as="fetch" type="model/gltf-binary" crossorigin="anonymous" />}
+    {/* Wing-emblem GLB is promoted to `preload` now that the reveal veil
+        hides the canvas during the boot window — the emblem is part of
+        the first visible frame rather than a deferred async arrival, so
+        high-priority fetch is appropriate. Fonts still resolve first
+        (their preload declarations appear above), then the emblem. HDR
+        environment maps remain at `prefetch` (nice-to-have visual
+        upgrade, not blocking the first frame). */}
+    {isHomepage && <link rel="preload" href="/wing-emblem-3d-model.glb" as="fetch" type="model/gltf-binary" crossorigin="anonymous" />}
     {isHomepage && hdrEnvMapShipped && <link rel="prefetch" href="/env/lobby-studio.hdr" as="fetch" type="image/vnd.radiance" crossorigin="anonymous" />}
     {isHomepage && hdrMobileEnvShipped && (
       <link rel="prefetch" href="/env/lobby-studio-mobile.hdr" as="fetch" type="image/vnd.radiance" crossorigin="anonymous" />
@@ -260,6 +258,22 @@ const cfBeaconToken =
          environment rather than hero/page handoffs. view-transition-name:none
          prevents the browser View Transitions API from trying to crossfade
          the canvas bitmap during a swap. -->
+    <!-- Reveal veil — sits above the WebGL canvas during startup, masking
+         the black canvas while the 3D scene initialises behind it. Lifts
+         (fades out) only after lobby-scene.js fires sarif:first-frame,
+         ensuring users never see a blank canvas during the boot window.
+         Only active on the initial page load; on ClientRouter soft
+         navigations the veil has already transitioned to display:none.
+         transition:persist keeps it DOM-resident so ClientRouter doesn't
+         re-mount it and re-show it on interior navigations. -->
+    {isHomepage && (
+      <div
+        id="sarif-veil"
+        aria-hidden="true"
+        transition:persist="sarif-veil"
+      ></div>
+    )}
+
     <canvas
       id="lobby-canvas"
       aria-hidden="true"
@@ -324,41 +338,31 @@ const cfBeaconToken =
       import '../scripts/spring-tilt.js';
     </script>
 
-    <!-- 3D Lobby Environment — dynamic import after idle to reduce main-thread
-         contention during first paint. Loaded on every page navigation; the
-         lobby module itself decides whether to render (landing path only). -->
+    <!-- 3D Lobby Environment — imported on DOMContentLoaded (not deferred
+         behind requestIdleCallback) now that the reveal veil hides the
+         canvas during startup. The veil is the first-paint placeholder;
+         the scene initialises as fast as the parser allows and fires
+         sarif:first-frame when the first GPU frame is committed, which
+         triggers both the veil lift and the text cipher decode. The
+         previous 600ms idle-timeout approach was correct when the scene
+         popped directly onto the visible canvas; with the veil in place
+         there is no perceived delay to protect against and starting
+         sooner means the world is alive when the veil lifts. -->
     <script>
-      const LOBBY_IDLE_TIMEOUT_MS = 600;
       let lobbyDomContentLoadedHooked = false;
 
-      function scheduleLobbyImport() {
-        /* requestIdleCallback is correct for first-paint hygiene, but a few
-           browser profiles (and some embedded previews vs standalone tabs)
-           schedule idle work differently. Use a single-flight guard plus a
-           hard setTimeout ceiling so initLobby always runs even if idle is
-           starved. import() is module-cached — safe if both paths fire. */
-        let ran = false;
-        const run = () => {
-          if (ran) return;
-          ran = true;
-          import('../scripts/lobby-scene.js').then((m) => m.initLobby());
-        };
-        if (typeof requestIdleCallback === 'function') {
-          requestIdleCallback(run, { timeout: LOBBY_IDLE_TIMEOUT_MS });
-        } else {
-          requestAnimationFrame(() => requestAnimationFrame(run));
-        }
-        setTimeout(run, LOBBY_IDLE_TIMEOUT_MS + 200);
+      function runLobbyImport() {
+        import('../scripts/lobby-scene.js').then((m) => m.initLobby());
       }
 
       function startLobby() {
         if (document.readyState === 'loading') {
           if (!lobbyDomContentLoadedHooked) {
             lobbyDomContentLoadedHooked = true;
-            document.addEventListener('DOMContentLoaded', scheduleLobbyImport, { once: true });
+            document.addEventListener('DOMContentLoaded', runLobbyImport, { once: true });
           }
         } else {
-          scheduleLobbyImport();
+          runLobbyImport();
         }
       }
 
