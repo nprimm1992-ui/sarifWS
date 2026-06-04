@@ -350,9 +350,20 @@ const cfBeaconToken =
          sooner means the world is alive when the veil lifts. -->
     <script>
       let lobbyDomContentLoadedHooked = false;
+      /* In-flight guard: prevents a second import() if astro:page-load fires
+         while the previous dynamic import is still resolving (e.g. on a
+         slow connection). initLobby() itself has a renderer guard that
+         catches true concurrency, but preventing the redundant import()
+         is cleaner and avoids any brief window before renderer is set. */
+      let lobbyImportInFlight = false;
 
       function runLobbyImport() {
-        import('../scripts/lobby-scene.js').then((m) => m.initLobby());
+        if (lobbyImportInFlight) return;
+        lobbyImportInFlight = true;
+        import('../scripts/lobby-scene.js').then((m) => {
+          lobbyImportInFlight = false;
+          m.initLobby();
+        });
       }
 
       function startLobby() {

@@ -59,7 +59,10 @@ let _decodeTargets = [];
 
 function liftVeil() {
   const html = document.documentElement;
-  if (html.dataset.veil === 'gone') return;
+  /* Guard both terminal states: 'lifting' (transition in progress, timer
+     already set) and 'gone' (already removed from compositor). A second
+     call from skipSequence() on non-homepage routes is the common case. */
+  if (html.dataset.veil === 'lifting' || html.dataset.veil === 'gone') return;
 
   if (isReducedMotion()) {
     /* Snap the veil away immediately — no fade for reduced-motion users. */

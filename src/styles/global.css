@@ -1474,8 +1474,8 @@ article.ucim-brief .ucim-brief__cue-text.ui-eyebrow,
 /* Full-screen overlay that hides the black WebGL canvas during startup.
    Sits above the canvas z-stack (z-index 4) but below all page chrome.
    Initialised opaque; lobby-scene.js fires sarif:first-frame after its
-   first successful composer.render(), at which point the veil transitions
-   out over 420ms. The body background + gradient make it visually seamless.
+   first successful composer.render(), at which point materialize.js sets
+   data-veil="lifting" on <html>, triggering the 420ms opacity transition.
 
    State machine:
      (no data-veil attr) — veil fully visible (default on first load)
@@ -1484,7 +1484,7 @@ article.ucim-brief .ucim-brief__cue-text.ui-eyebrow,
 
    Non-homepage: veil is never rendered (Base.astro guards with isHomepage).
    Reduced-motion: transition is instant; veil removed on first-frame.
-   No-JS / WebGL failure: @keyframes fallback removes veil after 4s.
+   No-JS / WebGL failure: animation fallback fades veil after 4s.
    ClientRouter soft-navs: element was display:none from first load; the
      transition:persist keeps it DOM-resident so it never re-appears. */
 
@@ -1493,21 +1493,29 @@ article.ucim-brief .ucim-brief__cue-text.ui-eyebrow,
   inset: 0;
   z-index: 4; /* above canvas layers (0/3), below nav (1000) */
   pointer-events: none;
-  /* Match the exact body background so the veil is visually seamless.
-     Radial wash mirrors the body::before gradient in global.css so no
-     colour discontinuity appears as the veil lifts. */
-  background:
-    radial-gradient(ellipse at 20% 40%, rgba(0, 180, 216, 0.06) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 60%, rgba(201, 162, 39, 0.05) 0%, transparent 55%),
-    #0d1f2d;
+  /* Exactly matches body { background-color + background-image } in
+     global.css so the veil is visually seamless from t=0. */
+  background-color: #1a2e3c;
+  background-image:
+    radial-gradient(ellipse at 50% 70%, rgba(0, 212, 255, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 100%, rgba(201, 162, 39, 0.06) 0%, transparent 40%);
   /* Ease matches the lobby boot-calm cubic-bezier for continuity */
   transition: opacity 420ms cubic-bezier(0.16, 1, 0.3, 1);
-  /* CSS fallback: auto-remove after 4s if JS / WebGL never fire */
-  animation: veilFallbackRemove 0s 4s forwards;
 }
 
-@keyframes veilFallbackRemove {
-  to { --veil-fallback: 1; }
+/* No-JS / WebGL-failure fallback: when JS never fires data-veil="lifting",
+   fade the veil out after a 4s delay via CSS animation.
+   The animation and transition are on different selectors so they cannot
+   conflict: the animation applies when data-veil is absent, the transition
+   fires when JS adds data-veil="lifting" (selector stops matching,
+   animation is cancelled, transition takes over from current opacity). */
+html:not([data-veil='lifting']):not([data-veil='gone']) #sarif-veil {
+  animation: veilFallbackFade 420ms 4s ease-out forwards;
+}
+
+@keyframes veilFallbackFade {
+  from { opacity: 1; }
+  to   { opacity: 0; pointer-events: none; }
 }
 
 /* JS-driven state: veil lifts */
@@ -1520,18 +1528,14 @@ html[data-veil='gone'] #sarif-veil {
   display: none;
 }
 
-/* CSS fallback: if JS never fired the lift, remove veil at 4s */
-html:not([data-veil='lifting']):not([data-veil='gone']) #sarif-veil[style*='--veil-fallback'] {
-  opacity: 0;
-  pointer-events: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
+  /* No fade — veil snaps away immediately on first-frame dispatch.
+     Reduce the fallback delay to 2s (no animation means near-instant). */
   #sarif-veil {
-    /* No fade transition — veil snaps away on first-frame dispatch */
     transition: none;
-    /* Reduced fallback: 2s max-wait instead of 4s */
-    animation-delay: 2s;
+  }
+  html:not([data-veil='lifting']):not([data-veil='gone']) #sarif-veil {
+    animation: veilFallbackFade 0ms 2s linear forwards;
   }
 }
 

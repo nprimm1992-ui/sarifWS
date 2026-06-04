@@ -73,6 +73,16 @@ const OG_H = 630;
    padding (JPEG has no alpha anyway). */
 const sourceBuf = await fs.readFile(sourcePath);
 
+/* Guard: source file exists but has no content (e.g. git LFS pointer not
+   resolved in this environment). Existing og-image.* files are kept. */
+if (sourceBuf.length === 0) {
+  console.warn(
+    `[generate-og-image] source image is empty (${SOURCE_NAME}) — ` +
+    'skipping regeneration; existing public/og-image.* files are unchanged.',
+  );
+  process.exit(0);
+}
+
 const cropped = await sharp(sourceBuf)
   .resize(OG_W, OG_H, {
     fit: 'cover',

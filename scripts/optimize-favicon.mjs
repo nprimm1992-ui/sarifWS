@@ -49,6 +49,18 @@ try {
 
 const sourcePng = await fs.readFile(sourcePath);
 
+/* Guard: source file exists but has no content (e.g. git LFS pointer not
+   resolved, or large-asset placeholder in CI). The generated favicon PNGs
+   already exist in public/ from a previous run, so skip regeneration
+   rather than crashing the build with an empty-buffer error. */
+if (sourcePng.length === 0) {
+  console.warn(
+    `optimize-favicon: source image is empty (${path.relative(root, sourcePath)}) — ` +
+    'skipping regeneration; existing public/favicon-*.png files are unchanged.',
+  );
+  process.exit(0);
+}
+
 const SQUARE_MAIN = 512;
 const SQUARE_APPLE = 180;
 /* Full favicon ladder. Browsers negotiate the best match for their
