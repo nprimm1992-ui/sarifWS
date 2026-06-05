@@ -3492,7 +3492,7 @@ export function initLobby() {
      first render fires — ensuring every shader is resident before any camera
      move that would otherwise trigger an on-demand compile stall. */
   const sessionAtCompile = _lobbySession;
-  (renderer.compileAsync(scene, camera) || Promise.resolve()).catch(() => {}).then(() => {
+  renderer.compileAsync(scene, camera).catch(() => {}).then(() => {
     if (_lobbySession !== sessionAtCompile) return;
     if (_sceneTickerToken) tickerUnsubscribe(_sceneTickerToken);
     _sceneTickerToken = tickerSubscribe(animateStep, PRIORITY_SCENE);
