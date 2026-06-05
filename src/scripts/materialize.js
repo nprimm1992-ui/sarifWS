@@ -31,7 +31,7 @@
 import { subscribe as tickerSubscribe, unsubscribe as tickerUnsubscribe, PRIORITY_UI } from './main-ticker.js';
 import { isReducedMotion, subscribeReducedMotion } from './reduced-motion.js';
 
-const CHAR_RESOLVE_INTERVAL_MS = 22;
+const CHAR_RESOLVE_INTERVAL_MS = 40;
 const CHAR_CYCLE_COUNT = 3;
 const MOBILE_BREAKPOINT = 768;
 const MOBILE_TIMING_SCALE = 0.75;
@@ -127,12 +127,14 @@ function setupDecodeTarget(el, index) {
   _decodeTargets.push({
     el,
     text,
+    chars,
     stagger,
     state: 'waiting',
     charIndex: 0,
     cycleCount: 0,
     lastTickMs: 0,
     cipherEl: cipherSpan,
+    displayBuf: Array(chars.length),
   });
 }
 
@@ -198,7 +200,7 @@ function tickDecode(elapsedMs) {
     }
 
     if (target.state === 'decoding') {
-      const chars = Array.from(target.text);
+      const { chars, displayBuf } = target;
       const resolveInterval = CHAR_RESOLVE_INTERVAL_MS * scale;
 
       if (elapsedMs - target.lastTickMs >= resolveInterval) {
@@ -216,17 +218,10 @@ function tickDecode(elapsedMs) {
           continue;
         }
 
-        let display = '';
         for (let i = 0; i < chars.length; i++) {
-          if (i < target.charIndex) {
-            display += chars[i];
-          } else if (chars[i] === ' ') {
-            display += ' ';
-          } else {
-            display += getCipherChar();
-          }
+          displayBuf[i] = (i < target.charIndex || chars[i] === ' ') ? chars[i] : getCipherChar();
         }
-        target.cipherEl.textContent = display;
+        target.cipherEl.textContent = displayBuf.join('');
       }
     }
   }

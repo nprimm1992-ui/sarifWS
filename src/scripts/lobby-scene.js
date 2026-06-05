@@ -1532,6 +1532,9 @@ function ensureLogoAssetsLoaded() {
     _emblemLights.forEach(l => _emblemLightBaseIntensities.push(l.intensity));
 
     group.add(model);
+    /* Pre-compile the emblem's materials before the first render so the
+       model appears without a per-frame shader-compile hitch. */
+    if (renderer && camera) renderer.compile(group, camera);
     /* Re-apply the current fade t so the freshly-added meshes + point lights
        inherit the in-flight opacity / intensity rather than snapping to 1.0. */
     applyEmblemT();
@@ -1551,6 +1554,7 @@ function ensureLogoAssetsLoaded() {
       const fallbackMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.8), fallbackMat);
       fallbackMesh.position.set(0, 0.30, 0.08);
       group.add(fallbackMesh);
+      if (renderer && camera) renderer.compile(group, camera);
       applyEmblemT();
       markDirty('assetMounted');
       prefetchPlanterAssets();
@@ -1684,6 +1688,7 @@ function addPlanterToScene(targetScene, cfg, gltf) {
   }
 
   targetScene.add(model);
+  if (renderer && camera) renderer.compile(model, camera);
   markDirty('assetMounted');
 }
 
@@ -2108,6 +2113,7 @@ function initScene(canvas) {
     canvas, antialias: !isMobile, alpha: false,
     powerPreference: isMobile ? 'low-power' : 'high-performance',
   });
+  renderer.debug.checkShaderErrors = import.meta.env.DEV;
   renderer.setSize(w, h, false);
   renderer.setPixelRatio(resolveLobbyPixelRatio(w, h, isMobile));
   renderer.setClearColor(FOG_COLOR, 1);
@@ -3479,11 +3485,18 @@ export function initLobby() {
     detail: { cached: _lobbySession > 1, bootTransition: _bootTransitionActive },
   }));
 
-  /* Subscribe to the unified ticker. It auto-pauses on document.hidden and
-     auto-resumes on visibilitychange / pageshow — so the lobby no longer
-     needs its own visibilitychange handler. */
-  if (_sceneTickerToken) tickerUnsubscribe(_sceneTickerToken);
-  _sceneTickerToken = tickerSubscribe(animateStep, PRIORITY_SCENE);
+  /* Pre-warm all shader variants before starting the render loop. Uses
+     KHR_parallel_shader_compile on a background thread so the main thread
+     is not blocked. The veil still covers the canvas during this window, so
+     compile time is invisible. Once complete, the ticker starts and the
+     first render fires — ensuring every shader is resident before any camera
+     move that would otherwise trigger an on-demand compile stall. */
+  const sessionAtCompile = _lobbySession;
+  (renderer.compileAsync(scene, camera) || Promise.resolve()).catch(() => {}).then(() => {
+    if (_lobbySession !== sessionAtCompile) return;
+    if (_sceneTickerToken) tickerUnsubscribe(_sceneTickerToken);
+    _sceneTickerToken = tickerSubscribe(animateStep, PRIORITY_SCENE);
+  });
 }
 
 /** Camera lerp residual predicate for the dirty-flag arbitrator. Returns
