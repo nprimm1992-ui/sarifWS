@@ -110,17 +110,9 @@ const videoSrcEncoded = encodePublicMediaUrl(videoSrc ?? '');
     text-align: left;
     max-width: 720px;
     margin-inline: auto;
-    transform: translateY(20px);
+    --dossier-reveal-y: 20px;
+    transform: translateY(var(--dossier-reveal-y));
     opacity: 0;
-    transition:
-      transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-      box-shadow 0.3s ease,
-      border-color 0.3s ease;
-  }
-
-  .about-dossier.is-visible {
-    opacity: 1;
-    transform: translateY(0);
     transition:
       opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
       transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
@@ -128,12 +120,18 @@ const videoSrcEncoded = encodePublicMediaUrl(videoSrc ?? '');
       border-color 0.3s ease;
   }
 
+  .about-dossier.is-visible {
+    --dossier-reveal-y: 0px;
+    opacity: 1;
+  }
+
   /* Hover lift only — border/shadow intensification is carried by the
      shared `.panel-dossier--interactive:hover` in global.css so the
      cyan dossier palette stays unified across about, ucim, service
-     card, lane, and proof-entry surfaces. */
-  .about-dossier:hover {
-    transform: translateY(-6px);
+     card, lane, and proof-entry surfaces. Hover is gated to revealed
+     cards only so it never fires mid-reveal-animation. */
+  .about-dossier.is-visible:hover {
+    --dossier-reveal-y: -6px;
   }
 
   /* --- Accent rail (left vertical gradient) --- */
@@ -302,12 +300,12 @@ const videoSrcEncoded = encodePublicMediaUrl(videoSrc ?? '');
   @media (prefers-reduced-motion: reduce) {
     .about-dossier {
       opacity: 1;
-      transform: none;
+      --dossier-reveal-y: 0px;
       transition: none;
     }
 
-    .about-dossier:hover {
-      transform: none;
+    .about-dossier.is-visible:hover {
+      --dossier-reveal-y: 0px;
     }
 
     .about-dossier__stat-value {
@@ -375,7 +373,7 @@ const videoSrcEncoded = encodePublicMediaUrl(videoSrc ?? '');
     video.removeAttribute('data-src');
   }
 
-  function initDossierVideos() {
+  function teardownDossierVideos() {
     if (_dossierVideoLoadObserver) {
       _dossierVideoLoadObserver.disconnect();
       _dossierVideoLoadObserver = null;
@@ -384,6 +382,10 @@ const videoSrcEncoded = encodePublicMediaUrl(videoSrc ?? '');
       _dossierVideoPlayObserver.disconnect();
       _dossierVideoPlayObserver = null;
     }
+  }
+
+  function initDossierVideos() {
+    teardownDossierVideos();
 
     const videos = document.querySelectorAll('[data-dossier-video]');
     if (videos.length === 0) return;
@@ -442,15 +444,14 @@ const videoSrcEncoded = encodePublicMediaUrl(videoSrc ?? '');
             video.setAttribute('preload', 'auto');
             if (prefersReduced) {
               video.pause();
-              try {
-                video.currentTime = 0;
-              } catch {
-                /* ignore */
-              }
+              try { video.currentTime = 0; } catch { /* ignore */ }
               video.setAttribute('data-playing', '');
               continue;
             }
+            let revealed = false;
             const reveal = () => {
+              if (revealed) return;
+              revealed = true;
               video.setAttribute('data-playing', '');
             };
             if (video.readyState >= MIN_READY_STATE_FOR_FRAME) {
@@ -473,6 +474,7 @@ const videoSrcEncoded = encodePublicMediaUrl(videoSrc ?? '');
     }
   }
 
+  document.addEventListener('astro:before-swap', teardownDossierVideos);
   document.addEventListener('astro:page-load', initDossierVideos);
   if (document.readyState !== 'loading') initDossierVideos();
 </script>
