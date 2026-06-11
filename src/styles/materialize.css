@@ -35,9 +35,10 @@
   position: absolute;
   top: 0;
   left: 0;
+  width: 100%;
   opacity: 0;
   pointer-events: none;
-  white-space: nowrap;
+  white-space: inherit;
   font-family: inherit;
   font-size: inherit;
   font-weight: inherit;

@@ -31,7 +31,7 @@
 import { subscribe as tickerSubscribe, unsubscribe as tickerUnsubscribe, PRIORITY_UI } from './main-ticker.js';
 import { isReducedMotion, subscribeReducedMotion } from './reduced-motion.js';
 
-const CHAR_RESOLVE_INTERVAL_MS = 40;
+const CHAR_RESOLVE_INTERVAL_MS = 22;
 const CHAR_CYCLE_COUNT = 3;
 const MOBILE_BREAKPOINT = 768;
 const MOBILE_TIMING_SCALE = 0.75;
