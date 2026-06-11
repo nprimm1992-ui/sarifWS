@@ -14,7 +14,7 @@ const currentPath = Astro.url.pathname;
 
 <header id="site-nav" role="banner">
   <nav class="nav-inner container" aria-label="Main navigation">
-    <a href="/" class="nav-wordmark" aria-label="Sarif Consulting — Home" data-materialize-text="pending">
+    <a href="/" class="nav-wordmark" aria-label="Sarif Consulting — Home">
       SARIF CONSULTING
     </a>
 
@@ -24,7 +24,6 @@ const currentPath = Astro.url.pathname;
           <a
             href={link.href}
             class:list={['nav-link', { 'nav-link--active': currentPath === link.href || currentPath.startsWith(link.href + '/') }]}
-            data-materialize-text="pending"
           >
             {link.label}
           </a>
