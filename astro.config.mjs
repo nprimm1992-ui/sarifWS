@@ -31,7 +31,7 @@ export default defineConfig({
       smartypants: true,
     }),
     sitemap({
-      filter: (page) => !page.includes('/lexicon'),
+      filter: (page) => !page.includes('/lexicon') && !page.includes('/admin'),
     }),
   ],
   vite: {

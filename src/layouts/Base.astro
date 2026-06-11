@@ -116,8 +116,7 @@ const cfBeaconToken =
     {noindex && <meta name="robots" content="noindex" />}
 
     <link rel="canonical" href={canonicalURL} />
-    <link rel="alternate" hreflang="en-US" href={canonicalURL} />
-    <link rel="alternate" hreflang="x-default" href={canonicalURL} />
+    <link rel="alternate" hreflang="en" href={canonicalURL} />
     {isPraxisPage && (
       <link
         rel="alternate"
@@ -194,6 +193,8 @@ const cfBeaconToken =
       "name": "Sarif Consulting",
       "description": "AI-augmented consulting. Production-grade research, development and strategic materials.",
       "url": "https://sarifconsulting.ai",
+      "logo": "https://sarifconsulting.ai/favicon-512.png",
+      "image": "https://sarifconsulting.ai/og-image.jpg",
       "address": {
         "@type": "PostalAddress",
         "addressLocality": "Portland",
@@ -203,6 +204,12 @@ const cfBeaconToken =
       "email": "info@sarifconsulting.ai",
       "areaServed": "Worldwide",
       "priceRange": "$$-$$$",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer service",
+        "email": "info@sarifconsulting.ai",
+        "availableLanguage": "English"
+      },
       "sameAs": ["https://sarifconsulting.ai"]
     })} />
     {jsonLd.map((block) => (
