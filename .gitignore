@@ -1,6 +1,9 @@
 # wrangler local state (avoid stale SSR redirect breaking `pages deploy`)
 .wrangler/
 
+# Emergent preview-only dev config (never used in production build/deploy)
+astro.config.dev.mjs
+
 # build output
 dist/
 # generated types
