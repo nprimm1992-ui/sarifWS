@@ -61,15 +61,15 @@ const CLIPS = [
   {
     label: 'methodology',
     candidates: [
-      'Context flow.mp4',
       'media/about/context-flow.mp4',
+      'Context flow.mp4',
     ],
   },
   {
     label: 'principle',
     candidates: [
-      'Amber_Light_Network_In_a_cinematic_style_a_man_with_short_brown_hair_kY2lTZ1w.mp4',
       'media/about/amber-network.mp4',
+      'Amber_Light_Network_In_a_cinematic_style_a_man_with_short_brown_hair_kY2lTZ1w.mp4',
     ],
   },
 ];

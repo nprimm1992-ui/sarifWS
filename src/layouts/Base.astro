@@ -35,6 +35,11 @@ interface Props {
   title?: string;
   description?: string;
   ogImage?: string;
+  ogImageAlt?: string;
+  ogImageWidth?: number;
+  ogImageHeight?: number;
+  ogType?: 'website' | 'article';
+  articlePublishedTime?: string;
   /** When true, omit this URL from search engine indexes (page may still be linked internally). */
   noindex?: boolean;
   /** Extra JSON-LD structured-data blocks (array of plain JS objects) appended after the global ProfessionalService block. */
@@ -53,10 +58,17 @@ const {
   title = 'Sarif Consulting — AI-Augmented Strategic Consulting',
   description = 'Production-grade research, development and strategic materials. Full methodology. Days not months.',
   ogImage = DEFAULT_OG_IMAGE,
+  ogImageAlt = 'Sarif Consulting — AI-augmented strategic consulting',
+  ogImageWidth = ogImage === DEFAULT_OG_IMAGE ? 1200 : undefined,
+  ogImageHeight = ogImage === DEFAULT_OG_IMAGE ? 630 : undefined,
+  ogType = 'website',
+  articlePublishedTime,
   noindex = false,
   jsonLd = [],
   lobbyPose,
 } = Astro.props;
+
+const ogImageUrl = new URL(ogImage, Astro.site);
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
@@ -126,16 +138,25 @@ const cfBeaconToken =
       />
     )}
 
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={ogType} />
     <meta property="og:url" content={canonicalURL} />
+    <meta property="og:site_name" content="Sarif Consulting" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content={new URL(ogImage, Astro.site)} />
+    <meta property="og:image" content={ogImageUrl} />
+    {ogImageWidth != null && <meta property="og:image:width" content={String(ogImageWidth)} />}
+    {ogImageHeight != null && <meta property="og:image:height" content={String(ogImageHeight)} />}
+    <meta property="og:image:alt" content={ogImageAlt} />
+    {articlePublishedTime && (
+      <meta property="article:published_time" content={articlePublishedTime} />
+    )}
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={new URL(ogImage, Astro.site)} />
+    <meta name="twitter:image" content={ogImageUrl} />
+    <meta name="twitter:image:alt" content={ogImageAlt} />
 
     <!-- Raster favicons only. No SVG link: browsers prefer SVG over PNG when
          both are declared, and the in-repo favicon.svg vector does not match
@@ -357,12 +378,12 @@ const cfBeaconToken =
          sooner means the world is alive when the veil lifts. -->
     <script>
       let lobbyDomContentLoadedHooked = false;
-      /* In-flight guard: prevents a second import() if astro:page-load fires
-         while the previous dynamic import is still resolving (e.g. on a
-         slow connection). initLobby() itself has a renderer guard that
-         catches true concurrency, but preventing the redundant import()
-         is cleaner and avoids any brief window before renderer is set. */
       let lobbyImportInFlight = false;
+
+      function isLandingPath() {
+        const path = window.location.pathname.replace(/\/+$/, '') || '/';
+        return path === '/';
+      }
 
       function runLobbyImport() {
         if (lobbyImportInFlight) return;
@@ -373,14 +394,28 @@ const cfBeaconToken =
         });
       }
 
+      function scheduleLobbyImport() {
+        if (isLandingPath()) {
+          runLobbyImport();
+          return;
+        }
+        /* Interior routes: idle-deferred init preserves the spatial shell
+           without competing with first-paint on cold deep links. */
+        if (typeof requestIdleCallback === 'function') {
+          requestIdleCallback(() => runLobbyImport(), { timeout: 2500 });
+        } else {
+          setTimeout(runLobbyImport, 800);
+        }
+      }
+
       function startLobby() {
         if (document.readyState === 'loading') {
           if (!lobbyDomContentLoadedHooked) {
             lobbyDomContentLoadedHooked = true;
-            document.addEventListener('DOMContentLoaded', runLobbyImport, { once: true });
+            document.addEventListener('DOMContentLoaded', scheduleLobbyImport, { once: true });
           }
         } else {
-          runLobbyImport();
+          scheduleLobbyImport();
         }
       }
 

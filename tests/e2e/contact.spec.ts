@@ -15,7 +15,7 @@ import { test, expect } from '@playwright/test';
 test('contact form renders with required fields', async ({ page }) => {
   await page.goto('/contact/');
   await expect(page.locator('form[data-contact-form], form#contact-form')).toBeVisible();
-  const requiredNames = ['name', 'email', 'message'];
+  const requiredNames = ['name', 'email', 'signal'];
   for (const name of requiredNames) {
     const field = page.locator(`[name="${name}"]`).first();
     if ((await field.count()) === 0) continue;

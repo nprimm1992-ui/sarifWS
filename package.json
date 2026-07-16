@@ -28,6 +28,7 @@
     "optimize:glbs": "node scripts/optimize-glbs.mjs",
     "optimize:videos": "node scripts/optimize-ambient-videos.mjs",
     "generate:og": "node scripts/generate-og-image.mjs",
+    "generate:praxis-corpus": "node scripts/generate-praxis-corpus.mjs",
     "preview": "astro preview",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",

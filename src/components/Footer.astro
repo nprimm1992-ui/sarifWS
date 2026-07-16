@@ -41,7 +41,7 @@ const cookieStorageKey = 'sarif_consulting_cookie_notice_dismissed';
             <circle cx="9" cy="9" r="5.25" stroke="currentColor" stroke-width="1.5" />
             <path d="m13.5 13.5 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
           </svg>
-          <kbd class="footer-search__kbd" aria-hidden="true">⌘K</kbd>
+          <kbd class="footer-search__kbd" aria-hidden="true" data-search-kbd-hint>Ctrl+K</kbd>
         </button>
 
         <button
@@ -595,3 +595,17 @@ const cookieStorageKey = 'sarif_consulting_cookie_notice_dismissed';
     }
   }
 </style>
+
+<script>
+  function applySearchKbdHint() {
+    const hint = document.querySelector('[data-search-kbd-hint]');
+    if (!(hint instanceof HTMLElement)) return;
+    const isMac =
+      typeof navigator !== 'undefined' &&
+      /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
+    hint.textContent = isMac ? '⌘K' : 'Ctrl+K';
+  }
+
+  applySearchKbdHint();
+  document.addEventListener('astro:page-load', applySearchKbdHint);
+</script>

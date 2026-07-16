@@ -3,21 +3,10 @@
  * pipeline.
  *
  * Source of truth:
- *   public/Create_a_premium_luxury_logo_for_SARIF_CONSULTING_-1776279344571.png
- *   — the canonical branded master. Historically this 1.9 MB raster
- *   was *also* served verbatim as `/og-image.png` (a copy created by
- *   the prior version of this script). Two consequences:
- *     1. Every share-render (Slack, Discord, iMessage, Twitter, LinkedIn,
- *        Mastodon, Bluesky) pulled 1.9 MB to render the same card, and
- *        the OG endpoint was missing the canonical 1.91 : 1 (1200 × 630)
- *        aspect that crawlers expect for `og:image`.
- *     2. The 1.9 MB asset was implicitly part of every page's resource
- *        tree (referenced by Base.astro's `<meta property="og:image">`
- *        / `<meta name="twitter:image">`), competing for connection
- *        slots during cold fetches.
+ *   scripts/assets/og-source-branded-master.png
+ *   — the canonical branded master (not served from /public).
  *
- * This script now does the right thing:
- *
+ * This script:
  *   - Writes a 1200 × 630 JPEG (`/og-image.jpg`) as the universal OG
  *     fallback — every social crawler accepts JPEG and the canonical
  *     aspect ratio is the only one Slack/Discord/Twitter agree on.
@@ -51,8 +40,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
 const pub = path.join(root, 'public');
 
-const SOURCE_NAME = 'Create_a_premium_luxury_logo_for_SARIF_CONSULTING_-1776279344571.png';
-const sourcePath = path.join(pub, SOURCE_NAME);
+const SOURCE_NAME = 'og-source-branded-master.png';
+const assetsDir = path.join(root, 'scripts', 'assets');
+const sourcePath = path.join(assetsDir, SOURCE_NAME);
 
 if (!existsSync(sourcePath)) {
   console.error(`[generate-og-image] missing branded source: ${sourcePath}`);

@@ -10,10 +10,9 @@ import { test, expect } from '@playwright/test';
  * that compile to plain JS reads against the document.
  */
 
-test('praxis index: facets aside and first card do not overlap at 1280', async ({ page }) => {
-  /* `load` lets the WebGL lobby scene start its rAF loop before we
-     evaluate DOM geometry; `domcontentloaded` can race the module
-     graph and leave evaluate() stalled behind paint work. */
+test('praxis index: horizontal facet bar sits above card list at 1280', async ({ page }) => {
+  /* Facets are a full-width horizontal strip (grid row), not a left
+     sidebar. Assert vertical stacking: facet bar bottom ≤ card top. */
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/praxis/', { waitUntil: 'load' });
@@ -30,20 +29,20 @@ test('praxis index: facets aside and first card do not overlap at 1280', async (
     return {
       facetsPresent: true,
       cardPresent: true,
-      facetsRight: facetsRect.right,
-      cardLeft: cardRect.left,
+      facetsBottom: facetsRect.bottom,
+      cardTop: cardRect.top,
       facetsWidth: facetsRect.width,
-      cardWidth: cardRect.width,
     };
   });
 
   expect(geometry.facetsPresent, 'facets element must render').toBe(true);
   expect(geometry.cardPresent, 'first card must render').toBe(true);
-  if (!geometry.facetsRight || !geometry.cardLeft) return;
+  if (geometry.facetsBottom == null || geometry.cardTop == null) return;
   expect(
-    geometry.facetsRight,
-    'facets right edge should sit left of the card column',
-  ).toBeLessThanOrEqual(geometry.cardLeft);
+    geometry.facetsBottom,
+    'facet bar should sit above the card list (vertical stack)',
+  ).toBeLessThanOrEqual(geometry.cardTop + 2);
+  expect(geometry.facetsWidth ?? 0, 'facet bar should span most of the viewport').toBeGreaterThan(600);
 });
 
 test('praxis article: dossier case renders all chrome regions', async ({ page }) => {

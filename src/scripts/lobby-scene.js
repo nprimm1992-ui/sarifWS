@@ -12,7 +12,6 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { LUTPass } from 'three/addons/postprocessing/LUTPass.js';
-import { Reflector } from 'three/addons/objects/Reflector.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
@@ -41,7 +40,6 @@ let _sceneTickerToken = null;
    is now constant regardless of scroll state. */
 /** Incremented on every cleanup so async GLTF / font callbacks never touch a torn-down scene. */
 let _lobbySession = 0;
-const _reflectors = [];
 /** Screen-space fat-line material for the hex floor grid. Held at module
  *  scope so onResize can keep its `resolution` uniform in sync with the
  *  viewport — LineMaterial renders in pixel units and needs the live size. */
@@ -54,7 +52,7 @@ const MOBILE_BREAKPOINT = 768;
 
 /** Embedded IDE previews often report devicePixelRatio≈1; production Chrome on
  *  HiDPI / scaled Windows uses 1.25–2+, which multiplies fragment cost across
- *  the main pass, bloom, and reflector. Tier caps keep a full-window lobby
+ *  the main pass and bloom. Tier caps keep a full-window lobby
  *  closer to preview smoothness without a visible quality cliff on laptops. */
 const LOBBY_TIER_FULL_HD_CSS_PIXELS = 1920 * 1080;
 const LOBBY_TIER_QHD_CSS_PIXELS = 2560 * 1440;
@@ -65,7 +63,7 @@ const LOBBY_TIER_QHD_CSS_PIXELS = 2560 * 1440;
  * @param {boolean} mobile
  */
 /** Tiered caps shave the "preview DPR 1 vs production DPR 2" gap while staying softer
- *  on sharpness than aggressive 1.2× ceilings — reflector + bloom still step down on
+ *  on sharpness than aggressive 1.2× ceilings — bloom still steps down on
  *  very large CSS viewports where fill rate dominates. */
 function resolveLobbyPixelRatio(cssWidth, cssHeight, mobile) {
   const raw = Number(window.devicePixelRatio);
@@ -78,20 +76,6 @@ function resolveLobbyPixelRatio(cssWidth, cssHeight, mobile) {
   const dm = typeof navigator !== 'undefined' ? navigator.deviceMemory : undefined;
   if (typeof dm === 'number' && dm > 0 && dm <= 4) cap = Math.min(cap, 1.38);
   return Math.min(dpr, cap);
-}
-
-/** Square Reflector render target edge length (desktop only).
- *  Round 2026 — caps tightened across all tiers. The Reflector renders
- *  the entire scene a 2nd time per frame into this RTT (the dominant
- *  GPU cost on landing), so even a small reduction is a substantial
- *  win. 768/640/512 still produces a perceptually-clean reflection at
- *  the camera's resting Z; the pixel-level difference vs 1024 is below
- *  the post-LUT noise floor on every desktop class we target. */
-function resolveDesktopReflectorResolution(cssWidth, cssHeight) {
-  const px = cssWidth * cssHeight;
-  if (px > LOBBY_TIER_QHD_CSS_PIXELS) return 512;
-  if (px > LOBBY_TIER_FULL_HD_CSS_PIXELS) return 640;
-  return 768;
 }
 
 /** Internal bloom buffer scale (UnrealBloomPass resolution factor).
@@ -920,108 +904,74 @@ function buildHexLinesColored(hexRadius, cols, rows) {
   return { verts, vertColors };
 }
 
+/** PMREM-backed floor — replaces Reflector (which re-rendered the full scene
+ *  every frame). MeshStandardMaterial picks up scene.environment once IBL loads. */
+function createPmremFloorPlane(FLOOR_SIZE, tintOpacity, fadeStart, fadeEnd) {
+  const floorMat = new THREE.MeshStandardMaterial({
+    color: 0xc8b898,
+    roughness: 0.12,
+    metalness: 0.55,
+    transparent: true,
+    opacity: 0.92,
+    envMapIntensity: 1.0,
+  });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -3;
+
+  const blendMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTintColor: { value: new THREE.Color(0xe8dcc8) },
+      uTintOpacity: { value: tintOpacity },
+      uBgColor: { value: new THREE.Color(LOBBY_BG) },
+      uFadeStart: { value: fadeStart },
+      uFadeEnd: { value: fadeEnd },
+    },
+    vertexShader: /* glsl */`
+      varying vec2 vWorldXZ;
+      void main() {
+        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+        vWorldXZ = worldPos.xz;
+        gl_Position = projectionMatrix * viewMatrix * worldPos;
+      }`,
+    fragmentShader: /* glsl */`
+      uniform vec3 uTintColor;
+      uniform float uTintOpacity;
+      uniform vec3 uBgColor;
+      uniform float uFadeStart;
+      uniform float uFadeEnd;
+      varying vec2 vWorldXZ;
+      void main() {
+        float dist = length(vWorldXZ);
+        float edge = smoothstep(uFadeStart, uFadeEnd, dist);
+        vec3 color = mix(uTintColor, uBgColor, edge);
+        float alpha = mix(uTintOpacity, 1.0, edge);
+        gl_FragColor = vec4(color, alpha);
+      }`,
+    transparent: true,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const blend = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE), blendMat);
+  blend.rotation.x = -Math.PI / 2;
+  blend.position.y = -2.99;
+
+  return { floor, blend };
+}
+
 function createHexGridFloor() {
   const group = new THREE.Group();
 
   const FLOOR_SIZE = 300;
 
   if (isMobile) {
-    const mobileReflectorGeo = new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE);
-    const mobileReflector = new Reflector(mobileReflectorGeo, {
-      textureWidth: 512,
-      textureHeight: 512,
-      color: 0xc8b898,
-      clipBias: 0.003,
-    });
-    mobileReflector.rotation.x = -Math.PI / 2;
-    mobileReflector.position.y = -3;
-    _reflectors.push(mobileReflector);
-    group.add(mobileReflector);
-
-    const mobileBlendMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uTintColor:   { value: new THREE.Color(0xe8dcc8) },
-        uTintOpacity: { value: 0.32 },
-        uBgColor:     { value: new THREE.Color(LOBBY_BG) },
-        uFadeStart:   { value: 8.0 },
-        uFadeEnd:     { value: 40.0 },
-      },
-      vertexShader: /* glsl */`
-        varying vec2 vWorldXZ;
-        void main() {
-          vec4 worldPos = modelMatrix * vec4(position, 1.0);
-          vWorldXZ = worldPos.xz;
-          gl_Position = projectionMatrix * viewMatrix * worldPos;
-        }`,
-      fragmentShader: /* glsl */`
-        uniform vec3 uTintColor;
-        uniform float uTintOpacity;
-        uniform vec3 uBgColor;
-        uniform float uFadeStart;
-        uniform float uFadeEnd;
-        varying vec2 vWorldXZ;
-        void main() {
-          float dist = length(vWorldXZ);
-          float edge = smoothstep(uFadeStart, uFadeEnd, dist);
-          vec3 color = mix(uTintColor, uBgColor, edge);
-          float alpha = mix(uTintOpacity, 1.0, edge);
-          gl_FragColor = vec4(color, alpha);
-        }`,
-      transparent: true, side: THREE.DoubleSide, depthWrite: false,
-    });
-    const mobileBlend = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE), mobileBlendMat);
-    mobileBlend.rotation.x = -Math.PI / 2;
-    mobileBlend.position.y = -2.99;
-    group.add(mobileBlend);
+    const { floor, blend } = createPmremFloorPlane(FLOOR_SIZE, 0.32, 8.0, 40.0);
+    group.add(floor);
+    group.add(blend);
   } else {
-    const reflectorGeo = new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE);
-    const refl = resolveDesktopReflectorResolution(window.innerWidth, window.innerHeight);
-    const reflector = new Reflector(reflectorGeo, {
-      textureWidth: refl,
-      textureHeight: refl,
-      color: 0xc8b898,
-      clipBias: 0.003,
-    });
-    reflector.rotation.x = -Math.PI / 2;
-    reflector.position.y = -3;
-    _reflectors.push(reflector);
-    group.add(reflector);
-
-    const blendMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uTintColor:   { value: new THREE.Color(0xe8dcc8) },
-        uTintOpacity: { value: 0.28 },
-        uBgColor:     { value: new THREE.Color(LOBBY_BG) },
-        uFadeStart:   { value: 10.0 },
-        uFadeEnd:     { value: 45.0 },
-      },
-      vertexShader: /* glsl */`
-        varying vec2 vWorldXZ;
-        void main() {
-          vec4 worldPos = modelMatrix * vec4(position, 1.0);
-          vWorldXZ = worldPos.xz;
-          gl_Position = projectionMatrix * viewMatrix * worldPos;
-        }`,
-      fragmentShader: /* glsl */`
-        uniform vec3 uTintColor;
-        uniform float uTintOpacity;
-        uniform vec3 uBgColor;
-        uniform float uFadeStart;
-        uniform float uFadeEnd;
-        varying vec2 vWorldXZ;
-        void main() {
-          float dist = length(vWorldXZ);
-          float edge = smoothstep(uFadeStart, uFadeEnd, dist);
-          vec3 color = mix(uTintColor, uBgColor, edge);
-          float alpha = mix(uTintOpacity, 1.0, edge);
-          gl_FragColor = vec4(color, alpha);
-        }`,
-      transparent: true, side: THREE.DoubleSide, depthWrite: false,
-    });
-    const blendPlane = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE), blendMat);
-    blendPlane.rotation.x = -Math.PI / 2;
-    blendPlane.position.y = -2.99;
-    group.add(blendPlane);
+    const { floor, blend } = createPmremFloorPlane(FLOOR_SIZE, 0.28, 10.0, 45.0);
+    group.add(floor);
+    group.add(blend);
   }
 
   const { verts, vertColors } = buildHexLinesColored(HEX_R, HEX_COLS, HEX_ROWS);
@@ -1061,10 +1011,7 @@ function createHexGridFloor() {
      so frustum culling uses real bounds instead of the default zero box
      (which would flicker the grid at wide FOV / edge-of-screen). */
   hexMesh.computeLineDistances();
-  /* Move the hex grid off layer 0 so the floor Reflector's virtual camera
-     (which renders layer 0 only) doesn't double-paint the grid as a
-     reflection beneath itself. The main camera has layer 1 enabled in
-     initScene, so the user still sees the grid at full strength. */
+  /* Hex grid on layer 1 (main camera sees layer 1; keeps floor separate). */
   hexMesh.layers.set(1);
   group.add(hexMesh);
 
@@ -3260,8 +3207,6 @@ function cleanup() {
   detachReducedTransparencyListener();
   teardownSectionObserver();
 
-  for (const ref of _reflectors) { ref.dispose(); }
-  _reflectors.length = 0;
   floatingObjects.length = 0;
   dustData.length = 0;
   _dustMesh = null;

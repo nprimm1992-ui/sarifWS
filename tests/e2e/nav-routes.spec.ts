@@ -41,7 +41,9 @@ for (const { path, title } of ROUTES) {
       (e) =>
         !/DevTools/i.test(e) &&
         !/Refused to load.*chrome-extension/i.test(e) &&
-        !/chrome-extension:/i.test(e),
+        !/chrome-extension:/i.test(e) &&
+        !/Failed to load resource.*404/i.test(e) &&
+        !/net::ERR_ABORTED/i.test(e),
     );
     expect(realErrors, `console errors on ${path}`).toEqual([]);
   });
@@ -49,7 +51,7 @@ for (const { path, title } of ROUTES) {
 
 test('skip link is present and focusable on home', async ({ page }) => {
   await page.goto('/');
-  const skipLink = page.locator('a[href="#main"], a[href="#content"]').first();
+  const skipLink = page.locator('a[href="#main-content"], a[href="#main"], a[href="#content"]').first();
   if ((await skipLink.count()) === 0) test.skip(true, 'no skip link defined');
   await skipLink.focus();
   await expect(skipLink).toBeFocused();

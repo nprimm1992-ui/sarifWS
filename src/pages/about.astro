@@ -8,36 +8,71 @@ import AboutDossierCard from '../components/AboutDossierCard.astro';
 import UcimBriefCard from '../components/UcimBriefCard.astro';
 
 const publicDir = fileURLToPath(new URL('../../public', import.meta.url));
-const aboutMediaDir = join(publicDir, 'media', 'about');
 
 /* Videos: Cursor/agent file search often omits large `public/*.mp4`; that does not mean they
  * are absent on disk. `existsSync` here is authoritative at build time. Prefer on-disk root
  * filenames (your shipped assets), then optional `public/media/about/` renames. */
 
-/** First on-disk match wins. */
-function pickAboutVideoUrl(
-  candidates: ReadonlyArray<{ readonly abs: string; readonly url: string }>,
-): string | undefined {
+/** First on-disk MP4 match wins; optional AV1/WebM sibling when present. */
+function pickAboutVideoPair(
+  candidates: ReadonlyArray<{
+    readonly mp4: { readonly abs: string; readonly url: string };
+    readonly webm?: { readonly abs: string; readonly url: string };
+  }>,
+): { mp4?: string; webm?: string } {
   for (const c of candidates) {
-    if (existsSync(c.abs)) return c.url;
+    if (!existsSync(c.mp4.abs)) continue;
+    const webm =
+      c.webm && existsSync(c.webm.abs) ? c.webm.url : undefined;
+    return { mp4: c.mp4.url, webm };
   }
-  return undefined;
+  return {};
 }
 
-const aboutVideoMethodologySrc = pickAboutVideoUrl([
-  { abs: join(publicDir, 'Context flow.mp4'), url: '/Context flow.mp4' },
-  { abs: join(aboutMediaDir, 'context-flow.mp4'), url: '/media/about/context-flow.mp4' },
+const methodologyVideos = pickAboutVideoPair([
+  {
+    mp4: { abs: join(publicDir, 'media/about/context-flow.mp4'), url: '/media/about/context-flow.mp4' },
+    webm: {
+      abs: join(publicDir, 'media/about/context-flow.av1.webm'),
+      url: '/media/about/context-flow.av1.webm',
+    },
+  },
+  {
+    mp4: { abs: join(publicDir, 'Context flow.mp4'), url: '/Context flow.mp4' },
+    webm: {
+      abs: join(publicDir, 'Context flow.av1.webm'),
+      url: '/Context flow.av1.webm',
+    },
+  },
 ]);
 
-const aboutVideoPrincipleSrc = pickAboutVideoUrl([
+const principleVideos = pickAboutVideoPair([
   {
-    abs: join(
-      publicDir,
-      'Amber_Light_Network_In_a_cinematic_style_a_man_with_short_brown_hair_kY2lTZ1w.mp4',
-    ),
-    url: '/Amber_Light_Network_In_a_cinematic_style_a_man_with_short_brown_hair_kY2lTZ1w.mp4',
+    mp4: {
+      abs: join(publicDir, 'media/about/amber-network.mp4'),
+      url: '/media/about/amber-network.mp4',
+    },
+    webm: {
+      abs: join(publicDir, 'media/about/amber-network.av1.webm'),
+      url: '/media/about/amber-network.av1.webm',
+    },
   },
-  { abs: join(aboutMediaDir, 'amber-network.mp4'), url: '/media/about/amber-network.mp4' },
+  {
+    mp4: {
+      abs: join(
+        publicDir,
+        'Amber_Light_Network_In_a_cinematic_style_a_man_with_short_brown_hair_kY2lTZ1w.mp4',
+      ),
+      url: '/Amber_Light_Network_In_a_cinematic_style_a_man_with_short_brown_hair_kY2lTZ1w.mp4',
+    },
+    webm: {
+      abs: join(
+        publicDir,
+        'Amber_Light_Network_In_a_cinematic_style_a_man_with_short_brown_hair_kY2lTZ1w.av1.webm',
+      ),
+      url: '/Amber_Light_Network_In_a_cinematic_style_a_man_with_short_brown_hair_kY2lTZ1w.av1.webm',
+    },
+  },
 ]);
 
 const serviceCards = [
@@ -167,7 +202,8 @@ const serviceCards = [
           '<strong>RISK</strong> identified in operational review redirects the roadmap <strong>before it ships</strong>',
           '<strong>EVERY</strong> deliverable carries a trace behind every claim',
         ]}
-        videoSrc={aboutVideoMethodologySrc}
+        videoSrc={methodologyVideos.mp4}
+        videoSrcAv1={methodologyVideos.webm}
         videoAlt="Context flow visualization — one operator, one intelligence layer"
       />
 
@@ -224,7 +260,8 @@ const serviceCards = [
           '<strong>AI AUGMENTATION</strong> is operational structure, not marketing surface',
           '<strong>EVERY</strong> engagement inherits the full intelligence of the practice',
         ]}
-        videoSrc={aboutVideoPrincipleSrc}
+        videoSrc={principleVideos.mp4}
+        videoSrcAv1={principleVideos.webm}
         videoAlt="The principal at the center of the intelligence network"
       />
     </div>

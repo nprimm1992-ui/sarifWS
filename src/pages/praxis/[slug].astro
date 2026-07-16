@@ -116,8 +116,8 @@ const description = data.summary;
  * that reads og:image (Twitter / X, LinkedIn, Slack, Discord, etc.)
  * instead of falling back to the site-wide default OG raster. Absolute
  * URL is required for both consumers. */
-const heroImageAbsolute = data.heroImage
-  ? new URL(data.heroImage, Astro.site).toString()
+const heroImageAbsolute = data.heroImage?.src
+  ? new URL(data.heroImage.src, Astro.site).toString()
   : undefined;
 
 const articleJsonLd: Record<string, unknown> = {
@@ -127,7 +127,14 @@ const articleJsonLd: Record<string, unknown> = {
   description: data.summary,
   datePublished: data.publishDate.toISOString(),
   author: { '@type': 'Organization', name: 'Sarif Consulting' },
-  publisher: { '@type': 'Organization', name: 'Sarif Consulting' },
+  publisher: {
+    '@type': 'Organization',
+    name: 'Sarif Consulting',
+    logo: {
+      '@type': 'ImageObject',
+      url: 'https://sarifconsulting.ai/favicon-512.png',
+    },
+  },
   mainEntityOfPage: new URL(`/praxis/${entry.id}/`, Astro.site).toString(),
 };
 if (heroImageAbsolute) {
@@ -138,7 +145,12 @@ if (heroImageAbsolute) {
 <Base
   title={`${data.title} — Praxis — Sarif Consulting`}
   description={description}
-  ogImage={data.heroImage ?? undefined}
+  ogImage={data.heroImage?.src}
+  ogImageAlt={data.heroAlt}
+  ogImageWidth={data.heroImage?.width}
+  ogImageHeight={data.heroImage?.height}
+  ogType="article"
+  articlePublishedTime={data.publishDate.toISOString()}
   lobbyPose="/praxis/article"
   jsonLd={[articleJsonLd]}
 >

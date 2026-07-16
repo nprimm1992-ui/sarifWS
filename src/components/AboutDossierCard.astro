@@ -34,6 +34,7 @@ interface Props {
   id?: string;
   class?: string;
   videoSrc?: string;
+  videoSrcAv1?: string;
   videoAlt?: string;
 }
 
@@ -46,6 +47,7 @@ const {
   id,
   class: className,
   videoSrc,
+  videoSrcAv1,
   videoAlt = 'Ambient visual supporting the card content',
 } = Astro.props;
 
@@ -61,6 +63,7 @@ function encodePublicMediaUrl(path: string): string | undefined {
 }
 
 const videoSrcEncoded = encodePublicMediaUrl(videoSrc ?? '');
+const videoSrcAv1Encoded = encodePublicMediaUrl(videoSrcAv1 ?? '');
 ---
 
 <article
@@ -86,17 +89,21 @@ const videoSrcEncoded = encodePublicMediaUrl(videoSrc ?? '');
   </ul>
 
   {videoSrcEncoded && (
-    <div class="about-dossier__video-wrap" aria-hidden="true">
+    <div class="about-dossier__video-wrap">
       <video
         class="about-dossier__video"
-        data-src={videoSrcEncoded}
         muted
         loop
         playsinline
         preload="none"
         aria-label={videoAlt}
         data-dossier-video
-      />
+      >
+        {videoSrcAv1Encoded && (
+          <source data-src={videoSrcAv1Encoded} type="video/webm" />
+        )}
+        <source data-src={videoSrcEncoded} type="video/mp4" />
+      </video>
     </div>
   )}
 </article>
@@ -356,19 +363,27 @@ const videoSrcEncoded = encodePublicMediaUrl(videoSrc ?? '');
    *  source. Idempotent. The video is muted+loop+playsinline at markup
    *  time, so once src is set the play() chain below works identically to
    *  the previous preload="auto" path. */
+  /** Promote deferred <source> or legacy data-src on the <video> element. */
   function attachVideoSource(video) {
     if (video.dataset.dossierLoaded === '1') return;
+    video.dataset.dossierLoaded = '1';
+    video.setAttribute('preload', 'metadata');
+
+    const deferredSources = video.querySelectorAll('source[data-src]');
+    if (deferredSources.length > 0) {
+      for (const source of deferredSources) {
+        const src = source.getAttribute('data-src');
+        if (src) {
+          source.setAttribute('src', src);
+          source.removeAttribute('data-src');
+        }
+      }
+      video.load();
+      return;
+    }
+
     const src = video.getAttribute('data-src');
     if (!src) return;
-    video.dataset.dossierLoaded = '1';
-    /* Set preload before src so the browser issues the right Range
-       request (preload="metadata" → small initial range; "auto" → may
-       fetch the whole asset). We start with "metadata" and let the
-       play observer below promote to "auto" only when the card is
-       imminently visible. This staircase keeps cold loads cheap while
-       still avoiding the audible-pop / flash that a deferred src+play
-       can cause. */
-    video.setAttribute('preload', 'metadata');
     video.setAttribute('src', src);
     video.removeAttribute('data-src');
   }
