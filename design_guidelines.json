@@ -1,0 +1,121 @@
+{
+  "theme": "dark",
+  "typography": {
+    "headings": "Orbitron (display, uppercase letterspaced), Space Grotesk (UI/headings)",
+    "body": "Inter",
+    "hierarchy": {
+      "H1": "font-['Orbitron'] text-5xl md:text-6xl tracking-[0.1em] uppercase drop-shadow-[0_0_15px_rgba(0,212,255,0.8)] text-white",
+      "H2": "font-['Orbitron'] text-3xl md:text-4xl tracking-[0.1em] uppercase text-white",
+      "H3": "font-['Space_Grotesk'] text-2xl font-bold text-[#00d4ff]",
+      "Eyebrow": "font-['Space_Grotesk'] text-xs uppercase tracking-[0.12em] text-[#c9a227]",
+      "Body": "font-['Inter'] text-base text-gray-300 leading-relaxed"
+    }
+  },
+  "colors": {
+    "background": "transparent (relies on persistent 3D lobby). Content wrappers should use rgba(26, 46, 60, 0.7) with backdrop-blur-xl.",
+    "surfaces": "bg-[#1a2e3c]/70 backdrop-blur-md",
+    "accents": {
+      "cyan_core": "#00d4ff",
+      "sarif_gold": "#c9a227",
+      "gold_bright": "#ffcf33",
+      "policy": "#00d4ff",
+      "civic": "#c9a227",
+      "venture": "#ff0055",
+      "founder": "#00ffaa",
+      "education": "#aa00ff",
+      "digital": "#ffaa00"
+    },
+    "gradients": "1px borders using bg-gradient-to-r from-[#00d4ff] to-[#c9a227]"
+  },
+  "visual_enhancers": {
+    "surfaces": "Frosted glass panels with chamfered clip-path corners. Add class: `[clip-path:polygon(16px_0,100%_0,100%_calc(100%-16px),calc(100%-16px)_100%,0_100%,0_16px)]`.",
+    "overlays": "Scanline/grain overlays using CSS repeating-linear-gradient and noise backgrounds to enhance the R&D lab screen feel.",
+    "glows": "Intense text-shadows and box-shadows mimicking neon lights on interactive elements."
+  },
+  "layouts": {
+    "Lexicon_Graph_View": "A full-screen data-visualization container overlaid on the 3D lobby. The graph is centered with a UI overlay (absolute positioned). A category legend floats at the bottom right. A detail pane (for node hover/click) slides in from the left.",
+    "Engagement_Dossier_Page": "CSS Grid layout mimicking an exhibition hall display. The 'Plaque' (sticky left column: col-span-1 md:col-span-4) holds the mandate, synopsis, and capability leads. The 'Telemetry' (scrollable right column: col-span-1 md:col-span-8) contains outcome stats, timeline rail, and detailed operational highlights."
+  },
+  "grids": {
+    "dossier_grid": "grid grid-cols-1 md:grid-cols-12 gap-8 w-full max-w-7xl mx-auto p-8 relative z-10",
+    "bento_lab": "grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-min"
+  },
+  "components": {
+    "TelemetryStrip": {
+      "path": "/app/src/components/ui/TelemetryStrip.js",
+      "description": "Inline moving stats readout using react-fast-marquee. Mimics live R&D lab data telemetry with monospace fonts and neon colors."
+    },
+    "ExhibitPlaque": {
+      "path": "/app/src/components/ui/ExhibitPlaque.js",
+      "description": "Frosted glass card with chamfered clip-path corners, #1a2e3c bg, glowing gradient border. Used as the main container for the case study synopsis."
+    },
+    "TimelineRail": {
+      "path": "/app/src/components/ui/TimelineRail.js",
+      "description": "Vertical timeline component for operational highlights. Features a continuous glowing line with animated dots connecting to log entries."
+    },
+    "ConstellationGraph": {
+      "path": "/app/src/components/ui/ConstellationGraph.js",
+      "description": "Interactive node-edge constellation map. Renders ~11 nodes and ~33 directed edges. Highlights neighbors on hover."
+    }
+  },
+  "motion": {
+    "micro_interactions": "Hover states on cards: -translate-y-1, increase glow blur radius, and brighten border gradient.",
+    "transitions": "Use specific transitions, e.g., `transition-[box-shadow,border-color,transform] duration-300 ease-out`. DO NOT use transition-all.",
+    "prefers_reduced_motion": "Respect by disabling graph physics (static rendering) and removing marquee animations via CSS media queries."
+  },
+  "accessibility": {
+    "contrast": "Ensure text over glass panels meets WCAG 4.5:1 ratio by keeping glass background opacity high enough.",
+    "keyboard": "All nodes in the constellation graph and log entries in the timeline must be focusable.",
+    "testing": "All interactive elements MUST include data-testid attribute in kebab-case."
+  },
+  "media": {
+    "image_urls": [
+      {
+        "url": "https://images.unsplash.com/photo-1758073519996-6d3c63b4922c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MDV8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMGZ1dHVyaXN0aWMlMjB0ZWNobm9sb2d5JTIwZGFya3xlbnwwfHx8fDE3ODYzOTQwNzB8MA&ixlib=rb-4.1.0&q=85",
+        "category": "background_texture",
+        "description": "Abstract blue glowing dots forming wave patterns, good for data telemetry texture placeholders"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1546146477-15a587cd3fcb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MDV8MHwxfHNlYXJjaHw0fHxhYnN0cmFjdCUyMGZ1dHVyaXN0aWMlMjB0ZWNobm9sb2d5JTIwZGFya3xlbnwwfHx8fDE3ODYzOTQwNzB8MA&ixlib=rb-4.1.0&q=85",
+        "category": "dossier_placeholder",
+        "description": "Cyberpunk-ish architectural layout for case study placeholder imagery"
+      }
+    ]
+  },
+  "3d_libraries_and_steps": {
+    "library": "react-force-graph-2d",
+    "reasoning": "A 2D force graph with a transparent background ensures the persistent Three.js lobby is visible underneath while keeping the UI snappy and easy to interact with.",
+    "steps": [
+      "1. Run `yarn add react-force-graph-2d`.",
+      "2. Wrap in an ErrorBoundary and Suspense.",
+      "3. Configure `backgroundColor='rgba(0,0,0,0)'`.",
+      "4. Render nodes using `nodeCanvasObject` to draw chamfered rectangles or glowing circles with Orbitron labels.",
+      "5. Render edges as glowing lines based on the relationship array.",
+      "6. Add `onNodeHover` logic to highlight connected neighbors and trigger tooltips."
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Use standard .js extensions for React components. DO NOT output .tsx files.",
+    "Ensure backgrounds for main containers (like ExhibitPlaque) use semi-transparent colors (e.g. bg-[#1a2e3c]/70 with backdrop-blur-md) to let the persistent 3D lobby show through.",
+    "Import fonts in the CSS file: `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Orbitron:wght@400;700&family=Space+Grotesk:wght@400;700&display=swap');`.",
+    "Implement the 'clip-path' chamfered corners using Tailwind arbitrary variants: `[clip-path:polygon(16px_0,100%_0,100%_calc(100%-16px),calc(100%-16px)_100%,0_100%,0_16px)]`.",
+    "Implement the TimelineRail using a vertical dashed border and glowing absolute positioned dots that connect down the page.",
+    "For the 6-accent engagement colors, define them as a map and apply them dynamically via inline styles for borders/shadows.",
+    "Add 'data-testid' to all buttons, links, graph nodes, and interactive elements."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts. Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur).",
+    "You MUST NOT apply universal transition (e.g., transition: all). Add transitions for specific properties.",
+    "You MUST NOT center align the app container.",
+    "Always use modern button styles like sharp buttons with interaction animations & color relevant to the app style.",
+    "NEVER use AI assistant Emoji characters (🤖🧠💭💡🔮🎯).",
+    "Every interaction needs micro-animations (hover states, transitions).",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Prioritize using pre-existing components from src/components/ui when applicable.",
+    "Use sonner for toasts from /app/src/components/ui/sonner.js."
+  ]
+}

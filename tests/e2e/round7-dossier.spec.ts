@@ -42,7 +42,10 @@ test('praxis index: horizontal facet bar sits above card list at 1280', async ({
     geometry.facetsBottom,
     'facet bar should sit above the card list (vertical stack)',
   ).toBeLessThanOrEqual(geometry.cardTop + 2);
-  expect(geometry.facetsWidth ?? 0, 'facet bar should span most of the viewport').toBeGreaterThan(600);
+  /* The facet strip shares its grid row with the Ask widget at
+     desktop widths, so it spans roughly half the content column —
+     assert "substantially rendered", not "viewport-wide". */
+  expect(geometry.facetsWidth ?? 0, 'facet bar should be substantially rendered').toBeGreaterThan(300);
 });
 
 test('praxis article: dossier case renders all chrome regions', async ({ page }) => {

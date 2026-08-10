@@ -13,6 +13,7 @@ interface EngagementItem {
   leads: string[];
   highlights: string[];
   content?: string;
+  href?: string;
 }
 
 interface Props {
@@ -94,6 +95,7 @@ const total = items.length;
                 leads={eng.leads}
                 highlights={eng.highlights}
                 content={eng.content}
+                href={eng.href}
                 class="proof-entry--carousel"
               />
             </li>

@@ -13,6 +13,8 @@ interface Props {
   leads?: string[];
   highlights?: string[];
   accent?: EngagementAccent;
+  /** When set, renders an "Open full dossier" link to the exhibit page. */
+  href?: string;
 }
 
 const {
@@ -27,6 +29,7 @@ const {
   leads = [],
   highlights = [],
   accent,
+  href,
 } = Astro.props;
 
 const isDossier = highlights.length > 0 && leads.length > 0;
@@ -67,6 +70,18 @@ const isDossier = highlights.length > 0 && leads.length > 0;
             <li class="sarif-gold-cap-line" set:html={line} />
           ))}
         </ul>
+        {href && (
+          <a
+            class="proof-entry__open"
+            href={href}
+            data-testid={`open-dossier-${id ?? num}`}
+          >
+            <span>Open full dossier</span>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M4 12 12 4M6 4h6v6" stroke="currentColor" stroke-width="1.4" stroke-linecap="square" />
+            </svg>
+          </a>
+        )}
       </>
     ) : (
       <>
@@ -145,6 +160,37 @@ const isDossier = highlights.length > 0 && leads.length > 0;
 
   .proof-entry[data-eng-accent='digital'] .proof-entry__accent {
     background: linear-gradient(to bottom, var(--cyan-bright), var(--cyan-core));
+  }
+
+  .proof-entry__open {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    align-self: flex-start;
+    margin-top: 18px;
+    font-family: var(--font-heading);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--cyan-core);
+    text-decoration: none;
+    padding-bottom: 3px;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.35);
+    transition: color 0.25s ease, border-color 0.25s ease;
+  }
+
+  .proof-entry__open:hover,
+  .proof-entry__open:focus-visible {
+    color: var(--cyan-bright);
+    border-color: var(--cyan-bright);
+    outline: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .proof-entry__open {
+      transition: none;
+    }
   }
 
   .proof-entry__num {

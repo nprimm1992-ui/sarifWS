@@ -30,7 +30,7 @@ test.describe('materialization sequence — homepage', () => {
     await expect(heroCta).toBeVisible();
   });
 
-  test('nav wordmark decodes to readable text', async ({ page }) => {
+  test('nav links decode to readable text', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     await expect(page.locator('html')).toHaveAttribute(
@@ -39,12 +39,20 @@ test.describe('materialization sequence — homepage', () => {
       { timeout: MATERIALIZE_TIMEOUT_MS }
     );
 
-    const wordmark = page.locator('.nav-wordmark');
-    await expect(wordmark).toHaveAttribute('data-materialize-text', 'resolved');
+    /* Decode targets are the nav links (the wordmark no longer
+       participates in the cipher — it renders readable from SSR).
+       Both completion paths must yield readable text: the animated
+       path leaves a .materialize-real span, the fallback/skip path
+       resolves the attribute on the untouched SSR text. */
+    const decodeTarget = page.locator('.nav-link[data-materialize-text]').first();
+    await expect(decodeTarget).toHaveAttribute('data-materialize-text', 'resolved');
+    await expect(decodeTarget).toBeVisible();
+    await expect(decodeTarget).not.toHaveText('');
+    await expect(decodeTarget.locator('.materialize-cipher')).toBeHidden();
 
-    const realSpan = wordmark.locator('.materialize-real');
-    await expect(realSpan).toBeVisible();
-    await expect(realSpan).toContainText('SARIF CONSULTING');
+    const wordmark = page.locator('.nav-wordmark');
+    await expect(wordmark).toBeVisible();
+    await expect(wordmark).toContainText('SARIF CONSULTING');
   });
 
   test('CTA text decodes correctly', async ({ page }) => {
@@ -56,11 +64,12 @@ test.describe('materialization sequence — homepage', () => {
       { timeout: MATERIALIZE_TIMEOUT_MS }
     );
 
-    const ctaSpan = page.locator('.sarif-hover-sheen[data-materialize-text]');
-    await expect(ctaSpan).toHaveAttribute('data-materialize-text', 'resolved');
-
-    const realSpan = ctaSpan.locator('.materialize-real');
-    await expect(realSpan).toContainText('Augment Your Intelligence');
+    /* The hero CTA is not a cipher target — it must read correctly
+       and carry no cipher spans once the sequence completes. */
+    const heroCta = page.locator('.hero__cta');
+    await expect(heroCta).toBeVisible();
+    await expect(heroCta).toContainText('Augment Your Intelligence');
+    await expect(heroCta.locator('.materialize-cipher')).toHaveCount(0);
   });
 
   test('reduced-motion skips sequence entirely', async ({ page }) => {

@@ -240,6 +240,14 @@
     pointer-events: none;
   }
 
+  /* The [hidden] UA rule (display: none) loses to the class rule above,
+     which left the closed dialog in layout/paint — invisible to the eye
+     (pointer-events: none) but "visible" to assistive tech heuristics
+     and test tooling, and a wasted compositor layer. Re-assert it. */
+  .command-palette[hidden] {
+    display: none;
+  }
+
   .command-palette:not([hidden]) {
     pointer-events: auto;
   }
@@ -958,6 +966,13 @@
     _paletteLoading = import('../scripts/command-palette.js').then((m) => {
       _paletteReady = true;
       m.initCommandPalette();
+      /* The runtime now owns ⌘K / `/` — the priming listeners MUST come
+         off. Leaving them attached made the first real ⌘K after an
+         idle warm-up double-handle: the runtime opened on the original
+         event, then the priming re-dispatch toggled it straight back
+         closed — a "dead" first press. */
+      document.removeEventListener('keydown', onPrimingKeydown);
+      document.removeEventListener('pointerdown', onPrimingTrigger, true);
     }).catch((err) => {
       _paletteLoading = null;
       if (typeof console !== 'undefined') console.error('[command-palette] load failed', err);
@@ -979,6 +994,14 @@
   }
 
   function onPrimingKeydown(e) {
+    if (_paletteReady) {
+      /* Runtime handler is already bound and will receive this same
+         event via bubbling — re-dispatching would double-toggle. Just
+         retire the priming layer. */
+      document.removeEventListener('keydown', onPrimingKeydown);
+      document.removeEventListener('pointerdown', onPrimingTrigger, true);
+      return;
+    }
     if (!shouldOpenFromKey(e)) return;
     e.preventDefault();
     document.removeEventListener('keydown', onPrimingKeydown);

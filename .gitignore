@@ -28,7 +28,10 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
--e 
+# playwright artifacts (regenerated every run; CI uploads its own copy)
+test-results/
+playwright-report/
+
 # Environment and credential files
 .env
 .env.*

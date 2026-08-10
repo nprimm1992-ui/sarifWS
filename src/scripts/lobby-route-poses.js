@@ -138,6 +138,75 @@ const ROUTE_POSES = Object.freeze({
     tweenMs: 1100,
   },
 
+  /* /engagements/eng-00N — exhibit dossier orbit.
+     Six vantages walking a slow arc around the SAME right floating
+     cluster the /engagements anchor frames. Navigating exhibit →
+     exhibit reads as circling a specimen in a gallery: the subject
+     never changes, the viewer's position does. Right cluster is
+     floating geometry (present on mobile too — no mobile overrides
+     needed, same rationale as the Round 5.6 note above). LUT stays
+     within ±0.06 of baseline: per-exhibit mood, not a scene swap. */
+  '/engagements/eng-001': {
+    id: 'exhibit-001',
+    pos: [1.2, -1.0, 0.6],
+    target: [4.5, 0.8, -4.2],
+    fov: 52,
+    lutMix: 1.00,
+    scrollDolly: false,
+    parallaxGain: 0.5,
+    tweenMs: 1000,
+  },
+  '/engagements/eng-002': {
+    id: 'exhibit-002',
+    pos: [2.2, -1.6, 1.4],
+    target: [4.2, 0.3, -3.6],
+    fov: 53,
+    lutMix: 1.04,
+    scrollDolly: false,
+    parallaxGain: 0.5,
+    tweenMs: 1000,
+  },
+  '/engagements/eng-003': {
+    id: 'exhibit-003',
+    pos: [0.8, -0.4, 1.8],
+    target: [4.8, 0.6, -4.4],
+    fov: 51,
+    lutMix: 1.03,
+    scrollDolly: false,
+    parallaxGain: 0.5,
+    tweenMs: 1000,
+  },
+  '/engagements/eng-004': {
+    id: 'exhibit-004',
+    pos: [2.8, -1.2, 0.2],
+    target: [4.4, 0.9, -3.8],
+    fov: 54,
+    lutMix: 0.99,
+    scrollDolly: false,
+    parallaxGain: 0.5,
+    tweenMs: 1000,
+  },
+  '/engagements/eng-005': {
+    id: 'exhibit-005',
+    pos: [1.6, -2.0, 2.2],
+    target: [4.3, 0.4, -4.0],
+    fov: 53,
+    lutMix: 1.05,
+    scrollDolly: false,
+    parallaxGain: 0.5,
+    tweenMs: 1000,
+  },
+  '/engagements/eng-006': {
+    id: 'exhibit-006',
+    pos: [0.5, -0.9, 0.9],
+    target: [5.0, 0.7, -4.6],
+    fov: 50,
+    lutMix: 1.02,
+    scrollDolly: false,
+    parallaxGain: 0.5,
+    tweenMs: 1000,
+  },
+
   /* /praxis — low-angle wide on the centre garden tilted upward.
      "Ground-level looking up" reads as deference to the subject —
      the garden dominates the top of frame while the floor glow runs
@@ -342,6 +411,9 @@ const ROUTE_SUBPOSES = Object.freeze({
      the list more breathing room without shifting the camera enough
      to feel like a page swap. */
   'lexicon-index':        { dz: 0.35, dfov: 1.5, dlut: 0.04 },
+  /* Exhibit operations log: gentle push-in + warmth as the reader
+     commits to the evidence trail on an engagement dossier. */
+  'exhibit-log':          { dz: -0.2, dfov: -1,  dlut: 0.05 },
 });
 
 /** Maximum cumulative deltas applied on top of an anchor pose. Guards

@@ -1,0 +1,868 @@
+---
+import { getCollection, getEntry } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('engagements');
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entryId: entry.id },
+  }));
+}
+
+interface Props {
+  entryId: string;
+}
+
+const { entryId } = Astro.props;
+
+const entry = await getEntry('engagements', entryId);
+if (!entry) {
+  return Astro.redirect('/404/');
+}
+
+const all = (await getCollection('engagements'))
+  .map((e) => ({
+    id: e.id,
+    num: e.data.num,
+    classification: e.data.classification,
+    sector: e.data.sector,
+    accent: e.data.accent,
+    statValue: e.data.statValue,
+    statLabel: e.data.statLabel,
+    _sort: e.data.sort ?? Number.parseInt(e.data.num, 10),
+  }))
+  .sort((a, b) => a._sort - b._sort || a.num.localeCompare(b.num));
+
+const idx = all.findIndex((e) => e.id === entry.id);
+const total = all.length;
+/* Circular exhibit walk — the hall has no dead ends. */
+const prev = all[(idx - 1 + total) % total];
+const next = all[(idx + 1) % total];
+
+const data = entry.data;
+
+/** "Engagement 001 — Policy Infrastructure" → "Policy Infrastructure". */
+function displayTitle(classification: string): string {
+  const parts = classification.split('—');
+  return (parts.length > 1 ? parts.slice(1).join('—') : classification).trim();
+}
+const title = displayTitle(data.classification);
+const prevTitle = displayTitle(prev.classification);
+const nextTitle = displayTitle(next.classification);
+
+/**
+ * Meta description generator — must land in the 110–180 char window the
+ * postbuild sentinel enforces (scripts/check-meta-descriptions.mjs).
+ * Apostrophes / quotes / ampersands are stripped because Astro's
+ * attribute escaping would inflate (or the sentinel's regex would
+ * truncate) the measured length.
+ */
+function metaDescription(): string {
+  const base = `Engagement ${data.num} dossier — ${data.sector}. ${data.statValue} ${data.statLabel}. `;
+  const lead = (data.leads[0] ?? '').replace(/['"\u2019&]/g, '');
+  let out = (base + lead).replace(/\s+/g, ' ').trim();
+  if (out.length > 178) {
+    out = out.slice(0, 177);
+    out = `${out.slice(0, out.lastIndexOf(' '))}…`;
+  }
+  return out;
+}
+
+const logCount = String(data.highlights.length).padStart(2, '0');
+const specimenTotal = String(total).padStart(3, '0');
+---
+
+<Base
+  title={`${title} — Engagement ${data.num} — Sarif Consulting`}
+  description={metaDescription()}
+>
+  <article
+    class="exh section"
+    data-exhibit={entry.id}
+    data-eng-accent={data.accent}
+    data-testid="exhibit-page"
+    aria-labelledby="exh-title"
+  >
+    <!-- ── Hall locator strip ─────────────────────────────────────── -->
+    <header class="container exh-hall reveal-on-scroll">
+      <a href="/engagements/" class="exh-hall__return" data-testid="exhibit-return-link">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M10 3 5 8l5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="square" />
+        </svg>
+        <span>Exhibition hall</span>
+      </a>
+      <p class="exh-hall__locator" aria-label={`Exhibit ${data.num} of ${specimenTotal}`}>
+        <span class="exh-hall__locator-key">Specimen</span>
+        <span class="exh-hall__locator-val">{data.num}<span class="exh-hall__locator-sep">/</span>{specimenTotal}</span>
+      </p>
+    </header>
+
+    <!-- ── Telemetry strip — live-lab readout register ────────────── -->
+    <div class="container">
+      <ul class="exh-telemetry reveal-on-scroll" role="list" data-testid="exhibit-telemetry">
+        <li class="exh-telemetry__cell exh-telemetry__cell--status">
+          <span class="exh-telemetry__dot" aria-hidden="true"></span>
+          <span class="exh-telemetry__k">Status</span>
+          <span class="exh-telemetry__v">Archive · Verified</span>
+        </li>
+        <li class="exh-telemetry__cell">
+          <span class="exh-telemetry__k">Ref</span>
+          <span class="exh-telemetry__v">ENG-{data.num}</span>
+        </li>
+        <li class="exh-telemetry__cell">
+          <span class="exh-telemetry__k">Sector</span>
+          <span class="exh-telemetry__v">{data.sector}</span>
+        </li>
+        <li class="exh-telemetry__cell">
+          <span class="exh-telemetry__k">Log entries</span>
+          <span class="exh-telemetry__v">{logCount}</span>
+        </li>
+        <li class="exh-telemetry__cell">
+          <span class="exh-telemetry__k">Trace</span>
+          <span class="exh-telemetry__v">Intact</span>
+        </li>
+      </ul>
+    </div>
+
+    <!-- ── Exhibit grid: plaque + evidence body ───────────────────── -->
+    <div class="container exh-grid">
+      <aside class="exh-plaque content-back-panel reveal-on-scroll" data-testid="exhibit-plaque">
+        <div class="exh-plaque__scan" aria-hidden="true"></div>
+        <p class="exh-plaque__eyebrow ui-eyebrow">Engagement dossier</p>
+        <span class="exh-plaque__num" aria-hidden="true">{data.num}</span>
+        <h1 id="exh-title" class="exh-plaque__title">{title}</h1>
+        <p class="exh-plaque__sector sarif-gold-cap-line">{data.sector}</p>
+
+        <div class="exh-plaque__stat" data-testid="exhibit-stat">
+          <span class="exh-plaque__stat-value">{data.statValue}</span>
+          <span class="exh-plaque__stat-label">{data.statLabel}</span>
+        </div>
+
+        <dl class="exh-plaque__meta">
+          <div class="exh-plaque__meta-row">
+            <dt>Classification</dt>
+            <dd>{data.classification}</dd>
+          </div>
+          <div class="exh-plaque__meta-row">
+            <dt>Registry</dt>
+            <dd>ENG-{data.num} · {data.num}/{specimenTotal}</dd>
+          </div>
+        </dl>
+
+        <a
+          href="/contact/"
+          class="exh-plaque__cta"
+          data-testid="exhibit-plaque-contact-link"
+        >
+          Open a similar engagement
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M4 12 12 4M6 4h6v6" stroke="currentColor" stroke-width="1.4" stroke-linecap="square" />
+          </svg>
+        </a>
+      </aside>
+
+      <div class="exh-body">
+        <section class="exh-mandate content-back-panel reveal-on-scroll" aria-labelledby="exh-mandate-heading" data-testid="exhibit-mandate">
+          <h2 id="exh-mandate-heading" class="exh-section-heading">
+            <span class="exh-section-heading__index" aria-hidden="true">01</span>
+            Mandate
+          </h2>
+          {data.leads.map((lead) => (
+            <p class="exh-mandate__lead">{lead}</p>
+          ))}
+        </section>
+
+        <section
+          class="exh-log reveal-on-scroll"
+          aria-labelledby="exh-log-heading"
+          data-lobby-subpose="exhibit-log"
+          data-testid="exhibit-log"
+        >
+          <h2 id="exh-log-heading" class="exh-section-heading">
+            <span class="exh-section-heading__index" aria-hidden="true">02</span>
+            Operations log
+          </h2>
+          <ol class="exh-log__rail" role="list">
+            {data.highlights.map((line, i) => (
+              <li class="exh-log__entry reveal-on-scroll" data-testid="exhibit-log-entry">
+                <span class="exh-log__marker" aria-hidden="true"></span>
+                <span class="exh-log__idx" aria-hidden="true">Log {String(i + 1).padStart(2, '0')}</span>
+                <p class="exh-log__copy sarif-gold-cap-line" set:html={line} />
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
+    </div>
+
+    <div class="section-threshold reveal-on-scroll" aria-hidden="true">
+      <div class="threshold-line"></div>
+    </div>
+
+    <!-- ── Exhibit walk: prev / hall / next ───────────────────────── -->
+    <nav class="container exh-nav reveal-on-scroll cv-auto" data-cv-size="sm" aria-label="Exhibit navigation">
+      <a
+        href={`/engagements/${prev.id}/`}
+        class="exh-nav__card exh-nav__card--prev content-back-panel"
+        data-eng-accent={prev.accent}
+        data-testid="exhibit-prev-link"
+        rel="prev"
+      >
+        <span class="exh-nav__dir" aria-hidden="true">← Previous exhibit</span>
+        <span class="exh-nav__num" aria-hidden="true">ENG-{prev.num}</span>
+        <span class="exh-nav__title">{prevTitle}</span>
+        <span class="exh-nav__sector">{prev.sector}</span>
+      </a>
+
+      <a href="/engagements/" class="exh-nav__hall" data-testid="exhibit-hall-link">
+        <span class="exh-nav__hall-glyph" aria-hidden="true">⌂</span>
+        <span>Hall index</span>
+      </a>
+
+      <a
+        href={`/engagements/${next.id}/`}
+        class="exh-nav__card exh-nav__card--next content-back-panel"
+        data-eng-accent={next.accent}
+        data-testid="exhibit-next-link"
+        rel="next"
+      >
+        <span class="exh-nav__dir" aria-hidden="true">Next exhibit →</span>
+        <span class="exh-nav__num" aria-hidden="true">ENG-{next.num}</span>
+        <span class="exh-nav__title">{nextTitle}</span>
+        <span class="exh-nav__sector">{next.sector}</span>
+      </a>
+    </nav>
+
+    <section class="exh-cta cv-auto" data-cv-size="sm" aria-label="Next steps">
+      <div class="container exh-cta__inner">
+        <a href="/contact/" class="btn-gold cyan-gold-label lane-cta" data-testid="exhibit-contact-cta">
+          <span class="sarif-hover-sheen">Initiate Contact</span>
+        </a>
+        <a href="/services/" class="exh-cta__services" data-testid="exhibit-services-link">View Services</a>
+      </div>
+    </section>
+  </article>
+</Base>
+
+<style>
+  /* ── Accent theming ─────────────────────────────────────────────
+     Two-stop accent per engagement (a1 primary / a2 secondary),
+     mirroring the ProofEntry accent-bar gradients so a card → dossier
+     navigation reads as the same object at closer range. */
+  .exh {
+    --exh-a1: var(--cyan-core);
+    --exh-a2: var(--gold-bright);
+    --exh-a1-rgb: 0, 212, 255;
+  }
+
+  .exh[data-eng-accent='policy']    { --exh-a1: var(--cyan-core);   --exh-a2: var(--gold-bright); --exh-a1-rgb: 0, 212, 255; }
+  .exh[data-eng-accent='civic']     { --exh-a1: var(--cyan-bright); --exh-a2: #0099bb;            --exh-a1-rgb: 64, 240, 255; }
+  .exh[data-eng-accent='venture']   { --exh-a1: var(--gold-bright); --exh-a2: var(--cyan-core);   --exh-a1-rgb: 221, 184, 61; }
+  .exh[data-eng-accent='founder']   { --exh-a1: var(--cyan-core);   --exh-a2: var(--cyan-bright); --exh-a1-rgb: 0, 212, 255; }
+  .exh[data-eng-accent='education'] { --exh-a1: var(--gold-bright); --exh-a2: var(--cyan-core);   --exh-a1-rgb: 221, 184, 61; }
+  .exh[data-eng-accent='digital']   { --exh-a1: var(--cyan-bright); --exh-a2: var(--cyan-core);   --exh-a1-rgb: 64, 240, 255; }
+
+  /* ── Hall locator ─────────────────────────────────────────────── */
+  .exh-hall {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: clamp(20px, 3vw, 32px);
+  }
+
+  .exh-hall__return {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-heading);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    text-decoration: none;
+    padding-bottom: 2px;
+    border-bottom: 1px solid rgba(200, 196, 190, 0.25);
+    transition: color 0.25s ease, border-color 0.25s ease;
+  }
+
+  .exh-hall__return:hover,
+  .exh-hall__return:focus-visible {
+    color: var(--cyan-core);
+    border-color: var(--cyan-core);
+    outline: none;
+  }
+
+  .exh-hall__locator {
+    margin: 0;
+    font-family: var(--font-ticker);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .exh-hall__locator-val {
+    font-family: var(--font-heading);
+    font-size: 13px;
+    color: var(--exh-a1);
+    text-shadow: 0 0 14px rgba(var(--exh-a1-rgb), 0.4);
+  }
+
+  .exh-hall__locator-sep {
+    opacity: 0.4;
+    margin-inline: 3px;
+  }
+
+  /* ── Telemetry strip ──────────────────────────────────────────── */
+  .exh-telemetry {
+    list-style: none;
+    margin: 0 0 clamp(28px, 4vw, 48px);
+    padding: 12px clamp(14px, 2.5vw, 26px);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px clamp(18px, 3vw, 40px);
+    border: 1px solid rgba(var(--exh-a1-rgb), 0.16);
+    border-left: 3px solid var(--exh-a1);
+    background: rgba(4, 12, 18, 0.55);
+    backdrop-filter: blur(14px);
+    clip-path: var(--clip-sm);
+  }
+
+  .exh-telemetry__cell {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    font-family: var(--font-ticker);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .exh-telemetry__k {
+    color: var(--text-muted);
+  }
+
+  .exh-telemetry__v {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .exh-telemetry__cell--status .exh-telemetry__v {
+    color: var(--exh-a1);
+    text-shadow: 0 0 12px rgba(var(--exh-a1-rgb), 0.4);
+  }
+
+  .exh-telemetry__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    align-self: center;
+    background: var(--exh-a1);
+    box-shadow: 0 0 10px rgba(var(--exh-a1-rgb), 0.8);
+    animation: exhPulse 2.4s ease-in-out infinite;
+  }
+
+  @keyframes exhPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
+  /* ── Exhibit grid ─────────────────────────────────────────────── */
+  .exh-grid {
+    display: grid;
+    grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+    gap: clamp(24px, 4vw, 56px);
+    align-items: start;
+  }
+
+  @media (max-width: 960px) {
+    .exh-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ── Plaque (specimen label) ──────────────────────────────────── */
+  .exh-plaque {
+    position: sticky;
+    top: 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: clamp(24px, 3vw, 36px);
+    border-top: 2px solid var(--exh-a1);
+    overflow: hidden;
+  }
+
+  @media (max-width: 960px) {
+    .exh-plaque {
+      position: static;
+    }
+  }
+
+  /* Slow scan sweep — a thin band of accent light traversing the
+     plaque, the "this exhibit is being read by the lab" tell. Pure
+     compositor (transform-only) and removed under reduced motion. */
+  .exh-plaque__scan {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 72px;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      rgba(var(--exh-a1-rgb), 0.05) 45%,
+      rgba(var(--exh-a1-rgb), 0.09) 50%,
+      rgba(var(--exh-a1-rgb), 0.05) 55%,
+      transparent
+    );
+    transform: translateY(-80px);
+    animation: exhScan 7s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes exhScan {
+    0%   { transform: translateY(-80px); }
+    55%  { transform: translateY(560px); }
+    100% { transform: translateY(560px); }
+  }
+
+  .exh-plaque__eyebrow {
+    color: var(--exh-a1);
+    margin: 0;
+  }
+
+  .exh-plaque__num {
+    position: absolute;
+    top: 6px;
+    right: 18px;
+    font-family: var(--font-heading);
+    font-size: clamp(56px, 7vw, 84px);
+    font-weight: 700;
+    line-height: 1;
+    color: var(--sarif-gold);
+    opacity: 0.1;
+    pointer-events: none;
+  }
+
+  .exh-plaque__title {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: clamp(1.3rem, 2.1vw, 1.55rem);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1.3;
+    color: var(--text-primary);
+    overflow-wrap: break-word;
+  }
+
+  .exh-plaque__sector {
+    margin: 0;
+    font-family: var(--font-ticker);
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .exh-plaque__stat {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 18px 20px;
+    border: 1px solid rgba(var(--exh-a1-rgb), 0.2);
+    background:
+      linear-gradient(135deg, rgba(var(--exh-a1-rgb), 0.07), transparent 55%),
+      rgba(4, 12, 18, 0.4);
+    clip-path: var(--clip-sm);
+  }
+
+  .exh-plaque__stat-value {
+    font-family: var(--font-heading);
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    font-weight: 700;
+    line-height: 1.05;
+    color: var(--exh-a1);
+    text-shadow: 0 0 24px rgba(var(--exh-a1-rgb), 0.45);
+  }
+
+  .exh-plaque__stat-label {
+    font-family: var(--font-ticker);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .exh-plaque__meta {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(200, 196, 190, 0.12);
+  }
+
+  .exh-plaque__meta-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: baseline;
+  }
+
+  .exh-plaque__meta-row dt {
+    font-family: var(--font-ticker);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    flex: 0 0 auto;
+  }
+
+  .exh-plaque__meta-row dd {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    text-align: right;
+  }
+
+  .exh-plaque__cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    align-self: flex-start;
+    font-family: var(--font-heading);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold-bright);
+    text-decoration: none;
+    padding-bottom: 3px;
+    border-bottom: 1px solid rgba(221, 184, 61, 0.4);
+    transition: color 0.25s ease, border-color 0.25s ease;
+  }
+
+  .exh-plaque__cta:hover,
+  .exh-plaque__cta:focus-visible {
+    color: var(--cyan-bright);
+    border-color: var(--cyan-bright);
+    outline: none;
+  }
+
+  /* ── Body sections ────────────────────────────────────────────── */
+  .exh-body {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(28px, 4vw, 48px);
+    min-width: 0;
+  }
+
+  .exh-section-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin: 0 0 20px;
+    font-family: var(--font-heading);
+    font-size: clamp(1rem, 1.6vw, 1.2rem);
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+  }
+
+  .exh-section-heading__index {
+    font-size: 0.72em;
+    color: var(--exh-a1);
+    text-shadow: 0 0 12px rgba(var(--exh-a1-rgb), 0.4);
+  }
+
+  .exh-mandate {
+    padding: clamp(24px, 3vw, 40px);
+  }
+
+  .exh-mandate__lead {
+    margin: 0 0 1em;
+    font-size: clamp(1.02rem, 1.6vw, 1.14rem);
+    line-height: 1.8;
+    color: var(--text-primary);
+    max-width: 62ch;
+  }
+
+  .exh-mandate__lead:last-child {
+    margin-bottom: 0;
+  }
+
+  /* ── Operations log — timeline rail ───────────────────────────── */
+  .exh-log {
+    padding: clamp(24px, 3vw, 40px) 0 0;
+  }
+
+  .exh-log__rail {
+    position: relative;
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  /* Continuous rail line the markers sit on. */
+  .exh-log__rail::before {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 12px;
+    bottom: 12px;
+    width: 1px;
+    background: linear-gradient(
+      to bottom,
+      rgba(var(--exh-a1-rgb), 0.55),
+      rgba(var(--exh-a1-rgb), 0.12)
+    );
+  }
+
+  .exh-log__entry {
+    position: relative;
+    padding: 16px 20px;
+    border: 1px solid rgba(200, 196, 190, 0.1);
+    background: rgba(4, 12, 18, 0.42);
+    backdrop-filter: blur(12px);
+    clip-path: var(--clip-sm);
+    transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .exh-log__entry:hover {
+    border-color: rgba(var(--exh-a1-rgb), 0.4);
+    transform: translateX(4px);
+    box-shadow: 0 0 28px rgba(var(--exh-a1-rgb), 0.07);
+  }
+
+  .exh-log__marker {
+    position: absolute;
+    left: -28px;
+    top: 22px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--exh-a1);
+    box-shadow: 0 0 12px rgba(var(--exh-a1-rgb), 0.7);
+  }
+
+  .exh-log__idx {
+    display: block;
+    margin-bottom: 6px;
+    font-family: var(--font-ticker);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--exh-a1);
+  }
+
+  .exh-log__copy {
+    margin: 0;
+    font-size: 0.98rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+  }
+
+  /* ── Threshold ────────────────────────────────────────────────── */
+  .section-threshold {
+    position: relative;
+    height: 1px;
+    overflow: visible;
+    margin-block: clamp(40px, 6vw, 72px);
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .threshold-line {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%) scaleX(0);
+    width: min(80%, 600px);
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--exh-a1), transparent);
+    box-shadow: 0 0 20px rgba(var(--exh-a1-rgb), 0.25);
+    transform-origin: center;
+    will-change: transform;
+  }
+
+  .section-threshold.is-visible .threshold-line {
+    transform: translateX(-50%) scaleX(var(--threshold-scale, 1));
+    transition: transform 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  /* ── Exhibit walk (prev / hall / next) ────────────────────────── */
+  .exh-nav {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: clamp(14px, 2.5vw, 28px);
+    align-items: stretch;
+  }
+
+  @media (max-width: 720px) {
+    .exh-nav {
+      grid-template-columns: 1fr;
+    }
+
+    .exh-nav__hall {
+      order: -1;
+      justify-self: center;
+    }
+  }
+
+  .exh-nav__card {
+    --exh-a1: var(--cyan-core);
+    --exh-a1-rgb: 0, 212, 255;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 20px 22px;
+    text-decoration: none;
+    border-top: 2px solid var(--exh-a1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .exh-nav__card[data-eng-accent='civic'],
+  .exh-nav__card[data-eng-accent='digital']   { --exh-a1: var(--cyan-bright); --exh-a1-rgb: 64, 240, 255; }
+
+  .exh-nav__card[data-eng-accent='venture'],
+  .exh-nav__card[data-eng-accent='education'] { --exh-a1: var(--gold-bright); --exh-a1-rgb: 221, 184, 61; }
+
+  .exh-nav__card:hover,
+  .exh-nav__card:focus-visible {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 0 24px rgba(var(--exh-a1-rgb), 0.1);
+    outline: none;
+  }
+
+  .exh-nav__card--next {
+    text-align: right;
+    align-items: flex-end;
+  }
+
+  .exh-nav__dir {
+    font-family: var(--font-ticker);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .exh-nav__num {
+    font-family: var(--font-heading);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: var(--exh-a1);
+  }
+
+  .exh-nav__title {
+    font-family: var(--font-heading);
+    font-size: clamp(0.92rem, 1.4vw, 1.05rem);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.3;
+    color: var(--text-primary);
+  }
+
+  .exh-nav__sector {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .exh-nav__hall {
+    align-self: center;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 14px 18px;
+    font-family: var(--font-heading);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border: 1px solid rgba(200, 196, 190, 0.18);
+    clip-path: var(--clip-sm);
+    transition: color 0.25s ease, border-color 0.25s ease;
+  }
+
+  .exh-nav__hall-glyph {
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .exh-nav__hall:hover,
+  .exh-nav__hall:focus-visible {
+    color: var(--cyan-core);
+    border-color: rgba(0, 212, 255, 0.45);
+    outline: none;
+  }
+
+  /* ── CTA ──────────────────────────────────────────────────────── */
+  .exh-cta {
+    padding-block: clamp(40px, 6vw, 64px) 8px;
+  }
+
+  .exh-cta__inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+  }
+
+  @media (max-width: 480px) {
+    .exh-cta__inner {
+      flex-direction: column;
+      gap: 20px;
+    }
+  }
+
+  .exh-cta__services {
+    font-family: var(--font-heading);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(200, 196, 190, 0.25);
+    padding-bottom: 2px;
+    transition: color 0.25s ease, border-color 0.25s ease;
+  }
+
+  .exh-cta__services:hover,
+  .exh-cta__services:focus-visible {
+    color: var(--cyan-core);
+    border-color: var(--cyan-core);
+  }
+
+  /* ── Reduced motion ───────────────────────────────────────────── */
+  @media (prefers-reduced-motion: reduce) {
+    .exh-telemetry__dot { animation: none; }
+    .exh-plaque__scan { animation: none; opacity: 0; }
+    .exh-log__entry { transition: none; }
+    .exh-log__entry:hover { transform: none; }
+    .exh-nav__card { transition: none; }
+    .exh-nav__card:hover { transform: none; }
+    .section-threshold .threshold-line { transition: none !important; }
+    .exh-hall__return,
+    .exh-plaque__cta,
+    .exh-nav__hall,
+    .exh-cta__services { transition: none; }
+  }
+</style>

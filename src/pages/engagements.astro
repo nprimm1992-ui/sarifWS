@@ -11,6 +11,7 @@ const engagementEntries = await getCollection('engagements');
 const engagements = engagementEntries
   .map((entry) => ({
     id: entry.id,
+    href: `/engagements/${entry.id}/`,
     num: entry.data.num,
     classification: entry.data.classification,
     sector: entry.data.sector,
@@ -42,6 +43,26 @@ const engagements = engagementEntries
     <div class="container eng-carousel-wrap" data-lobby-subpose="engagements-carousel">
       <EngagementCarousel items={engagements} />
     </div>
+
+    <nav class="container eng-directory reveal-on-scroll" aria-label="Exhibit directory">
+      <p class="eng-directory__label ui-eyebrow">Exhibition index</p>
+      <ul class="eng-directory__list" role="list">
+        {engagements.map((eng) => (
+          <li>
+            <a
+              class="eng-directory__link"
+              href={eng.href}
+              data-eng-accent={eng.accent}
+              data-testid={`exhibit-directory-link-${eng.id}`}
+            >
+              <span class="eng-directory__num" aria-hidden="true">{eng.num}</span>
+              <span class="eng-directory__sector">{eng.sector}</span>
+              <span class="eng-directory__open" aria-hidden="true">Open dossier →</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
   </section>
 
   <div class="section-threshold reveal-on-scroll" aria-hidden="true">
@@ -102,6 +123,84 @@ const engagements = engagementEntries
       flex-direction: column;
       gap: 20px;
     }
+  }
+
+  .eng-directory {
+    margin-top: clamp(28px, 4vw, 44px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .eng-directory__label {
+    margin: 0;
+    color: var(--sarif-gold);
+  }
+
+  .eng-directory__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .eng-directory__link {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 16px;
+    text-decoration: none;
+    border: 1px solid rgba(200, 196, 190, 0.14);
+    background: rgba(4, 12, 18, 0.4);
+    clip-path: var(--clip-sm);
+    transition: border-color 0.25s ease, background 0.25s ease, transform 0.25s ease;
+  }
+
+  .eng-directory__link:hover,
+  .eng-directory__link:focus-visible {
+    border-color: rgba(0, 212, 255, 0.45);
+    background: rgba(0, 212, 255, 0.06);
+    transform: translateY(-2px);
+    outline: none;
+  }
+
+  .eng-directory__num {
+    font-family: var(--font-heading);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--cyan-core);
+  }
+
+  .eng-directory__link[data-eng-accent='venture'] .eng-directory__num,
+  .eng-directory__link[data-eng-accent='education'] .eng-directory__num {
+    color: var(--gold-bright);
+  }
+
+  .eng-directory__sector {
+    font-family: var(--font-ticker);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .eng-directory__open {
+    font-family: var(--font-ticker);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    transition: color 0.25s ease;
+  }
+
+  .eng-directory__link:hover .eng-directory__open,
+  .eng-directory__link:focus-visible .eng-directory__open {
+    color: var(--cyan-bright);
   }
 
   .eng-services-link {

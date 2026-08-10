@@ -1,0 +1,547 @@
+---
+/**
+ * Lexicon Constellation — the term-relationship graph as a spatial map.
+ *
+ * Layout is computed ONCE at build time (deterministic seeded force
+ * simulation) and rendered as inline SVG, so:
+ *   - the graph is no-JS-safe (every node is a plain <a href="#id">
+ *     that hands off to the existing hashchange auto-expand in
+ *     lexicon-page.ts),
+ *   - there is zero client-side physics cost, and
+ *   - the output is stable across builds (seeded PRNG — no layout
+ *     churn in visual diffs).
+ *
+ * The client island (lexicon-constellation.js) only adds hover/focus
+ * neighbor highlighting and the definition tooltip.
+ */
+import { getLexiconGraph, LEXICON_CATEGORY_META } from '../../lib/lexicon-graph';
+
+const graph = await getLexiconGraph();
+
+const W = 1000;
+const H = 600;
+
+/* Unique undirected edges from declared related[] pointers. */
+const edgeKeys = new Set<string>();
+const edges: { a: string; b: string }[] = [];
+for (const e of graph.flat) {
+  for (const rel of e.related) {
+    if (!graph.byId.has(rel.id)) continue;
+    const key = [e.id, rel.id].sort().join('~');
+    if (edgeKeys.has(key)) continue;
+    edgeKeys.add(key);
+    edges.push({ a: e.id, b: rel.id });
+  }
+}
+
+/* Deterministic PRNG so the constellation renders identically on every
+ * build — layout churn would read as noise in visual review. */
+function mulberry32(seed: number) {
+  let a = seed;
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rand = mulberry32(1379);
+
+/* Category cluster anchors — quadrant layout mirrors the taxonomy
+ * (beliefs top-left, infrastructure top-right, methods bottom-left,
+ * public surfaces bottom-right). */
+const ANCHORS: Record<string, [number, number]> = {
+  doctrine: [320, 200],
+  substrate: [700, 210],
+  discipline: [350, 430],
+  engagement: [680, 420],
+  uncategorized: [500, 310],
+};
+
+type P = { x: number; y: number };
+const pos = new Map<string, P>();
+for (const n of graph.flat) {
+  const anchor = ANCHORS[n.category] ?? ANCHORS.uncategorized;
+  pos.set(n.id, {
+    x: anchor[0] + (rand() - 0.5) * 220,
+    y: anchor[1] + (rand() - 0.5) * 180,
+  });
+}
+
+/* Force simulation: pairwise repulsion + edge springs + weak center
+ * gravity + category-anchor cohesion. 11 nodes / ~300 iterations is
+ * sub-millisecond at build time. */
+const ids = graph.flat.map((n) => n.id);
+const ITER = 320;
+for (let it = 0; it < ITER; it++) {
+  const cooling = 1 - it / ITER;
+  const force = new Map<string, P>(ids.map((id) => [id, { x: 0, y: 0 }]));
+
+  for (let i = 0; i < ids.length; i++) {
+    for (let j = i + 1; j < ids.length; j++) {
+      const pa = pos.get(ids[i])!;
+      const pb = pos.get(ids[j])!;
+      let dx = pa.x - pb.x;
+      let dy = pa.y - pb.y;
+      let d2 = dx * dx + dy * dy;
+      if (d2 < 1) { dx = rand() - 0.5; dy = rand() - 0.5; d2 = 1; }
+      const d = Math.sqrt(d2);
+      const rep = Math.min(26000 / d2, 60);
+      const fa = force.get(ids[i])!;
+      const fb = force.get(ids[j])!;
+      fa.x += (dx / d) * rep;
+      fa.y += (dy / d) * rep;
+      fb.x -= (dx / d) * rep;
+      fb.y -= (dy / d) * rep;
+    }
+  }
+
+  for (const e of edges) {
+    const pa = pos.get(e.a)!;
+    const pb = pos.get(e.b)!;
+    const dx = pb.x - pa.x;
+    const dy = pb.y - pa.y;
+    const d = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+    const pull = 0.02 * (d - 180);
+    const fa = force.get(e.a)!;
+    const fb = force.get(e.b)!;
+    fa.x += (dx / d) * pull;
+    fa.y += (dy / d) * pull;
+    fb.x -= (dx / d) * pull;
+    fb.y -= (dy / d) * pull;
+  }
+
+  for (const n of graph.flat) {
+    const p = pos.get(n.id)!;
+    const f = force.get(n.id)!;
+    const anchor = ANCHORS[n.category] ?? ANCHORS.uncategorized;
+    f.x += (W / 2 - p.x) * 0.012 + (anchor[0] - p.x) * 0.01;
+    f.y += (H / 2 - p.y) * 0.012 + (anchor[1] - p.y) * 0.01;
+    const step = 12 * cooling;
+    p.x += Math.max(-step, Math.min(step, f.x));
+    p.y += Math.max(-step, Math.min(step, f.y));
+  }
+}
+
+/* Clamp into frame (labels render below nodes — keep bottom margin). */
+for (const p of pos.values()) {
+  p.x = Math.max(90, Math.min(W - 90, p.x));
+  p.y = Math.max(64, Math.min(H - 70, p.y));
+}
+
+function truncateDef(s: string, max = 160): string {
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max - 1);
+  return `${cut.slice(0, cut.lastIndexOf(' '))}…`;
+}
+
+const nodes = graph.flat.map((n, i) => ({
+  id: n.id,
+  /* Map labels use the SHORT term — long termDisplay strings (e.g.
+     UCIM's expanded form) collide with neighboring labels at
+     constellation density. The tooltip carries the full display name. */
+  term: n.term,
+  termFull: n.termDisplay ?? n.term,
+  num: n.num,
+  category: n.category,
+  categoryLabel: LEXICON_CATEGORY_META[n.category].label,
+  def: truncateDef(n.definition),
+  degree: n.related.length + n.incoming.length,
+  x: Math.round(pos.get(n.id)!.x * 10) / 10,
+  y: Math.round(pos.get(n.id)!.y * 10) / 10,
+  floatDelay: -(i * 1.7) % 9,
+}));
+
+const legend = graph.groups
+  .filter((g) => g.meta.id !== 'uncategorized' || g.entries.length > 0)
+  .map((g) => ({ id: g.meta.id, label: g.meta.label, count: g.entries.length }));
+---
+
+<section
+  class="lex-map container content-back-panel reveal-on-scroll"
+  aria-labelledby="lex-map-heading"
+  data-lex-map
+>
+  <header class="lex-map__header">
+    <div class="lex-map__header-copy">
+      <p class="ui-eyebrow lex-map__eyebrow">Relational index</p>
+      <h2 id="lex-map-heading" class="lex-map__heading">Concept constellation</h2>
+      <p class="lex-map__hint">
+        {graph.count} terms · {edges.length} declared relationships · {legend.length} categories.
+        Hover a node to trace its connections; select it to open the definition below.
+      </p>
+    </div>
+
+    <ul class="lex-map__legend" role="list" aria-label="Category legend">
+      {legend.map((c) => (
+        <li class="lex-map__legend-item" data-cat={c.id}>
+          <span class="lex-map__legend-dot" aria-hidden="true"></span>
+          <span class="lex-map__legend-label">{c.label}</span>
+          <span class="lex-map__legend-count">{String(c.count).padStart(2, '0')}</span>
+        </li>
+      ))}
+    </ul>
+  </header>
+
+  <div class="lex-map__viewport" data-lex-map-viewport>
+    <svg
+      class="lex-map__svg"
+      viewBox={`0 0 ${W} ${H}`}
+      role="group"
+      aria-label={`Concept constellation: ${graph.count} lexicon terms connected by ${edges.length} relationships. Each node links to its definition.`}
+      data-lex-map-svg
+    >
+      <g class="lex-map__edges" aria-hidden="true">
+        {edges.map((e) => {
+          const a = pos.get(e.a)!;
+          const b = pos.get(e.b)!;
+          return (
+            <line
+              class="lex-map__edge"
+              data-edge-a={e.a}
+              data-edge-b={e.b}
+              x1={a.x}
+              y1={a.y}
+              x2={b.x}
+              y2={b.y}
+            />
+          );
+        })}
+      </g>
+
+      <g class="lex-map__nodes">
+        {nodes.map((n) => (
+          <a
+            href={`#${n.id}`}
+            class={`lex-map__node lex-map__node--${n.category}`}
+            data-node={n.id}
+            data-term={n.termFull}
+            data-cat={n.category}
+            data-cat-label={n.categoryLabel}
+            data-def={n.def}
+            data-num={n.num}
+            aria-label={`${n.term} — ${n.categoryLabel}, ${n.degree} connections. Jump to definition.`}
+            data-testid={`lexicon-node-${n.id}`}
+          >
+            <g transform={`translate(${n.x} ${n.y})`}>
+              <g class="lex-map__float" style={`animation-delay: ${n.floatDelay}s`}>
+                <circle class="lex-map__halo" r={15 + Math.min(n.degree, 6)} />
+                <circle class="lex-map__ring" r={9 + Math.min(n.degree, 6) * 0.6} />
+                <circle class="lex-map__dot" r={4.5 + Math.min(n.degree, 6) * 0.45} />
+                <text class="lex-map__label" y={30 + Math.min(n.degree, 6)} text-anchor="middle">
+                  {n.term}
+                </text>
+              </g>
+            </g>
+          </a>
+        ))}
+      </g>
+    </svg>
+
+    <div class="lex-map__tip" data-lex-map-tip hidden>
+      <p class="lex-map__tip-meta">
+        <span data-lex-map-tip-num></span>
+        <span data-lex-map-tip-cat></span>
+      </p>
+      <p class="lex-map__tip-term" data-lex-map-tip-term></p>
+      <p class="lex-map__tip-def" data-lex-map-tip-def></p>
+      <p class="lex-map__tip-action" aria-hidden="true">Select to open entry ↓</p>
+    </div>
+  </div>
+
+  <p class="lex-map__pan-hint" aria-hidden="true">Drag sideways to pan on small screens</p>
+</section>
+
+<style>
+  .lex-map {
+    /* Category channel colors — cyan/gold house palette plus an
+       instrument-green and a mist neutral so four bins stay
+       distinguishable without leaving the lab register. Color is
+       never the only encoding: the legend + node aria-labels carry
+       the category in text. */
+    --cat-doctrine: var(--cyan-core);
+    --cat-doctrine-rgb: 0, 212, 255;
+    --cat-substrate: var(--gold-bright);
+    --cat-substrate-rgb: 221, 184, 61;
+    --cat-discipline: #7ce8c4;
+    --cat-discipline-rgb: 124, 232, 196;
+    --cat-engagement: #e6ecf2;
+    --cat-engagement-rgb: 230, 236, 242;
+    --cat-uncategorized: #9aa7b4;
+    --cat-uncategorized-rgb: 154, 167, 180;
+
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: clamp(22px, 3vw, 36px);
+    margin-bottom: clamp(28px, 4vw, 48px);
+    scroll-margin-top: 96px;
+  }
+
+  .lex-map__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .lex-map__eyebrow {
+    margin: 0 0 6px;
+    color: var(--cyan-core);
+  }
+
+  .lex-map__heading {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: clamp(1.1rem, 1.8vw, 1.4rem);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+  }
+
+  .lex-map__hint {
+    margin: 8px 0 0;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--text-muted);
+    max-width: 52ch;
+  }
+
+  .lex-map__legend {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .lex-map__legend-item {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-family: var(--font-ticker);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .lex-map__legend-item[data-cat='doctrine'] .lex-map__legend-dot { background: var(--cat-doctrine); box-shadow: 0 0 8px rgba(var(--cat-doctrine-rgb), 0.7); }
+  .lex-map__legend-item[data-cat='substrate'] .lex-map__legend-dot { background: var(--cat-substrate); box-shadow: 0 0 8px rgba(var(--cat-substrate-rgb), 0.7); }
+  .lex-map__legend-item[data-cat='discipline'] .lex-map__legend-dot { background: var(--cat-discipline); box-shadow: 0 0 8px rgba(var(--cat-discipline-rgb), 0.7); }
+  .lex-map__legend-item[data-cat='engagement'] .lex-map__legend-dot { background: var(--cat-engagement); box-shadow: 0 0 8px rgba(var(--cat-engagement-rgb), 0.7); }
+  .lex-map__legend-item[data-cat='uncategorized'] .lex-map__legend-dot { background: var(--cat-uncategorized); }
+
+  .lex-map__legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    align-self: center;
+    flex: 0 0 auto;
+  }
+
+  .lex-map__legend-count {
+    color: var(--text-muted);
+  }
+
+  .lex-map__viewport {
+    position: relative;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .lex-map__svg {
+    display: block;
+    width: 100%;
+    min-width: 720px;
+    height: auto;
+    background:
+      radial-gradient(ellipse at 50% 42%, rgba(0, 212, 255, 0.045), transparent 62%),
+      rgba(3, 10, 16, 0.35);
+    border: 1px solid rgba(0, 212, 255, 0.1);
+    clip-path: var(--clip-card);
+  }
+
+  /* ── Edges ────────────────────────────────────────────────────── */
+  .lex-map__edge {
+    stroke: rgba(0, 212, 255, 0.16);
+    stroke-width: 1;
+    transition: stroke 0.25s ease, opacity 0.25s ease;
+  }
+
+  [data-lex-map][data-focus] .lex-map__edge {
+    opacity: 0.08;
+  }
+
+  [data-lex-map][data-focus] .lex-map__edge.is-hot {
+    opacity: 1;
+    stroke: rgba(64, 240, 255, 0.75);
+    stroke-width: 1.5;
+  }
+
+  /* ── Nodes ────────────────────────────────────────────────────── */
+  .lex-map__node {
+    outline: none;
+    --node-c: var(--cat-uncategorized);
+    --node-rgb: var(--cat-uncategorized-rgb);
+    transition: opacity 0.25s ease;
+  }
+
+  .lex-map__node--doctrine { --node-c: var(--cat-doctrine); --node-rgb: var(--cat-doctrine-rgb); }
+  .lex-map__node--substrate { --node-c: var(--cat-substrate); --node-rgb: var(--cat-substrate-rgb); }
+  .lex-map__node--discipline { --node-c: var(--cat-discipline); --node-rgb: var(--cat-discipline-rgb); }
+  .lex-map__node--engagement { --node-c: var(--cat-engagement); --node-rgb: var(--cat-engagement-rgb); }
+
+  [data-lex-map][data-focus] .lex-map__node:not(.is-hot) {
+    opacity: 0.22;
+  }
+
+  .lex-map__halo {
+    fill: rgba(var(--node-rgb), 0.06);
+    transition: fill 0.25s ease;
+  }
+
+  .lex-map__ring {
+    fill: none;
+    stroke: rgba(var(--node-rgb), 0.35);
+    stroke-width: 1;
+    transition: stroke 0.25s ease;
+  }
+
+  .lex-map__dot {
+    fill: var(--node-c);
+    filter: drop-shadow(0 0 6px rgba(var(--node-rgb), 0.75));
+  }
+
+  .lex-map__label {
+    fill: var(--text-secondary);
+    font-family: var(--font-ticker);
+    font-size: 11.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: fill 0.25s ease;
+  }
+
+  .lex-map__node:hover .lex-map__halo,
+  .lex-map__node:focus-visible .lex-map__halo,
+  .lex-map__node.is-origin .lex-map__halo {
+    fill: rgba(var(--node-rgb), 0.16);
+  }
+
+  .lex-map__node:hover .lex-map__ring,
+  .lex-map__node:focus-visible .lex-map__ring,
+  .lex-map__node.is-origin .lex-map__ring {
+    stroke: rgba(var(--node-rgb), 0.9);
+  }
+
+  .lex-map__node:hover .lex-map__label,
+  .lex-map__node:focus-visible .lex-map__label,
+  .lex-map__node.is-hot .lex-map__label {
+    fill: var(--text-primary);
+  }
+
+  .lex-map__node:focus-visible .lex-map__ring {
+    stroke-width: 2;
+  }
+
+  /* Ambient float — pure CSS translate on an inner group so the
+     positional translate() attribute on the outer group is never
+     overridden. Subtle by design (±3px). */
+  .lex-map__float {
+    animation: lexMapFloat 9s ease-in-out infinite alternate;
+  }
+
+  @keyframes lexMapFloat {
+    0% { transform: translate(0, 0); }
+    50% { transform: translate(1.5px, -3px); }
+    100% { transform: translate(-1.5px, 2.5px); }
+  }
+
+  /* ── Tooltip ──────────────────────────────────────────────────── */
+  .lex-map__tip {
+    position: absolute;
+    z-index: 3;
+    max-width: 300px;
+    padding: 12px 14px;
+    background: rgba(4, 12, 18, 0.92);
+    border: 1px solid rgba(0, 212, 255, 0.28);
+    clip-path: var(--clip-sm);
+    backdrop-filter: blur(16px);
+    pointer-events: none;
+    transform: translate(-50%, calc(-100% - 14px));
+  }
+
+  .lex-map__tip-meta {
+    display: flex;
+    gap: 10px;
+    margin: 0 0 4px;
+    font-family: var(--font-ticker);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--cyan-core);
+  }
+
+  .lex-map__tip-term {
+    margin: 0 0 6px;
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+  }
+
+  .lex-map__tip-def {
+    margin: 0 0 6px;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+
+  .lex-map__tip-action {
+    margin: 0;
+    font-family: var(--font-ticker);
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold-bright);
+  }
+
+  .lex-map__pan-hint {
+    display: none;
+    margin: 0;
+    font-family: var(--font-ticker);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  @media (max-width: 760px) {
+    .lex-map__pan-hint {
+      display: block;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lex-map__float { animation: none; }
+    .lex-map__edge,
+    .lex-map__node,
+    .lex-map__halo,
+    .lex-map__ring,
+    .lex-map__label { transition: none; }
+  }
+</style>
+
+<script>
+  import { initLexiconConstellation } from '../../scripts/lexicon-constellation.js';
+  initLexiconConstellation();
+</script>

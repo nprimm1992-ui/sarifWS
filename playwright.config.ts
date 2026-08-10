@@ -25,11 +25,22 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
   testDir: './tests/e2e',
-  timeout: 30_000,
+  /* 60s default: every page under test boots a full Three.js lobby.
+     In CI-class environments WebGL falls back to software rasterisation
+     (SwiftShader), which makes page settle times 3-5x local-GPU speed.
+     Heavy specs still declare their own larger budgets inline. */
+  timeout: 60_000,
   expect: { timeout: 8_000 },
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
+  /* Worker cap: each worker tab software-renders the entire WebGL
+     scene when no GPU is present. At default parallelism (cores/2)
+     the tabs starve each other and unrelated expects time out — the
+     May 2026 audit's "18/25 failed" run was exactly this failure
+     mode. Two workers keeps total CPU below the starvation cliff on
+     4-vCPU CI runners while still halving wall-clock vs serial. */
+  workers: 2,
   reporter: process.env.CI ? [['github'], ['list']] : 'list',
   use: {
     baseURL: BASE_URL,
@@ -38,6 +49,17 @@ export default defineConfig({
     video: 'off',
     actionTimeout: 6_000,
     navigationTimeout: 15_000,
+    /* WebGL is disabled in the test browser on purpose. Suite doctrine
+       (tests/e2e/README.md): "No 3D asserts — GL in CI environments is
+       unreliable." Without a GPU, Chromium software-renders the full
+       lobby scene and blocks the main thread for 30s+ per page, which
+       starves every expect() in the run (the May 2026 audit's mass
+       failures). Disabling WebGL deterministically exercises the
+       app's designed no-GL path: hidden canvas + static SVG fallback +
+       materialize's 4s completion fallback. */
+    launchOptions: {
+      args: ['--disable-webgl', '--disable-webgl2'],
+    },
   },
   projects: [
     {

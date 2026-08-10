@@ -22,6 +22,7 @@
 import Base from '../layouts/Base.astro';
 import LexiconEntry from '../components/lexicon/LexiconEntry.astro';
 import LexiconChip from '../components/lexicon/LexiconChip.astro';
+import LexiconConstellation from '../components/lexicon/LexiconConstellation.astro';
 import { buildLexiconGraph, formatUpdatedMonth } from '../lib/lexicon-graph';
 
 const graph = await buildLexiconGraph();
@@ -42,6 +43,9 @@ const updatedMonth = formatUpdatedMonth(graph.updatedAt);
         <h1 id="lex-heading" class="section-header connector-line">Sarif Lexicon</h1>
       </div>
     </header>
+
+    <!-- ═══════════════════════  CONSTELLATION  ═════════════════════════ -->
+    <LexiconConstellation />
 
     <!-- ════════════════════════════  GRID  ════════════════════════════ -->
     <!-- Frosted index card: chamfered `--clip-card` (frost is `::before` so sticky filter bar still works). -->

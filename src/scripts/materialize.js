@@ -315,7 +315,16 @@ function startDecode() {
  */
 function seedDecode() {
   if (_hasEverCompleted) return;
-  if (location.pathname !== '/') return;
+  if (location.pathname !== '/') {
+    /* Interior direct entry: the sequence is homepage-only by contract
+       ("all other entries skip immediately"). Don't wait for
+       first-frame — on no-WebGL/software-GL clients that means sitting
+       at data-materialize="pending" behind the veil until the 4s
+       fallback. Skip now; onFirstFrame tolerates the pre-completed
+       state and only re-asserts the veil lift. */
+    skipSequence();
+    return;
+  }
   if (isReducedMotion()) return;
 
   _isMobile = window.innerWidth < MOBILE_BREAKPOINT;

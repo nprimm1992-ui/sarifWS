@@ -153,7 +153,7 @@ export const GET: APIRoute = async () => {
       id: `engagement-${entry.id}`,
       type: 'engagement',
       title: entry.data.classification,
-      url: `/engagements/#${entry.id}`,
+      url: `/engagements/${entry.id}/`,
       summary: `${entry.data.sector} · ${entry.data.statValue} ${entry.data.statLabel}`,
       tags: [entry.data.sector, entry.data.accent],
       meta: {

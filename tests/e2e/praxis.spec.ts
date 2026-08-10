@@ -57,8 +57,10 @@ test('praxis-ask surfaces inline results and logs on navigation', async ({ page 
   ).catch(() => null);
   await input.fill('coherence');
   await expect(results).toBeVisible();
+  /* Index fetch is lazy on first keystroke — poll rather than counting
+     instantly, or the assertion races the async load. */
   const options = results.locator('[role="option"]');
-  const optionCount = await options.count();
-  expect(optionCount).toBeGreaterThan(0);
+  await expect(options.first()).toBeVisible({ timeout: 8_000 });
+  expect(await options.count()).toBeGreaterThan(0);
   await logPromise;
 });
