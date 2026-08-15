@@ -391,6 +391,17 @@ const cfBeaconToken =
         import('../scripts/lobby-scene.js').then((m) => {
           lobbyImportInFlight = false;
           m.initLobby();
+        }).catch(() => {
+          /* The lobby module never loaded — a stale chunk URL after a
+             redeploy, an offline navigation, or a blocking extension.
+             lobby-scene.js owns sarif:first-frame, so with the module
+             absent nobody would ever dispatch it and the reveal veil would
+             stay opaque until materialize.js's 4s timeout. Resolve it here
+             so a failed enhancement never holds the page hostage. */
+          lobbyImportInFlight = false;
+          document.dispatchEvent(new CustomEvent('sarif:first-frame', {
+            detail: { timestamp: performance.now(), reason: 'module-load-failed' },
+          }));
         });
       }
 

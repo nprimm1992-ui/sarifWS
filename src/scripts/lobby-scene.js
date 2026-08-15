@@ -128,6 +128,39 @@ let _bloomPass = null;
  *  WebGL context-loss recovery) produces a fresh veil-lift. */
 let _firstFrameDispatched = false;
 
+/**
+ * Dispatch sarif:first-frame exactly once per lobby lifetime.
+ *
+ * ── Why this is a shared helper and not inline in the render loop ──────────
+ * `sarif:first-frame` is the single synchronisation point the startup
+ * sequence hangs off: materialize.js lifts the reveal veil and starts the
+ * text decode when it fires. It used to be dispatched ONLY from inside the
+ * GL render loop, which meant every non-GL path — reduced-motion, absent
+ * WebGL, and a thrown initScene() — never fired it at all.
+ *
+ * Those visitors did eventually get a usable page, but only via
+ * materialize.js's 4s FALLBACK_TIMEOUT_MS safety net. Measured on a
+ * WebGL-disabled Chromium: the veil sat opaque for ~4.85s before clearing.
+ * That is the *degraded* path taking five times longer than the premium one
+ * — precisely backwards, since a machine with no GPU is usually the machine
+ * that can least afford to wait.
+ *
+ * Every path that decides "no GL will ever render here" must therefore
+ * resolve the veil immediately. `reason` is carried in the event detail so
+ * consumers can distinguish a real GPU frame from a fallback resolution.
+ *
+ * @param {string} reason - 'gl-first-frame' | 'reduced-motion' | 'no-webgl'
+ *                        | 'init-failed' | 'no-canvas'
+ * @param {number} [timestamp]
+ */
+function dispatchFirstFrame(reason, timestamp) {
+  if (_firstFrameDispatched) return;
+  _firstFrameDispatched = true;
+  document.dispatchEvent(new CustomEvent('sarif:first-frame', {
+    detail: { timestamp: timestamp ?? (typeof performance !== 'undefined' ? performance.now() : 0), reason },
+  }));
+}
+
 /** Boot transition — CSS-driven fade of the lobby canvas from a slightly
  *  cooler / contrast-boosted "energising" look into its calm steady
  *  state. Replaces the previous in-shader chromatic-aberration pass.
@@ -1839,7 +1872,18 @@ function updateDustParticles(time) {
 // ---------------------------------------------------------------------------
 // Static SVG Fallback (prefers-reduced-motion / no WebGL)
 // ---------------------------------------------------------------------------
-function createStaticFallback() {
+function createStaticFallback(reason = 'no-webgl') {
+  /* Resolve the veil FIRST, before the early-return and before building the
+     SVG. Reaching this function at all means no GL frame is coming, so the
+     startup sequence must stop waiting for one — otherwise these visitors
+     hang until materialize.js's 4s timeout (measured ~4.85s).
+
+     This sits above the idempotency guard on purpose: on an Astro soft-nav
+     the SVG already exists and we return early, but a fresh navigation may
+     still have an unresolved veil. dispatchFirstFrame() has its own
+     one-shot guard, so calling it here is safe and cheap. */
+  dispatchFirstFrame(reason);
+
   if (document.getElementById('lobby-fallback')) return;
 
   const canvas = document.getElementById('lobby-canvas');
@@ -2658,12 +2702,7 @@ function animateStep(timestamp, dtSec) {
        is the single synchronisation point for all startup-sequence
        consumers; it supersedes the old DOMContentLoaded-triggered decode
        start so everything arrives in one coordinated moment. */
-    if (!_firstFrameDispatched) {
-      _firstFrameDispatched = true;
-      document.dispatchEvent(new CustomEvent('sarif:first-frame', {
-        detail: { timestamp },
-      }));
-    }
+    dispatchFirstFrame('gl-first-frame', timestamp);
   }
 }
 
@@ -3173,7 +3212,7 @@ function onRouteChange(pathname) {
      first swap. Re-assert after every route change (createStaticFallback is
      idempotent). */
   if (_prefersReducedMotionLocked && !renderer) {
-    createStaticFallback();
+    createStaticFallback('reduced-motion');
   }
 }
 
@@ -3299,13 +3338,19 @@ export function initLobby() {
   if (!canvas) {
     /* Base.astro authors the canvas as a persistent element; if it's missing
        the layout contract is broken. Bail gracefully rather than mounting a
-       non-persistent replacement that would flash on the first swap. */
+       non-persistent replacement that would flash on the first swap.
+
+       Still resolve the veil: a broken layout contract must not also mean a
+       page that stays hidden for 4s. This path deliberately does NOT build
+       the SVG fallback (there is no canvas to replace), so it dispatches
+       directly rather than via createStaticFallback(). */
+    dispatchFirstFrame('no-canvas');
     return;
   }
 
   if (prefersReduced) {
     canvas.style.display = 'none';
-    createStaticFallback();
+    createStaticFallback('reduced-motion');
     return;
   }
 
@@ -3318,7 +3363,7 @@ export function initLobby() {
   const testCtx = testCanvas.getContext('webgl2') || testCanvas.getContext('webgl');
   if (!testCtx) {
     canvas.style.display = 'none';
-    createStaticFallback();
+    createStaticFallback('no-webgl');
     return;
   }
   /* Release the probe context before WebGLRenderer allocates the real one.
@@ -3342,7 +3387,7 @@ export function initLobby() {
     }
     cleanup();
     canvas.style.display = 'none';
-    createStaticFallback();
+    createStaticFallback('init-failed');
     return;
   }
 
