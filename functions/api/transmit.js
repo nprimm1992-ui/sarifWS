@@ -43,6 +43,7 @@ import {
   corsPreflight,
   assertOutboundUrlAllowed,
 } from './_shared/validate.js';
+import { resolveDeploymentPosture } from './_shared/runtime-env.js';
 import {
   BODY_LIMITS,
   assertJsonRequest,
@@ -81,16 +82,25 @@ function successResponse(extra = {}) {
 /**
  * Verify a Cloudflare Turnstile response token against the siteverify API.
  *
- * Production posture (fail-closed):
- *   - env.ENVIRONMENT === 'production' AND no TURNSTILE_SECRET_KEY
- *     → `{ ok: false, code: 'verification_unavailable' }`. The deploy is
- *     misconfigured — refuse the submission rather than silently accept
- *     bot traffic. An operator intervention is required to restore the
- *     challenge surface.
- *   - env.ENVIRONMENT === 'production' AND PUBLIC_TURNSTILE_SITE_KEY set
- *     AND no token on the request → `{ ok: false, code: 'verification_missing' }`.
- *     The client dropped the widget (ad-blocker, CSP, scripting disabled);
- *     surface actionable copy rather than generic retry.
+ * Posture comes from resolveDeploymentPosture() (see _shared/runtime-env.js),
+ * which derives it from the request hostname rather than an env var that can
+ * be forgotten. It previously read `env.ENVIRONMENT === 'production'`; that
+ * variable was never set on the Pages project, so production silently took
+ * the development bypass below and accepted tokenless POSTs.
+ *
+ * Production posture:
+ *   - Secret present, token missing, site key set
+ *       → `{ ok: false, code: 'verification_missing' }`. The client dropped
+ *         the widget (ad-blocker, CSP, scripting disabled); surface
+ *         actionable copy rather than a generic retry.
+ *   - Secret ABSENT but PUBLIC_TURNSTILE_SITE_KEY present
+ *       → `{ ok: false, code: 'verification_unavailable' }`. Half-configured
+ *         deploy: the operator intended verification to run.
+ *   - Secret ABSENT and site key ABSENT (Turnstile coherently disabled)
+ *       → `{ ok: true, bypass: 'coherently_disabled' }`, logged at error
+ *         level. Rejecting here would reject every legitimate submission,
+ *         because with no site key the frontend renders no widget and no
+ *         token can exist. Rate limiting is the compensating control.
  *
  * Non-production posture (graceful degrade):
  *   - Missing secret logs a warning and bypasses. This keeps Playwright,
@@ -101,12 +111,10 @@ function successResponse(extra = {}) {
  * `{ ok: false, code: 'verification_unavailable' }` regardless of env.
  * A DoS against siteverify must not be a bypass vector.
  */
-async function verifyTurnstile(token, clientIp, env) {
+async function verifyTurnstile(token, clientIp, env, request) {
   const secret = env?.TURNSTILE_SECRET_KEY;
-  const environment = typeof env?.ENVIRONMENT === 'string'
-    ? env.ENVIRONMENT.toLowerCase()
-    : '';
-  const isProduction = environment === 'production';
+  const posture = resolveDeploymentPosture(request, env);
+  const isProduction = posture.isProduction;
   const publicSiteKey =
     typeof env?.PUBLIC_TURNSTILE_SITE_KEY === 'string'
       ? env.PUBLIC_TURNSTILE_SITE_KEY.trim()
@@ -114,11 +122,48 @@ async function verifyTurnstile(token, clientIp, env) {
   const hasSecret = typeof secret === 'string' && secret.length > 0;
 
   if (!hasSecret) {
-    if (isProduction) {
-      console.error('turnstile_misconfigured_no_secret');
+    /* ── Deliberate asymmetry; read before "fixing" this to fail closed ──
+     *
+     * The secret is absent. Fail-closed is the reflex, and it is wrong *only*
+     * in this exact configuration:
+     *
+     *   no TURNSTILE_SECRET_KEY  AND  no PUBLIC_TURNSTILE_SITE_KEY
+     *
+     * With no site key, the frontend renders no widget (contact.astro gates
+     * all widget markup on `turnstileSiteKey`), so no client can ever produce
+     * a token. Rejecting here would reject 100% of legitimate submissions —
+     * converting a spam-control gap into a total contact-form outage, with no
+     * offsetting security benefit, since an attacker is equally blocked either
+     * way only when verification actually runs.
+     *
+     * So: when Turnstile is *coherently disabled* (neither half configured),
+     * we proceed and lean on the other controls in the chain — origin
+     * allowlist, honeypot, per-IP and per-email rate limits, body-size caps.
+     * This is logged at error level in production so it is never silent.
+     *
+     * When the site key IS present, the operator intended verification to run;
+     * a missing secret is then a genuine half-configured deploy and we reject.
+     */
+    if (isProduction && publicSiteKey) {
+      console.error('turnstile_misconfigured_no_secret', {
+        hostname: posture.hostname,
+        detail: 'site key present but secret missing — half-configured deploy',
+      });
       return { ok: false, code: 'verification_unavailable' };
     }
-    console.warn('turnstile_bypass_non_production', { environment });
+    if (isProduction) {
+      console.error('turnstile_disabled_in_production', {
+        hostname: posture.hostname,
+        posture: posture.reason,
+        detail:
+          'Neither TURNSTILE_SECRET_KEY nor PUBLIC_TURNSTILE_SITE_KEY is set. ' +
+          'Bot protection is degraded to rate-limiting only.',
+        remediation:
+          'Set both keys together, then redeploy the frontend so the widget renders.',
+      });
+      return { ok: true, bypass: 'coherently_disabled' };
+    }
+    console.warn('turnstile_bypass_non_production', { posture: posture.reason });
     return { ok: true, bypass: 'not_configured' };
   }
 
@@ -210,7 +255,7 @@ export async function onRequestPost(context) {
     TURNSTILE_TOKEN_MAX,
   );
   const tsClientIp = request.headers.get('CF-Connecting-IP') || '';
-  const tsResult = await verifyTurnstile(tsToken, tsClientIp, env);
+  const tsResult = await verifyTurnstile(tsToken, tsClientIp, env, request);
   if (!tsResult.ok) {
     if (tsResult.code === 'challenge_required') {
       return errorResponse(

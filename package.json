@@ -17,11 +17,11 @@
     "check:meta": "node scripts/check-meta-descriptions.mjs",
     "check:budgets": "node scripts/check-html-budget.mjs && node scripts/check-bundle-budget.mjs",
     "check:praxis-layout": "node scripts/check-praxis-layout.mjs",
-    "check:all": "npm run check:lexicon-version && npm run lint && npm run check:types",
+    "check:all": "npm run check:lexicon-version && npm run check:env-contract && npm run lint && npm run check:types && npm run test:unit",
     "lint": "eslint \"src/**/*.{js,astro}\" \"functions/**/*.js\" \"scripts/**/*.mjs\" \"*.{js,mjs,cjs}\"",
     "prebuild": "npm run check:lexicon-version",
     "build": "npm run build:ucim && npm run sync:ucim && npm run build:assets && astro build",
-    "postbuild": "node scripts/inject-csp-hashes.mjs && node scripts/check-html-budget.mjs && node scripts/check-bundle-budget.mjs && node scripts/check-meta-descriptions.mjs && node scripts/check-praxis-layout.mjs",
+    "postbuild": "node scripts/inject-csp-hashes.mjs && node scripts/check-html-budget.mjs && node scripts/check-bundle-budget.mjs && node scripts/check-meta-descriptions.mjs && node scripts/check-praxis-layout.mjs && node scripts/check-env-contract.mjs",
     "deploy": "npm run build && wrangler pages deploy dist --project-name sarif-consulting",
     "verify:sitemap": "node scripts/verify-sitemap.mjs",
     "optimize:favicon": "node scripts/optimize-favicon.mjs",
@@ -32,7 +32,9 @@
     "preview": "astro preview",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
-    "astro": "astro"
+    "astro": "astro",
+    "test:unit": "node --test \"tests/unit/**/*.test.mjs\"",
+    "check:env-contract": "node scripts/check-env-contract.mjs"
   },
   "dependencies": {
     "@astrojs/mdx": "^5.0.3",
