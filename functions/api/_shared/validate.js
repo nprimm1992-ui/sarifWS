@@ -115,20 +115,96 @@ export function nowIso() {
 
 const DEV_FALLBACK_SALT = 'sarif-consulting-ip-hash-v1';
 
+/**
+ * Server-only secrets we can borrow entropy from when IP_HASH_BASE_SALT is
+ * absent. These are never exposed to the client, so a salt derived from one is
+ * not guessable by an attacker holding only a hash. Order is stable so the
+ * derived salt stays consistent across isolates and requests — a salt that
+ * varied per-isolate would silently break rate-limit bucketing.
+ */
+const SALT_ENTROPY_SOURCES = Object.freeze([
+  'GOOGLE_SCRIPT_SECRET',
+  'TURNSTILE_SECRET_KEY',
+  'PICKUP_SHARED_SECRET',
+  'CF_ACCESS_AUD',
+]);
+
+let saltDegradationLogged = false;
+
+/**
+ * Resolve the base salt for daily-rotated hashing.
+ *
+ * ── Why this is not a simple `throw in production` ──────────────────────────
+ * The obvious hardening — "if production and no salt, throw" — is wrong here.
+ * `hashIp()` is called at transmit.js:315 *outside* any try/catch, so throwing
+ * converts a privacy weakness into a 500 on every contact submission. Trading a
+ * silent data-quality defect for a loud outage is not a security win.
+ *
+ * ── Why the old fallback was genuinely unsafe ───────────────────────────────
+ * DEV_FALLBACK_SALT is a literal in a public repository. IPv4 is a 2^32 space,
+ * so a known salt makes `ip_hash` trivially reversible by brute force. The
+ * Privacy page's "we never store your IP" claim does not survive that.
+ *
+ * ── Resolution order ────────────────────────────────────────────────────────
+ *   1. IP_HASH_BASE_SALT                    — the intended configuration
+ *   2. Derived from another server-only     — secret, stable, keeps both
+ *      secret (SALT_ENTROPY_SOURCES)          rate-limiting AND irreversibility
+ *                                             working with zero operator action
+ *   3. DEV_FALLBACK_SALT                    — only when posture is explicitly
+ *                                             non-production
+ *   4. throw                                — nothing secret exists at all;
+ *                                             a bare environment is a genuine
+ *                                             misconfiguration worth surfacing
+ *
+ * Step 2 is what makes this fail-safe rather than fail-down: the common
+ * real-world case (operator set the mail-relay secrets but forgot the salt) now
+ * self-heals into a cryptographically sound state instead of degrading.
+ *
+ * @param {Record<string, unknown>|undefined} env
+ * @param {string} purpose - label used in diagnostics only
+ * @returns {string}
+ */
 function resolveSalt(env, purpose) {
   const configured =
-    env && typeof env.IP_HASH_BASE_SALT === 'string' && env.IP_HASH_BASE_SALT;
-  const isProd =
-    env && typeof env.ENVIRONMENT === 'string' && env.ENVIRONMENT === 'production';
-  if (!configured) {
-    if (isProd) {
-      throw new Error(
-        `IP_HASH_BASE_SALT is required in production (needed for ${purpose}).`,
-      );
+    env && typeof env.IP_HASH_BASE_SALT === 'string' && env.IP_HASH_BASE_SALT.trim();
+  if (configured) return configured;
+
+  // (2) Borrow entropy from a server-only secret.
+  for (const key of SALT_ENTROPY_SOURCES) {
+    const value = env && typeof env[key] === 'string' ? env[key].trim() : '';
+    if (value) {
+      if (!saltDegradationLogged) {
+        saltDegradationLogged = true;
+        console.warn('ip_salt_derived_fallback', {
+          purpose,
+          derived_from: key,
+          remediation:
+            'Set IP_HASH_BASE_SALT as an encrypted secret to use a dedicated salt.',
+        });
+      }
+      return `sarif-derived-ip-salt-v1::${key}::${value}`;
     }
-    return DEV_FALLBACK_SALT;
   }
-  return configured;
+
+  // (3) Explicitly non-production posture — the public constant is acceptable
+  // because local/preview data is not real prospect data.
+  const declared =
+    env && typeof env.ENVIRONMENT === 'string' ? env.ENVIRONMENT.trim().toLowerCase() : '';
+  const explicitlyNonProduction = [
+    'development',
+    'dev',
+    'local',
+    'preview',
+    'staging',
+    'test',
+  ].includes(declared);
+  if (explicitlyNonProduction) return DEV_FALLBACK_SALT;
+
+  // (4) No salt, no secrets, no declared posture. Refuse to pretend.
+  throw new Error(
+    `IP_HASH_BASE_SALT is required (needed for ${purpose}); no server secret ` +
+      'was available to derive a fallback salt from.',
+  );
 }
 
 /**
@@ -144,7 +220,20 @@ function resolveSalt(env, purpose) {
 export async function hashIp(ip, env, now = new Date()) {
   if (!ip) return null;
   const dateStr = now.toISOString().slice(0, 10); // YYYY-MM-DD UTC
-  const baseSalt = resolveSalt(env, 'ip_hash');
+  let baseSalt;
+  try {
+    baseSalt = resolveSalt(env, 'ip_hash');
+  } catch (err) {
+    // Callers (e.g. transmit.js) invoke this outside a try/catch, so a throw
+    // here would 500 the whole submission. Degrade to `null` instead: the
+    // caller's rate limiter treats a null hash as the shared null-bucket,
+    // which carries a *tighter* cap than a per-IP bucket. Failing into a
+    // stricter limit is the safe direction.
+    console.error('ip_hash_salt_unavailable', {
+      message: err?.message ?? String(err),
+    });
+    return null;
+  }
   const material = `${ip}::${dateStr}::${baseSalt}`;
   const enc = new TextEncoder().encode(material);
   const digest = await crypto.subtle.digest('SHA-256', enc);
@@ -163,7 +252,15 @@ export async function hashEmail(email, env, now = new Date()) {
   const normalized = email.trim().toLowerCase();
   if (!normalized) return null;
   const dateStr = now.toISOString().slice(0, 10);
-  const baseSalt = resolveSalt(env, 'email_hash');
+  let baseSalt;
+  try {
+    baseSalt = resolveSalt(env, 'email_hash');
+  } catch (err) {
+    console.error('email_hash_salt_unavailable', {
+      message: err?.message ?? String(err),
+    });
+    return null;
+  }
   const material = `${normalized}::${dateStr}::${baseSalt}::email`;
   const enc = new TextEncoder().encode(material);
   const digest = await crypto.subtle.digest('SHA-256', enc);

@@ -1018,18 +1018,67 @@
     });
   }
 
-  /** A click on any [data-command-palette-trigger] also wakes the runtime. */
+  /**
+   * Activation of any [data-command-palette-trigger] wakes the runtime.
+   *
+   * Listens for BOTH `pointerdown` and `click`, which are not redundant:
+   *
+   *   - `pointerdown` fires earliest for mouse/touch, buying the module
+   *     fetch a head start before the click completes.
+   *   - `click` is the only one of the two emitted by keyboard activation
+   *     (Enter/Space on the footer <button>), by assistive technology, and
+   *     by programmatic `.click()`.
+   *
+   * Binding pointerdown alone left a real gap: during the pre-idle-load
+   * window, a keyboard user pressing Enter on the trigger produced no
+   * pointerdown, so nothing woke the runtime and the activation was
+   * silently swallowed. `_primed` keeps the double binding idempotent.
+   *
+   * The click path re-dispatches after load, because the runtime binds its
+   * own `click` handler (command-palette.js → onTriggerClick) only once
+   * loaded and therefore never sees the gesture that woke it. This mirrors
+   * the synthetic-keydown replay in onPrimingKeydown above.
+   */
+  let _primed = false;
+  function retirePriming() {
+    document.removeEventListener('keydown', onPrimingKeydown);
+    document.removeEventListener('pointerdown', onPrimingTrigger, true);
+    document.removeEventListener('click', onPrimingTriggerClick, true);
+  }
+
   function onPrimingTrigger(e) {
     const t = e.target;
     if (!(t instanceof Element)) return;
     if (!t.closest('[data-command-palette-trigger]')) return;
-    document.removeEventListener('keydown', onPrimingKeydown);
-    document.removeEventListener('pointerdown', onPrimingTrigger, true);
+    if (_primed) return;
+    _primed = true;
+    retirePriming();
     loadPalette();
+  }
+
+  function onPrimingTriggerClick(e) {
+    const t = e.target;
+    if (!(t instanceof Element)) return;
+    const trigger = t.closest('[data-command-palette-trigger]');
+    if (!trigger) return;
+    if (_primed) return;
+    _primed = true;
+    retirePriming();
+    /* Prevent the default activation (e.g. an <a href> fallback) from
+       navigating while the runtime is still in flight. */
+    e.preventDefault();
+    loadPalette().then(() => {
+      /* Replay the activation so the freshly-bound onTriggerClick opens the
+         palette; without this the gesture that triggered the load is lost. */
+      trigger.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      );
+    });
   }
 
   document.addEventListener('keydown', onPrimingKeydown);
   document.addEventListener('pointerdown', onPrimingTrigger, true);
+  document.addEventListener('click', onPrimingTriggerClick, true);
 
   /** Idle-load as a background warm-up so the first ⌘K is instant on
    *  decent connections. The 1500 ms timeout caps how long we wait for
