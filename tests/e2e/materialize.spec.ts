@@ -155,3 +155,86 @@ test.describe('materialization — mobile viewport', () => {
     await expect(navWordmark).toBeVisible();
   });
 });
+
+/**
+ * Veil-resolution budget — the no-GPU path.
+ *
+ * The whole suite runs with WebGL disabled (see playwright.config.ts
+ * launchOptions), so these tests exercise exactly the client profile that
+ * was broken: a visitor whose browser will never produce a GL frame.
+ *
+ * Regression being locked down: `sarif:first-frame` was dispatched ONLY from
+ * inside the GL render loop. Every fallback path — reduced-motion, absent
+ * WebGL, thrown initScene(), missing canvas, failed module import — returned
+ * without firing it, so the reveal veil stayed opaque until materialize.js's
+ * 4s FALLBACK_TIMEOUT_MS safety net expired. Measured before the fix: ~4.85s
+ * of blank overlay. After: ~0.87s.
+ *
+ * The pre-existing specs above could not catch this: their 5000ms timeout is
+ * looser than the 4s fallback, so a fully-hung veil still passed.
+ *
+ * The budget below is deliberately well under FALLBACK_TIMEOUT_MS. If this
+ * test fails, some path is once again reaching the timeout rather than
+ * resolving the veil deliberately — do not "fix" it by raising the budget.
+ */
+const VEIL_BUDGET_MS = 2_500;
+
+test.describe('reveal veil — no-GPU resolution budget', () => {
+  test('homepage veil resolves well before the 4s fallback timeout', async ({ page }) => {
+    const started = Date.now();
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('html')).toHaveAttribute('data-veil', 'gone', {
+      timeout: VEIL_BUDGET_MS,
+    });
+
+    const elapsed = Date.now() - started;
+    expect(
+      elapsed,
+      `veil took ${elapsed}ms — at or near the 4s fallback means a boot path ` +
+        'is failing to dispatch sarif:first-frame',
+    ).toBeLessThan(VEIL_BUDGET_MS);
+  });
+
+  test('first-frame reports a fallback reason, not a GL frame', async ({ page }) => {
+    // Subscribe before navigation completes so the one-shot event isn't missed.
+    await page.addInitScript(() => {
+      window.addEventListener('DOMContentLoaded', () => {}, { once: true });
+      document.addEventListener(
+        'sarif:first-frame',
+        (e) => {
+          (window as unknown as Record<string, unknown>).__firstFrameReason =
+            (e as CustomEvent).detail?.reason ?? 'unknown';
+        },
+        { once: true },
+      );
+    });
+
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('html')).toHaveAttribute('data-veil', 'gone', {
+      timeout: VEIL_BUDGET_MS,
+    });
+
+    const reason = await page.evaluate(
+      () => (window as unknown as Record<string, unknown>).__firstFrameReason,
+    );
+
+    // With WebGL disabled the probe in initLobby() fails, so the no-webgl
+    // fallback must be what resolved the veil. Any GL reason here would mean
+    // the suite is not actually running GL-disabled.
+    expect(
+      ['no-webgl', 'init-failed', 'reduced-motion', 'no-canvas', 'module-load-failed'],
+      `unexpected first-frame reason: ${String(reason)}`,
+    ).toContain(reason);
+  });
+
+  test('interior route veil resolves promptly too', async ({ page }) => {
+    const started = Date.now();
+    await page.goto('/praxis/', { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('html')).toHaveAttribute('data-veil', 'gone', {
+      timeout: VEIL_BUDGET_MS,
+    });
+    expect(Date.now() - started).toBeLessThan(VEIL_BUDGET_MS);
+  });
+});
