@@ -37,7 +37,6 @@ import {
   newReferenceId,
   nowIso,
   hashIp,
-  hashEmail,
   extractClientIp,
   jsonResponse,
   corsPreflight,
@@ -412,10 +411,13 @@ export async function onRequestPost(context) {
   // defensive — if the log pipeline leaks, the hash is not a raw PII column.
   if (env.DB) {
     try {
-      const emailHashValue = await hashEmail(email, env);
-      if (emailHashValue) {
-        void emailHashValue; // reserved for future email-hash-indexed queries
-      }
+      /* Note: this counter queries `prospect_email` directly, which is
+         indexed (idx_transmissions_prospect_email). An earlier revision also
+         computed hashEmail() here "reserved for future email-hash-indexed
+         queries", then discarded it with `void` — a SHA-256 on the request
+         hot path whose result was never read, and no email_hash column
+         exists on transmissions to index. Removed; hashEmail() remains
+         exported and is genuinely used by admin/dsar.js. */
       const { results } = await env.DB.prepare(
         `SELECT COUNT(*) AS c FROM transmissions
           WHERE prospect_email = ?
