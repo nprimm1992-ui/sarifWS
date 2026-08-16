@@ -9,7 +9,7 @@
  * static projection into a live one:
  *
  *   • perspective camera (yaw / pitch / zoom / look-at) re-projecting
- *     nodes, edges, floor grid and cluster captions every frame,
+ *     nodes, edges and cluster captions every frame,
  *   • ambient drift + pointer parallax so the field breathes with the
  *     WebGL diorama behind the page,
  *   • drag to orbit, wheel/pinch to close in, buttons to fit,
@@ -64,6 +64,7 @@ let readoutSel = null;
 let readoutZoom = null;
 let voidEl = null;
 let focusBtn = null;
+let scrim = null;
 
 /** @type {Array<any>} */
 let nodes = [];
@@ -71,8 +72,6 @@ let nodes = [];
 let byId = new Map();
 /** @type {Array<any>} */
 let edges = [];
-/** @type {Array<any>} */
-let grid = [];
 /** @type {Array<any>} */
 let clusters = [];
 let liveChannels = new Set();
@@ -124,8 +123,11 @@ function collect() {
   });
   byId = new Map(nodes.map((n) => [n.id, n]));
 
+  /* Each edge is a pair (dark underlay + cyan stroke) so a 1px line
+     stays legible against both halves of the diorama. */
   edges = Array.from(root.querySelectorAll('[data-edge-a]')).map((el) => ({
     el,
+    lines: Array.from(el.querySelectorAll('line')),
     a: el.dataset.edgeA,
     b: el.dataset.edgeB,
   }));
@@ -137,12 +139,6 @@ function collect() {
     adjacency.get(e.a).add(e.b);
     adjacency.get(e.b).add(e.a);
   }
-
-  grid = Array.from(root.querySelectorAll('[data-ax]')).map((el) => ({
-    el,
-    ax: Number(el.dataset.ax), ay: Number(el.dataset.ay), az: Number(el.dataset.az),
-    bx: Number(el.dataset.bx), by: Number(el.dataset.by), bz: Number(el.dataset.bz),
-  }));
 
   clusters = Array.from(root.querySelectorAll('[data-cluster]')).map((el) => ({
     el,
@@ -213,24 +209,19 @@ function commit() {
     const flip = selected && e.b === selected;
     const from = flip ? b : a;
     const to = flip ? a : b;
-    e.el.setAttribute('x1', from.px.toFixed(1));
-    e.el.setAttribute('y1', from.py.toFixed(1));
-    e.el.setAttribute('x2', to.px.toFixed(1));
-    e.el.setAttribute('y2', to.py.toFixed(1));
+    const x1 = from.px.toFixed(1);
+    const y1 = from.py.toFixed(1);
+    const x2 = to.px.toFixed(1);
+    const y2 = to.py.toFixed(1);
+    for (const line of e.lines) {
+      line.setAttribute('x1', x1);
+      line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2);
+      line.setAttribute('y2', y2);
+    }
     const dim = hidden.has(e.a) || hidden.has(e.b);
     e.el.classList.toggle('is-dim', dim);
-    if (!dim) e.el.style.strokeOpacity = (fog((a.ps + b.ps) / 2) * 0.9).toFixed(3);
-  }
-
-  for (const l of grid) {
-    const pa = project(l.ax, l.ay, l.az);
-    const pb = project(l.bx, l.by, l.bz);
-    l.el.setAttribute('x1', pa.x.toFixed(1));
-    l.el.setAttribute('y1', pa.y.toFixed(1));
-    l.el.setAttribute('x2', pb.x.toFixed(1));
-    l.el.setAttribute('y2', pb.y.toFixed(1));
-    const s = (pa.s + pb.s) / 2 / cam.zoom;
-    l.el.setAttribute('stroke-opacity', Math.max(0.06, Math.min(0.6, (s - 0.72) * 2.2)).toFixed(3));
+    if (!dim) e.el.style.opacity = (fog((a.ps + b.ps) / 2) * 0.95).toFixed(3);
   }
 
   for (const c of clusters) {
@@ -238,6 +229,33 @@ function commit() {
     c.el.setAttribute('x', p.x.toFixed(1));
     c.el.setAttribute('y', p.y.toFixed(1));
     c.el.setAttribute('font-size', (13 * (p.s / cam.zoom) * uiScale).toFixed(1));
+  }
+
+  /* The scrim is the only thing standing in for the old panel: a soft
+     bloom centred on the projected field, sized to it, with nothing to
+     read as an edge. */
+  if (scrim) {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, live = 0;
+    for (const n of nodes) {
+      if (hidden.has(n.id)) continue;
+      live += 1;
+      minX = Math.min(minX, n.px);
+      maxX = Math.max(maxX, n.px);
+      minY = Math.min(minY, n.py);
+      maxY = Math.max(maxY, n.py);
+    }
+    if (live > 0) {
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      /* Clamp inside the frame: a soft gradient clipped by the stage
+         edge would draw the very panel edge we just removed. */
+      const rx = Math.min((maxX - minX) / 2 + 230, cx, 1000 - cx);
+      const ry = Math.min((maxY - minY) / 2 + 190, cy, vbH - cy);
+      scrim.setAttribute('cx', cx.toFixed(1));
+      scrim.setAttribute('cy', cy.toFixed(1));
+      scrim.setAttribute('rx', Math.max(rx, 40).toFixed(1));
+      scrim.setAttribute('ry', Math.max(ry, 40).toFixed(1));
+    }
   }
 
   if (readoutZoom) readoutZoom.textContent = `${cam.zoom.toFixed(2)}×`;
@@ -784,6 +802,7 @@ function bind() {
   readoutZoom = root.querySelector('[data-atlas-readout-zoom]');
   voidEl = root.querySelector('[data-atlas-void]');
   focusBtn = root.querySelector('[data-atlas-focus]');
+  scrim = root.querySelector('[data-atlas-scrim]');
   if (!stage) return;
 
   collect();
@@ -863,12 +882,12 @@ function teardown() {
   hidden = new Set();
   nodes = [];
   edges = [];
-  grid = [];
   clusters = [];
   byId = new Map();
   adjacency = new Map();
   root = null;
   stage = null;
+  scrim = null;
   _bound = false;
 }
 

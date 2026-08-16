@@ -88,7 +88,7 @@ test('engagements index: directory links to all six dossiers', async ({ page }) 
   }
 });
 
-test('lexicon atlas: scene renders with nodes, edges, grid and channels', async ({ page }) => {
+test('lexicon atlas: scene renders frameless with nodes, edges and channels', async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto('/lexicon/', { waitUntil: 'load' });
   await page.waitForSelector('[data-atlas][data-atlas-ready="true"]', { state: 'attached', timeout: 45_000 });
@@ -100,7 +100,8 @@ test('lexicon atlas: scene renders with nodes, edges, grid and channels', async 
       present: Boolean(root),
       nodes: document.querySelectorAll('[data-atlas] [data-node]').length,
       edges: document.querySelectorAll('[data-atlas] [data-edge-a]').length,
-      gridLines: document.querySelectorAll('[data-atlas] .atlas__grid-line').length,
+      scrim: document.querySelectorAll('[data-atlas] [data-atlas-scrim]').length,
+      edgeUnderlays: document.querySelectorAll('[data-atlas] .atlas__edge-under').length,
       channels: document.querySelectorAll('[data-atlas] .atlas__chip-dot').length,
       clusters: document.querySelectorAll('[data-atlas] [data-cluster]').length,
       /* The runtime camera writes a transform on every node group. */
@@ -112,7 +113,8 @@ test('lexicon atlas: scene renders with nodes, edges, grid and channels', async 
   expect(scene.present, 'atlas renders').toBe(true);
   expect(scene.nodes, 'all lexicon terms plotted').toBeGreaterThanOrEqual(10);
   expect(scene.edges, 'relationship edges plotted').toBeGreaterThan(10);
-  expect(scene.gridLines, 'perspective floor grid renders').toBeGreaterThan(8);
+  expect(scene.scrim, 'atmospheric scrim renders instead of a panel').toBe(1);
+  expect(scene.edgeUnderlays, 'every edge carries a dark underlay for legibility').toBe(scene.edges);
   expect(scene.channels, 'channel chips carry colour dots').toBeGreaterThanOrEqual(4);
   expect(scene.clusters, 'cluster captions render').toBeGreaterThanOrEqual(4);
   expect(scene.projected, 'camera projects node positions').toMatch(/translate\(/);

@@ -73,6 +73,17 @@ User brief: "the graph becomes the page… drop-down definitions absorbed into t
 - testids: `atlas-use-praxis-<slug>`, `atlas-use-engagement-<slug>`.
 - Test: `lexicon atlas: inspector shows term provenance that navigates to the source`. **Suite 42 passed / 1 skipped / 0 failed.**
 
+## Implemented June 2026 (session 3d) — Frameless atlas (true float)
+User brief: "remove the backdrop of the graph to make it feel like it's floating in the 3D background".
+- `.atlas__stage` is now genuinely frameless: no border, no chamfer/clip-path, no gradient fill, no `backdrop-filter` dimming, no inset shadows. The WebGL diorama is visible straight through the field — orbiting reveals the terraced monolith moving behind/among the nodes.
+- Legibility moved onto the marks instead of a panel:
+  • every edge is a PAIR (`.atlas__edge-under` 3.4px rgba(2,9,15,.6) + `.atlas__edge` 1px cyan) so a hairline survives both the dark sky and the bright ground; hot/dim state now lives on `.atlas__edge-pair` (group opacity), tests still key off `[data-edge-a]`;
+  • each node gained `.atlas__shade` (dark disc) beneath its halo — reads as its own shadow on the bright ground, invisible on the dark sky;
+  • labels/captions use paint-order stroke at 5px rgba(2,8,14,.85–.92); HUD copy, readout and key hints carry text-shadows.
+  • an `<ellipse data-atlas-scrim>` with a radial dark gradient TRACKS the projected field each frame (centre + radii from the live node bbox), clamped inside the frame so a clipped gradient can never re-draw a panel edge. `prefers-reduced-transparency` swaps it for an opaque bed.
+- **Synthetic floor grid removed entirely** (markup, CSS, runtime): the real diorama now supplies the depth reference, and the fake plane clipped as an ugly band at the stage edge.
+- Suite updated (scrim + edge-underlay assertions replace the grid assertion). **42 passed / 1 skipped / 0 failed.**
+
 ## Backlog (prioritized)
 P0 (user action): apply D1 migrations remotely (see above).
 P1: Praxis editorial rebuild (10 stub articles) — USER DEFERRED, wait for their content/direction. Engagement dossier content rebuild (user will supply copy; design ready).
@@ -81,6 +92,7 @@ P2: PraxisAsk LLM grounded-answer layer (ask_queries logging already exists for 
 ## Work log
 - 2026-06 session 1: env setup (previous fork), deep analysis, PRD created.
 - 2026-06 session 2: dossier pages, constellation, poses, e2e green, palette/materialize/h1 bug fixes, testing_agent pass.
-- 2026-06 session 3c (this): term provenance ("Used in") inside the Atlas inspector.
+- 2026-06 session 3d (this): frameless atlas — panel/backdrop removed, contrast moved onto the marks, floor grid deleted.
+- 2026-06 session 3c: term provenance ("Used in") inside the Atlas inspector.
 - 2026-06 session 3b: Praxis/palette lexicon links now deep-link into the Atlas (`?term=`).
 - 2026-06 session 3: Lexicon Atlas — graph is now the page (3D projected field + inspector + traversal + focus mode + deep links + filter unification). Suite green.
