@@ -213,6 +213,15 @@ function applyFilter(opts: { pushUrl?: boolean } = {}) {
   /* URL sync */
   if (opts.pushUrl) writeStateToUrl(false);
 
+  /* The Atlas island subscribes to this: filtering the register also
+     subtracts nodes from the graph and re-fits its camera. One control
+     surface, two renderings of the same corpus. */
+  document.dispatchEvent(
+    new CustomEvent('lexicon:filter', {
+      detail: { q, categories: Array.from(categories), visibleIds: Array.from(visibleIds) },
+    }),
+  );
+
   announce(`${visibleCount} of ${total} terms`);
 }
 

@@ -41,6 +41,25 @@ User owns https://sarifconsulting.ai (Astro 6 + Cloudflare Pages + D1, repo `npr
 8. Hygiene: test-results/ + playwright-report/ gitignored and untracked; stray `-e` line removed from .gitignore.
 - Testing: repo e2e suite green + testing_agent iteration_1.json = 100% frontend pass, no issues.
 
+## Implemented June 2026 (session 3) — Lexicon Atlas
+User brief: "the graph becomes the page… drop-down definitions absorbed into the graph"; "immersed within the 3D background… even if it's a high-end illusion"; "award winning / world class 3D animations/reactions"; "should feel like the UCIM graph mentioned in the lexicon". Register list kept (demoted) per agreement.
+
+**New:** `src/components/lexicon/LexiconAtlas.astro` + `src/scripts/lexicon-atlas.js`.
+**Deleted:** LexiconConstellation.astro + lexicon-constellation.js (superseded).
+
+- **3D substrate, hand-rolled projection.** Every term has world coords (x,y from the build-time seeded force sim; z from category channel + degree — doctrine nearest, substrate deepest). A perspective camera (yaw/pitch/zoom/look-at + screen bias) re-projects nodes, edges, a receding floor grid (plane wy=240) and channel captions each frame in the runtime island. Constants MIRRORED in both files (FOCAL 1500, CAM_DIST 1500, HOME_YAW -0.18, HOME_PITCH -0.13); build-time markup ships the home-camera projection so the scene is complete with JS off (verified).
+- **Immersion:** stage has no opaque fill — `backdrop-filter: brightness(0.55) blur(3px)` + vignette dims the WebGL diorama behind the page so it reads as the sky behind the field. New lobby subpose `lexicon-atlas` (dz +0.55, dfov +2.5) pulls the diorama back while the graph is on screen. Ambient camera drift + pointer parallax; drag to orbit, wheel/pinch zoom, Fit/±/Focus buttons.
+- **Inspector absorbs the dropdowns:** selecting a node opens a docked glass panel (bottom sheet ≤900px) with L-num, channel, status, revised, definition, AKA, copy citation/permalink, "Register ↓". Entrance is a 3D rotateY/translateZ arrival with staggered children. Camera flies to frame the term WITH its neighbourhood (`fitNodes(egoNodes())`), non-neighbours recede +250 z and haze out, touched edges flow (animated dash away from the origin), origin pulses a sonar ring, and `cam.bx/by` slides the field out from under the panel.
+- **Traversal:** Related/Referenced-by render as buttons (`data-atlas-goto`) that re-select and re-frame; a trail line records the walk (max 5).
+- **Focus mode (F / button):** hides non-neighbours and re-lays the ego graph on a ring, neighbours sorted by their original bearing so the mental map survives; camera refits.
+- **One control surface:** filter input + channel chips MOVED from the register panel into the Atlas header. `lexicon-page.ts` `applyFilter()` now dispatches `lexicon:filter` {q, categories, visibleIds}; the Atlas hides non-matching nodes/edges, lights the filtered channel caption, and refits. Register stays in sync (same island).
+- **Deep links:** selection writes `?term=<id>` (replaceState); `?term=` and `/lexicon/#id` both select on load; `hashchange` selects. Escape clears selection and strips the param.
+- **Device scaling:** viewBox height tracks the stage aspect at runtime (no letterboxing) and glyph scale is decoupled from camera zoom (`uiScale = clamp(1176/stageWidth, 0.9, 2.0)`) so marks/labels keep a physical size on phones; ≤600px labels only render for touched/selected nodes.
+- **Register demoted** to a "Full register" section below (print / no-JS / Ctrl+F complete). All `.lex-controls` CSS + sticky nav-offset hacks removed from lexicon.astro.
+- data-testids: lexicon-atlas, atlas-stage, atlas-readout(-selected), atlas-filter-input, atlas-zoom-in/-out, atlas-reset, atlas-focus-toggle, lexicon-node-<id>, atlas-inspector(-close), atlas-card-term-<id>, atlas-goto-<id>, atlas-trail.
+- Tests: `tests/e2e/exhibits.spec.ts` lexicon specs rewritten → scene render, select+inspector+traversal+URL+Escape, deep link, filter/register sync, register hash arrival. **Full suite 40 passed / 1 skipped / 0 failed.** eslint + astro check clean; all build sentinels green (lexicon HTML 21.6 KB gz, well under budget).
+- NOTE for future agents: node clicks in tests must dispatch a bubbling `MouseEvent('click', {bubbles, cancelable})` — the live camera moves node boxes between Playwright's hit-test and dispatch (real clicks are fine for users; only automation flakes).
+
 ## Backlog (prioritized)
 P0 (user action): apply D1 migrations remotely (see above).
 P1: Praxis editorial rebuild (10 stub articles) — USER DEFERRED, wait for their content/direction. Engagement dossier content rebuild (user will supply copy; design ready).
@@ -48,4 +67,5 @@ P2: PraxisAsk LLM grounded-answer layer (ask_queries logging already exists for 
 
 ## Work log
 - 2026-06 session 1: env setup (previous fork), deep analysis, PRD created.
-- 2026-06 session 2 (this): dossier pages, constellation, poses, e2e green, palette/materialize/h1 bug fixes, testing_agent pass.
+- 2026-06 session 2: dossier pages, constellation, poses, e2e green, palette/materialize/h1 bug fixes, testing_agent pass.
+- 2026-06 session 3 (this): Lexicon Atlas — graph is now the page (3D projected field + inspector + traversal + focus mode + deep links + filter unification). Suite green.

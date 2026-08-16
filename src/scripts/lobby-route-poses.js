@@ -411,6 +411,10 @@ const ROUTE_SUBPOSES = Object.freeze({
      the list more breathing room without shifting the camera enough
      to feel like a page swap. */
   'lexicon-index':        { dz: 0.35, dfov: 1.5, dlut: 0.04 },
+  /* Lexicon Atlas: the diorama pulls back and widens while the graph
+     is on screen, so the projected field reads as suspended inside the
+     same space rather than pasted over it. */
+  'lexicon-atlas':        { dz: 0.55, dfov: 2.5, dlut: -0.02 },
   /* Exhibit operations log: gentle push-in + warmth as the reader
      commits to the evidence trail on an engagement dossier. */
   'exhibit-log':          { dz: -0.2, dfov: -1,  dlut: 0.05 },
