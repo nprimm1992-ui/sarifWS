@@ -243,3 +243,37 @@ test('lexicon register: hash arrival still expands the flat entry', async ({ pag
     )
     .toBe('open');
 });
+
+test('praxis article: lexicon terms deep-link into the atlas view', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto('/praxis/one-operator-one-intelligence-layer/', { waitUntil: 'load' });
+  await page.waitForTimeout(800);
+
+  const links = await page.evaluate(() =>
+    [...document.querySelectorAll('[data-lex-anchor]')].map((a) => a.getAttribute('href') ?? ''),
+  );
+  expect(links.length, 'article auto-links lexicon terms').toBeGreaterThan(0);
+  for (const href of links) {
+    expect(href, 'term links target the atlas view').toMatch(/^\/lexicon\/\?term=[a-z0-9-]+$/);
+  }
+
+  /* Following one lands on the atlas with that term selected, and the
+     flat register entry mirrors the selection. */
+  await page.goto(links[0], { waitUntil: 'load' });
+  await page.waitForSelector('[data-atlas][data-atlas-ready="true"]', { state: 'attached', timeout: 45_000 });
+  const id = links[0].split('term=')[1];
+
+  await expect
+    .poll(
+      async () =>
+        page.evaluate((termId) => {
+          const entry = document.getElementById(termId ?? '');
+          return {
+            selected: document.querySelector('[data-atlas]')?.getAttribute('data-selected') ?? '',
+            registerOpen: entry instanceof HTMLDetailsElement ? entry.open : false,
+          };
+        }, id),
+      { timeout: 15_000, message: 'atlas selects the deep-linked term and the register mirrors it' },
+    )
+    .toMatchObject({ selected: id, registerOpen: true });
+});

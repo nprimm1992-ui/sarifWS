@@ -60,6 +60,13 @@ User brief: "the graph becomes the page… drop-down definitions absorbed into t
 - Tests: `tests/e2e/exhibits.spec.ts` lexicon specs rewritten → scene render, select+inspector+traversal+URL+Escape, deep link, filter/register sync, register hash arrival. **Full suite 40 passed / 1 skipped / 0 failed.** eslint + astro check clean; all build sentinels green (lexicon HTML 21.6 KB gz, well under budget).
 - NOTE for future agents: node clicks in tests must dispatch a bubbling `MouseEvent('click', {bubbles, cancelable})` — the live camera moves node boxes between Playwright's hit-test and dispatch (real clicks are fine for users; only automation flakes).
 
+## Implemented June 2026 (session 3b) — Atlas deep links
+- `lexicon-graph.ts`: new derived field `atlasLink` = `/lexicon/?term=<id>` on every enriched entry (`permalink` stays the citation-stable `#id` anchor).
+- `LexiconTermLink.astro` (auto-linked terms in Praxis prose): anchor href, "Open in atlas →", Related / Referenced-by chips and the superseded pointer all target `?term=` now. Pinned-popover behaviour unchanged; cmd/middle-click opens the Atlas view in a new tab.
+- `search-index.json.ts`: lexicon results (⌘K palette) point at the Atlas view too.
+- `lexicon-page.ts`: new `openTermParamTarget()` — a `?term=` arrival expands the matching register entry WITHOUT scrolling (Atlas owns the viewport; the flat corpus still mirrors the selection for scroll/print/Ctrl+F).
+- Test: `praxis article: lexicon terms deep-link into the atlas view` (asserts every in-prose term href matches `/lexicon/?term=…`, then follows one and verifies atlas selection + register mirror). **Suite 41 passed / 1 skipped / 0 failed.**
+
 ## Backlog (prioritized)
 P0 (user action): apply D1 migrations remotely (see above).
 P1: Praxis editorial rebuild (10 stub articles) — USER DEFERRED, wait for their content/direction. Engagement dossier content rebuild (user will supply copy; design ready).
@@ -68,4 +75,5 @@ P2: PraxisAsk LLM grounded-answer layer (ask_queries logging already exists for 
 ## Work log
 - 2026-06 session 1: env setup (previous fork), deep analysis, PRD created.
 - 2026-06 session 2: dossier pages, constellation, poses, e2e green, palette/materialize/h1 bug fixes, testing_agent pass.
-- 2026-06 session 3 (this): Lexicon Atlas — graph is now the page (3D projected field + inspector + traversal + focus mode + deep links + filter unification). Suite green.
+- 2026-06 session 3b (this): Praxis/palette lexicon links now deep-link into the Atlas (`?term=`).
+- 2026-06 session 3: Lexicon Atlas — graph is now the page (3D projected field + inspector + traversal + focus mode + deep links + filter unification). Suite green.

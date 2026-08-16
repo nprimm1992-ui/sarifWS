@@ -365,6 +365,21 @@ function openAndPulseHashTarget() {
   });
 }
 
+/**
+ * `?term=<id>` arrivals (Atlas deep links, e.g. from a Praxis article).
+ * The Atlas owns the viewport on arrival, so we expand the matching
+ * register entry WITHOUT scrolling — the flat corpus mirrors the
+ * selection for anyone who scrolls down or prints.
+ */
+function openTermParamTarget() {
+  const term = new URLSearchParams(window.location.search).get('term');
+  if (!term) return;
+  const target = document.getElementById(term);
+  if (target instanceof HTMLDetailsElement && target.matches('[data-lex-entry]')) {
+    target.open = true;
+  }
+}
+
 /* ---------- Scroll-spy (rail) ---------- */
 
 function initScrollSpy() {
@@ -530,6 +545,7 @@ function wire() {
 
   initScrollSpy();
   openAndPulseHashTarget();
+  openTermParamTarget();
 
   /* Popstate restores URL-driven state on back/forward. */
   window.addEventListener(

@@ -68,7 +68,11 @@ for (const entry of graph.flat) {
 }
 
 const slug = match?.id ?? '';
-const href = slug ? `/lexicon/#${slug}` : '/lexicon/';
+/* Deep link into the Atlas rather than the flat register: the graph
+   selects the term, frames it with its neighbours and opens the
+   inspector. The register entry below expands in the same pass, so the
+   anchor still lands the reader on the full entry either way. */
+const href = slug ? `/lexicon/?term=${slug}` : '/lexicon/';
 /* Random suffix keeps ids unique across manual authored dupes while
    still being stable enough for a single SSR pass. */
 const popId = slug ? `lex-pop-${slug}-${Math.random().toString(36).slice(2, 8)}` : undefined;
@@ -135,7 +139,7 @@ const supersededBy = isDeprecated && match?.supersededBy ? graph.byId.get(match.
       {supersededBy && (
         <span class="lex-term__superseded" data-pinned-only>
           Superseded by {' '}
-          <a href={`/lexicon/#${supersededBy.id}`}>{supersededBy.termDisplay ?? supersededBy.term}</a>.
+          <a href={`/lexicon/?term=${supersededBy.id}`}>{supersededBy.termDisplay ?? supersededBy.term}</a>.
         </span>
       )}
 
@@ -144,7 +148,7 @@ const supersededBy = isDeprecated && match?.supersededBy ? graph.byId.get(match.
           <span class="lex-term__section-label" role="heading" aria-level="4">Related</span>
           <span class="lex-term__chip-list" role="list">
             {match.related.map((r) => (
-              <span role="listitem"><LexiconChip href={`/lexicon/#${r.id}`}>{r.label}</LexiconChip></span>
+              <span role="listitem"><LexiconChip href={`/lexicon/?term=${r.id}`}>{r.label}</LexiconChip></span>
             ))}
           </span>
         </span>
@@ -155,7 +159,7 @@ const supersededBy = isDeprecated && match?.supersededBy ? graph.byId.get(match.
           <span class="lex-term__section-label" role="heading" aria-level="4">Referenced by</span>
           <span class="lex-term__chip-list" role="list">
             {match.incoming.map((r) => (
-              <span role="listitem"><LexiconChip href={`/lexicon/#${r.id}`} variant="muted">{r.label}</LexiconChip></span>
+              <span role="listitem"><LexiconChip href={`/lexicon/?term=${r.id}`} variant="muted">{r.label}</LexiconChip></span>
             ))}
           </span>
         </span>
@@ -163,7 +167,7 @@ const supersededBy = isDeprecated && match?.supersededBy ? graph.byId.get(match.
 
       <span class="lex-term__foot">
         <a class="lex-term__open-link" href={href} data-pinned-only>
-          Open in lexicon <span aria-hidden="true">&rarr;</span>
+          Open in atlas <span aria-hidden="true">&rarr;</span>
         </a>
         <span class="lex-term__peek-hint" data-preview-only aria-hidden="true">
           Click to expand
