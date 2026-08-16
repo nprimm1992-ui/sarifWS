@@ -26,6 +26,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+      
+      - name: Environment contract
+        run: npm run check:env-contract
+
+      - name: Unit tests (Pages Functions)
+        run: npm run test:unit
 
       - name: Lint and typecheck
         run: npm run check:all
