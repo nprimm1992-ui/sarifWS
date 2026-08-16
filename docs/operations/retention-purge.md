@@ -9,10 +9,49 @@ The Sarif site retains per-table data on the following windows:
 | `client_web_vitals`| 30 days  | —                             |
 | `client_errors`    | 30 days  | —                             |
 | `csp_reports`      | 30 days  | —                             |
+| `subscriptions`    | 90 days  | — (all rows expire)           |
 | `transmissions`    | 90 days  | `status IN ('sent','archived')` retained indefinitely |
 
 A scheduled Worker fires the purge daily; this runbook covers the failure
 modes, the manual fallback, and the audit trail.
+
+> **`subscriptions` was added to this table in Aug 2026.** It had been
+> omitted from retention entirely since it was introduced: written by
+> `functions/api/contact.js` with prospect name, email, organization and a
+> free-text brief, but touched by no purge path. `functions/api/admin/dsar.js`
+> *did* delete from it, so on-request erasure worked while the automatic
+> 90-day expiry the privacy page promises silently did not apply to it.
+
+## ⚠️ Known gap — the purge is not currently running
+
+Three independent reasons, all outstanding as of Aug 2026:
+
+1. **The cron Worker is not deployed.** `workers/cron-purge/` is a separate
+   Worker with its own `wrangler.toml`; nothing indicates it exists in the
+   account.
+2. **If deployed, it would be rejected.** It authenticates with
+   `Authorization: Bearer $ADMIN_PURGE_TOKEN` only. But
+   `functions/api/admin/_middleware.js` requires a valid **Cloudflare Access
+   JWT** *before* the handler's bearer check is reached, and the Worker never
+   sends one. It would receive 401 indefinitely — and its own
+   `cron_purge_unauthorized` branch logs and returns, so the failure is
+   silent.
+3. **Access is not configured.** `POST /api/admin/purge` currently returns
+   `500 {"error":"Admin access not configured."}` because
+   `CF_ACCESS_TEAM_DOMAIN` / `CF_ACCESS_AUD` are unset.
+
+This was latent while D1 had no tables. The migrations were applied in
+Aug 2026, so personal data now accumulates with no expiry mechanism.
+
+Resolving (1) alone is insufficient — (2) is an architectural contradiction
+between machine-to-machine auth and human SSO on the same route prefix, and
+must be resolved deliberately. Two viable designs:
+
+- **Access service token** — issue one for the Worker and send
+  `CF-Access-Client-Id` / `CF-Access-Client-Secret`. Keeps one gate; preferred.
+- **Bearer carve-out** — allow the middleware to accept a valid
+  `ADMIN_PURGE_TOKEN` bearer *in place of* an Access JWT for this one route.
+  Simpler, but widens the surface protected by a single static secret.
 
 ## Primary path — scheduled Worker
 

@@ -54,6 +54,25 @@ const TELEMETRY_TABLES = Object.freeze([
   { name: 'csp_reports', days: 30 },
 ]);
 const TRANSMISSIONS_DAYS = 90;
+
+/**
+ * PII tables on the same 90-day window as `transmissions`, but with no
+ * "engaged" carve-out — every row expires.
+ *
+ * `subscriptions` was missing from retention entirely: it is written by
+ * functions/api/contact.js and holds prospect_name, prospect_email,
+ * prospect_organization and a free-text brief, yet no purge path touched it.
+ * The DSAR erasure endpoint (functions/api/admin/dsar.js) DID delete from it,
+ * so the two subsystems disagreed — an on-request erasure worked while the
+ * automatic 90-day expiry the privacy page promises silently did not apply.
+ *
+ * Kept separate from TELEMETRY_TABLES because these rows are personal data,
+ * not aggregate telemetry: the distinction matters when reading the purge
+ * report and when reasoning about which windows are compliance-relevant.
+ */
+const PII_TABLES = Object.freeze([
+  { name: 'subscriptions', days: 90 },
+]);
 const CHUNK_SIZE = 500;
 const MAX_CHUNKS = 20; // 10k rows/table/run ceiling keeps us inside cron budget.
 
@@ -100,6 +119,19 @@ export async function onRequestPost(context) {
       windowExpr: `-${table.days} days`,
     });
     results.push({ table: table.name, window_days: table.days, ...outcome });
+  }
+
+  for (const table of PII_TABLES) {
+    const outcome = await purgeTable(env.DB, {
+      table: table.name,
+      windowExpr: `-${table.days} days`,
+    });
+    results.push({
+      table: table.name,
+      window_days: table.days,
+      pii: true,
+      ...outcome,
+    });
   }
 
   const txOutcome = await purgeTransmissions(env.DB);
