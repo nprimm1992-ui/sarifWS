@@ -136,7 +136,7 @@ export const GET: APIRoute = async () => {
       id: `lexicon-${entry.id}`,
       type: 'lexicon',
       title: entry.data.termDisplay ?? entry.data.term,
-      url: `/lexicon/#${entry.id}`,
+      url: `/lexicon/?term=${entry.id}`,
       summary: entry.data.definition,
       tags: [...(entry.data.tags ?? []), ...(entry.data.aka ?? [])],
       meta: {

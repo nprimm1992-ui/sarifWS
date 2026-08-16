@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Exhibition-hall round — engagement dossier pages + lexicon
- * constellation smoke.
+ * Exhibition-hall round — engagement dossier pages + the lexicon
+ * atlas (3D graph, inspector, traversal, filter sync).
  *
  * DOM-evaluation-first posture (same rationale as round7-dossier):
  * Playwright actionability checks interact poorly with the WebGL
@@ -88,49 +88,155 @@ test('engagements index: directory links to all six dossiers', async ({ page }) 
   }
 });
 
-test('lexicon constellation: nodes and edges render', async ({ page }) => {
+test('lexicon atlas: scene renders frameless with nodes, edges and channels', async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto('/lexicon/', { waitUntil: 'load' });
-  await page.waitForTimeout(1000);
+  await page.waitForSelector('[data-atlas][data-atlas-ready="true"]', { state: 'attached', timeout: 45_000 });
 
-  const map = await page.evaluate(() => {
-    const root = document.querySelector('[data-lex-map]');
+  const scene = await page.evaluate(() => {
+    const root = document.querySelector('[data-atlas]');
+    const first = document.querySelector('[data-atlas] [data-node] .atlas__node-tx');
     return {
       present: Boolean(root),
-      nodes: document.querySelectorAll('[data-lex-map] [data-node]').length,
-      edges: document.querySelectorAll('[data-lex-map] [data-edge-a]').length,
-      legendItems: document.querySelectorAll('[data-lex-map] .lex-map__legend-item').length,
+      nodes: document.querySelectorAll('[data-atlas] [data-node]').length,
+      edges: document.querySelectorAll('[data-atlas] [data-edge-a]').length,
+      scrim: document.querySelectorAll('[data-atlas] [data-atlas-scrim]').length,
+      rings: document.querySelectorAll('[data-atlas] [data-poly]').length,
+      chords: document.querySelectorAll('[data-atlas] .atlas__glyph-pair--octagram').length,
+      spokes: document.querySelectorAll('[data-atlas] .atlas__glyph-pair--spoke').length,
+      edgeUnderlays: document.querySelectorAll('[data-atlas] .atlas__edge-under').length,
+      channels: document.querySelectorAll('[data-atlas] .atlas__chip-dot').length,
+      clusters: document.querySelectorAll('[data-atlas] [data-cluster]').length,
+      /* The runtime camera writes a transform on every node group. */
+      projected: first?.getAttribute('transform') ?? '',
+      inspectorHidden: document.querySelector('[data-testid="atlas-inspector"]')?.hasAttribute('hidden') ?? false,
     };
   });
 
-  expect(map.present, 'constellation panel renders').toBe(true);
-  expect(map.nodes, 'all lexicon terms plotted').toBeGreaterThanOrEqual(10);
-  expect(map.edges, 'relationship edges plotted').toBeGreaterThan(10);
-  expect(map.legendItems, 'category legend rendered').toBeGreaterThanOrEqual(4);
+  expect(scene.present, 'atlas renders').toBe(true);
+  expect(scene.nodes, 'all lexicon terms plotted').toBeGreaterThanOrEqual(10);
+  expect(scene.edges, 'relationship edges plotted').toBeGreaterThan(10);
+  expect(scene.scrim, 'atmospheric scrim renders instead of a panel').toBe(1);
+  /* Octagonal armature: four rings, eight spokes, the {8/3} octagram. */
+  expect(scene.rings, 'octagon rings render').toBe(4);
+  expect(scene.spokes, 'eight radial spokes render').toBe(8);
+  expect(scene.chords, 'octagram chords render').toBe(8);
+  expect(scene.edgeUnderlays, 'every edge carries a dark underlay for legibility').toBe(scene.edges);
+  expect(scene.channels, 'channel chips carry colour dots').toBeGreaterThanOrEqual(4);
+  expect(scene.clusters, 'cluster captions render').toBeGreaterThanOrEqual(4);
+  expect(scene.projected, 'camera projects node positions').toMatch(/translate\(/);
+  expect(scene.inspectorHidden, 'inspector starts closed').toBe(true);
 });
 
-test('lexicon constellation: node click opens the entry below', async ({ page }) => {
+test('lexicon atlas: selecting a node opens the inspector and traversal works', async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto('/lexicon/', { waitUntil: 'load' });
-  /* The hashchange → auto-expand behavior belongs to the lexicon page
-     island; wait for its wired flag rather than a fixed dwell so the
-     test is immune to slow software-GL environments. */
+  await page.waitForSelector('[data-atlas][data-atlas-ready="true"]', { state: 'attached', timeout: 45_000 });
+
+  /* Nodes live inside an animated camera projection — their box moves
+     between Playwright's hit-point calculation and dispatch under CI
+     load. Dispatch a bubbling click on the node itself: the atlas
+     delegates selection from the root, so this is the same code path a
+     real click takes, minus the flake. */
+  await page.evaluate(() => {
+    document
+      .querySelector('[data-testid="lexicon-node-ucim"]')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  });
+
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => ({
+          selected: document.querySelector('[data-atlas]')?.getAttribute('data-selected') ?? '',
+          inspectorOpen: !document.querySelector('[data-testid="atlas-inspector"]')?.hasAttribute('hidden'),
+          card: document.querySelector('[data-atlas-card="ucim"]')?.hasAttribute('hidden') === false,
+          readout: document.querySelector('[data-testid="atlas-readout-selected"]')?.textContent?.trim() ?? '',
+        })),
+      { timeout: 15_000, message: 'inspector opens on the selected term' },
+    )
+    .toMatchObject({ selected: 'ucim', inspectorOpen: true, card: true });
+
+  /* Traversal: a related chip swaps the inspector to that term. */
+  await page.locator('[data-atlas-card="ucim"] [data-testid="atlas-goto-jensen"]').click({ force: true });
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => document.querySelector('[data-atlas]')?.getAttribute('data-selected') ?? ''),
+      { timeout: 10_000, message: 'traversal re-centres on the related term' },
+    )
+    .toBe('jensen');
+
+  /* Selection is shareable. */
+  expect(page.url(), 'selection is written to the URL').toContain('term=jensen');
+
+  /* Escape releases the field. */
+  await page.keyboard.press('Escape');
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() =>
+          document.querySelector('[data-testid="atlas-inspector"]')?.hasAttribute('hidden') ?? false,
+        ),
+      { timeout: 10_000, message: 'Escape closes the inspector' },
+    )
+    .toBe(true);
+});
+
+test('lexicon atlas: deep link selects a term on load', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto('/lexicon/?term=jensen', { waitUntil: 'load' });
+  await page.waitForSelector('[data-atlas][data-atlas-ready="true"]', { state: 'attached', timeout: 45_000 });
+
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => document.querySelector('[data-atlas]')?.getAttribute('data-selected') ?? ''),
+      { timeout: 15_000, message: 'deep-linked term is selected' },
+    )
+    .toBe('jensen');
+});
+
+test('lexicon atlas: filter subtracts nodes from the field and the register', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto('/lexicon/', { waitUntil: 'load' });
+  await page.waitForSelector('[data-lex-page][data-lex-page-wired="true"]', { state: 'attached', timeout: 60_000 });
+  await page.waitForSelector('[data-atlas][data-atlas-ready="true"]', { state: 'attached', timeout: 45_000 });
+
+  await page.locator('[data-testid="atlas-filter-input"]').fill('jensen');
+
+  /* The filter is one control surface over two renderings: whatever the
+     register hides must also leave the field. */
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => {
+          const total = document.querySelectorAll('[data-lex-entry]').length;
+          const registerHidden = document.querySelectorAll('[data-lex-entry][data-filtered-out="true"]').length;
+          const out = document.querySelectorAll('[data-atlas] [data-node].is-out').length;
+          return { synced: registerHidden > 0 && out === registerHidden, out, registerHidden, total };
+        }),
+      { timeout: 15_000, message: 'atlas and register hide the same terms' },
+    )
+    .toMatchObject({ synced: true });
+});
+
+test('lexicon register: hash arrival still expands the flat entry', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto('/lexicon/', { waitUntil: 'load' });
   await page.waitForSelector('[data-lex-page][data-lex-page-wired="true"]', {
     state: 'attached',
     timeout: 60_000,
   });
 
   const result = await page.evaluate(() => {
-    const node = document.querySelector('[data-lex-map] [data-node]');
+    const node = document.querySelector('[data-atlas] [data-node]');
     if (!node) return { clicked: false, id: '' };
     const id = node.getAttribute('data-node') ?? '';
-    /* SVG <a> default action does not fire on synthetic events across
-       engines — drive the hash directly; the page's hashchange handler
-       owns the expand either way (identical to a real node click). */
     window.location.hash = `#${id}`;
     return { clicked: true, id };
   });
-  expect(result.clicked, 'a constellation node exists to click').toBe(true);
+  expect(result.clicked, 'an atlas node exists').toBe(true);
 
   await expect
     .poll(
@@ -145,4 +251,68 @@ test('lexicon constellation: node click opens the entry below', async ({ page })
       { timeout: 15_000, message: 'entry auto-expands on hash arrival' },
     )
     .toBe('open');
+});
+
+test('praxis article: lexicon terms deep-link into the atlas view', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto('/praxis/one-operator-one-intelligence-layer/', { waitUntil: 'load' });
+  await page.waitForTimeout(800);
+
+  const links = await page.evaluate(() =>
+    [...document.querySelectorAll('[data-lex-anchor]')].map((a) => a.getAttribute('href') ?? ''),
+  );
+  expect(links.length, 'article auto-links lexicon terms').toBeGreaterThan(0);
+  for (const href of links) {
+    expect(href, 'term links target the atlas view').toMatch(/^\/lexicon\/\?term=[a-z0-9-]+$/);
+  }
+
+  /* Following one lands on the atlas with that term selected, and the
+     flat register entry mirrors the selection. */
+  await page.goto(links[0], { waitUntil: 'load' });
+  await page.waitForSelector('[data-atlas][data-atlas-ready="true"]', { state: 'attached', timeout: 45_000 });
+  const id = links[0].split('term=')[1];
+
+  await expect
+    .poll(
+      async () =>
+        page.evaluate((termId) => {
+          const entry = document.getElementById(termId ?? '');
+          return {
+            selected: document.querySelector('[data-atlas]')?.getAttribute('data-selected') ?? '',
+            registerOpen: entry instanceof HTMLDetailsElement ? entry.open : false,
+          };
+        }, id),
+      { timeout: 15_000, message: 'atlas selects the deep-linked term and the register mirrors it' },
+    )
+    .toMatchObject({ selected: id, registerOpen: true });
+});
+
+test('lexicon atlas: inspector shows term provenance that navigates to the source', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto('/lexicon/?term=ucim', { waitUntil: 'load' });
+  await page.waitForSelector('[data-atlas][data-atlas-ready="true"]', { state: 'attached', timeout: 45_000 });
+
+  const uses = await page.evaluate(() => {
+    const card = document.querySelector('[data-atlas-card="ucim"]');
+    const links = [...(card?.querySelectorAll('.atlas-card__use') ?? [])];
+    return {
+      label: card?.querySelector('.atlas-card__provenance .atlas-card__edges-label')?.textContent?.trim() ?? '',
+      count: links.length,
+      hrefs: links.map((a) => a.getAttribute('href') ?? ''),
+      hasHits: links.every((a) => (a.querySelector('.atlas-card__use-hits')?.textContent ?? '').includes('×')),
+    };
+  });
+
+  expect(uses.label, 'provenance section is labelled').toBe('Used in');
+  expect(uses.count, 'ucim is cited by published articles').toBeGreaterThan(0);
+  expect(uses.hasHits, 'each citation reports its occurrence count').toBe(true);
+  for (const href of uses.hrefs) {
+    expect(href, 'citations point at real routes').toMatch(/^\/(praxis|engagements)\/[a-z0-9-]+\/$/);
+  }
+
+  /* The link actually resolves to the cited document. */
+  const first = uses.hrefs[0];
+  await page.goto(first, { waitUntil: 'load' });
+  const heading = await page.evaluate(() => document.querySelectorAll('h1').length);
+  expect(heading, 'cited document renders').toBe(1);
 });

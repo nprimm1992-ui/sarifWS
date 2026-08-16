@@ -66,6 +66,11 @@ export type EnrichedLexiconEntry = {
   /** `/lexicon/#id` — relative permalink. Consumers that need an
    *  absolute URL should prepend `Astro.site`. */
   permalink: string;
+  /** `/lexicon/?term=id` — deep link into the Lexicon Atlas: the graph
+   *  selects the term, flies to it and opens its inspector (the flat
+   *  register entry expands too). Preferred for navigation; `permalink`
+   *  stays the citation-stable anchor. */
+  atlasLink: string;
   /** One-line canonical citation: `SARIF · Lexicon <ver> · L-<num> · <Term>`. */
   citation: string;
 };
@@ -192,6 +197,7 @@ export async function buildLexiconGraph(): Promise<LexiconGraph> {
       relatedTerms: entry.data.relatedTerms ?? [],
       sort: entry.data.sort,
       permalink: `/lexicon/#${entry.id}`,
+      atlasLink: `/lexicon/?term=${entry.id}`,
       citation: formatCitation(entry.data.num, termDisplayOrTerm),
     };
     byId.set(entry.id, enriched);

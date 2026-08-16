@@ -213,6 +213,15 @@ function applyFilter(opts: { pushUrl?: boolean } = {}) {
   /* URL sync */
   if (opts.pushUrl) writeStateToUrl(false);
 
+  /* The Atlas island subscribes to this: filtering the register also
+     subtracts nodes from the graph and re-fits its camera. One control
+     surface, two renderings of the same corpus. */
+  document.dispatchEvent(
+    new CustomEvent('lexicon:filter', {
+      detail: { q, categories: Array.from(categories), visibleIds: Array.from(visibleIds) },
+    }),
+  );
+
   announce(`${visibleCount} of ${total} terms`);
 }
 
@@ -354,6 +363,21 @@ function openAndPulseHashTarget() {
       details.classList.remove(TARGET_PULSE_CLASS);
     }, 1400);
   });
+}
+
+/**
+ * `?term=<id>` arrivals (Atlas deep links, e.g. from a Praxis article).
+ * The Atlas owns the viewport on arrival, so we expand the matching
+ * register entry WITHOUT scrolling — the flat corpus mirrors the
+ * selection for anyone who scrolls down or prints.
+ */
+function openTermParamTarget() {
+  const term = new URLSearchParams(window.location.search).get('term');
+  if (!term) return;
+  const target = document.getElementById(term);
+  if (target instanceof HTMLDetailsElement && target.matches('[data-lex-entry]')) {
+    target.open = true;
+  }
 }
 
 /* ---------- Scroll-spy (rail) ---------- */
@@ -521,6 +545,7 @@ function wire() {
 
   initScrollSpy();
   openAndPulseHashTarget();
+  openTermParamTarget();
 
   /* Popstate restores URL-driven state on back/forward. */
   window.addEventListener(
