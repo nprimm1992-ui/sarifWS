@@ -277,3 +277,33 @@ test('praxis article: lexicon terms deep-link into the atlas view', async ({ pag
     )
     .toMatchObject({ selected: id, registerOpen: true });
 });
+
+test('lexicon atlas: inspector shows term provenance that navigates to the source', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto('/lexicon/?term=ucim', { waitUntil: 'load' });
+  await page.waitForSelector('[data-atlas][data-atlas-ready="true"]', { state: 'attached', timeout: 45_000 });
+
+  const uses = await page.evaluate(() => {
+    const card = document.querySelector('[data-atlas-card="ucim"]');
+    const links = [...(card?.querySelectorAll('.atlas-card__use') ?? [])];
+    return {
+      label: card?.querySelector('.atlas-card__provenance .atlas-card__edges-label')?.textContent?.trim() ?? '',
+      count: links.length,
+      hrefs: links.map((a) => a.getAttribute('href') ?? ''),
+      hasHits: links.every((a) => (a.querySelector('.atlas-card__use-hits')?.textContent ?? '').includes('×')),
+    };
+  });
+
+  expect(uses.label, 'provenance section is labelled').toBe('Used in');
+  expect(uses.count, 'ucim is cited by published articles').toBeGreaterThan(0);
+  expect(uses.hasHits, 'each citation reports its occurrence count').toBe(true);
+  for (const href of uses.hrefs) {
+    expect(href, 'citations point at real routes').toMatch(/^\/(praxis|engagements)\/[a-z0-9-]+\/$/);
+  }
+
+  /* The link actually resolves to the cited document. */
+  const first = uses.hrefs[0];
+  await page.goto(first, { waitUntil: 'load' });
+  const heading = await page.evaluate(() => document.querySelectorAll('h1').length);
+  expect(heading, 'cited document renders').toBe(1);
+});

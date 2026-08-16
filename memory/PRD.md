@@ -67,6 +67,12 @@ User brief: "the graph becomes the page… drop-down definitions absorbed into t
 - `lexicon-page.ts`: new `openTermParamTarget()` — a `?term=` arrival expands the matching register entry WITHOUT scrolling (Atlas owns the viewport; the flat corpus still mirrors the selection for scroll/print/Ctrl+F).
 - Test: `praxis article: lexicon terms deep-link into the atlas view` (asserts every in-prose term href matches `/lexicon/?term=…`, then follows one and verifies atlas selection + register mirror). **Suite 41 passed / 1 skipped / 0 failed.**
 
+## Implemented June 2026 (session 3c) — Term provenance
+- New `src/lib/lexicon-usage.ts`: build-time provenance index. For each lexicon term it builds the same alias set the rehype auto-linker uses (`term` + `relatedTerms[]` + `aka[]` + `termDisplay` lead-in) and word-boundary/case-insensitive scans every published Praxis article (title + summary + tags + body) and every Engagement (classification, sector, stat, leads[], highlights[]), returning `{ praxis[], engagements[], total }` with per-document hit counts. Memoized per build; derived, never authored, no LLM inference.
+- Atlas inspector cards gained a **"Used in"** section: one row per citing document with kind tag (Praxis / Exhibit), title, hit count (`7×`), linking to `/praxis/<slug>/` or `/engagements/<slug>/`. Terms with no citations render "Not yet cited in the published corpus." (1 term today). Engagement citations are currently zero because dossier copy is still placeholder — they will appear automatically once real narratives land.
+- testids: `atlas-use-praxis-<slug>`, `atlas-use-engagement-<slug>`.
+- Test: `lexicon atlas: inspector shows term provenance that navigates to the source`. **Suite 42 passed / 1 skipped / 0 failed.**
+
 ## Backlog (prioritized)
 P0 (user action): apply D1 migrations remotely (see above).
 P1: Praxis editorial rebuild (10 stub articles) — USER DEFERRED, wait for their content/direction. Engagement dossier content rebuild (user will supply copy; design ready).
@@ -75,5 +81,6 @@ P2: PraxisAsk LLM grounded-answer layer (ask_queries logging already exists for 
 ## Work log
 - 2026-06 session 1: env setup (previous fork), deep analysis, PRD created.
 - 2026-06 session 2: dossier pages, constellation, poses, e2e green, palette/materialize/h1 bug fixes, testing_agent pass.
-- 2026-06 session 3b (this): Praxis/palette lexicon links now deep-link into the Atlas (`?term=`).
+- 2026-06 session 3c (this): term provenance ("Used in") inside the Atlas inspector.
+- 2026-06 session 3b: Praxis/palette lexicon links now deep-link into the Atlas (`?term=`).
 - 2026-06 session 3: Lexicon Atlas — graph is now the page (3D projected field + inspector + traversal + focus mode + deep links + filter unification). Suite green.

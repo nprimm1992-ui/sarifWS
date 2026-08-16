@@ -27,9 +27,12 @@
  * full register further down the page.
  */
 import { getLexiconGraph, LEXICON_CATEGORY_META, formatIsoDay } from '../../lib/lexicon-graph';
+import { getLexiconUsage } from '../../lib/lexicon-usage';
 import LexiconChip from './LexiconChip.astro';
 
 const graph = await getLexiconGraph();
+/* Provenance: which articles and engagements actually use each term. */
+const usage = await getLexiconUsage();
 
 /* ── Camera constants — MIRRORED in src/scripts/lexicon-atlas.js ── */
 const VB_W = 1000;
@@ -285,6 +288,7 @@ const cards = graph.flat.map((n) => ({
   citation: n.citation,
   permalink: n.permalink,
   degree: degrees.get(n.id) ?? 0,
+  usage: usage.get(n.id) ?? { praxis: [], engagements: [], total: 0 },
 }));
 ---
 
@@ -543,6 +547,42 @@ const cards = graph.flat.map((n) => ({
                 </ul>
               </section>
             )}
+
+            <section class="atlas-card__edges atlas-card__provenance">
+              <h4 class="atlas-card__edges-label">Used in</h4>
+              {c.usage.total === 0 ? (
+                <p class="atlas-card__void">Not yet cited in the published corpus.</p>
+              ) : (
+                <ul class="atlas-card__uses" role="list">
+                  {c.usage.praxis.map((u) => (
+                    <li>
+                      <a
+                        class="atlas-card__use"
+                        href={u.href}
+                        data-testid={`atlas-use-praxis-${u.id}`}
+                      >
+                        <span class="atlas-card__use-kind">Praxis</span>
+                        <span class="atlas-card__use-title">{u.title}</span>
+                        <span class="atlas-card__use-hits">{u.hits}×</span>
+                      </a>
+                    </li>
+                  ))}
+                  {c.usage.engagements.map((u) => (
+                    <li>
+                      <a
+                        class="atlas-card__use atlas-card__use--engagement"
+                        href={u.href}
+                        data-testid={`atlas-use-engagement-${u.id}`}
+                      >
+                        <span class="atlas-card__use-kind">Exhibit</span>
+                        <span class="atlas-card__use-title">{u.title}</span>
+                        <span class="atlas-card__use-hits">{u.hits}×</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
             <footer class="atlas-card__foot">
               <button
@@ -1160,6 +1200,8 @@ const cards = graph.flat.map((n) => ({
   .atlas-card > *:nth-child(5) { animation-delay: 0.36s; }
   .atlas-card > *:nth-child(6) { animation-delay: 0.42s; }
   .atlas-card > *:nth-child(7) { animation-delay: 0.48s; }
+  .atlas-card > *:nth-child(8) { animation-delay: 0.54s; }
+  .atlas-card > *:nth-child(9) { animation-delay: 0.6s; }
 
   @keyframes atlasCardIn {
     from { opacity: 0; transform: translate3d(14px, 0, 0); }
@@ -1289,6 +1331,82 @@ const cards = graph.flat.map((n) => ({
 
   @media (pointer: coarse) {
     .atlas-card__chip { padding: 10px 13px; }
+  }
+
+  /* ── Provenance ("Used in") ──────────────────────────────────── */
+  .atlas-card__uses {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .atlas-card__use {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 10px;
+    padding: 7px 9px;
+    text-decoration: none;
+    border: 1px solid rgba(200, 196, 190, 0.14);
+    border-left: 2px solid rgba(0, 212, 255, 0.45);
+    background: rgba(0, 212, 255, 0.03);
+    transition: border-color 0.16s ease, background 0.16s ease, transform 0.18s ease;
+  }
+
+  .atlas-card__use--engagement {
+    border-left-color: rgba(221, 184, 61, 0.5);
+  }
+
+  .atlas-card__use:hover {
+    border-color: rgba(0, 212, 255, 0.4);
+    background: rgba(0, 212, 255, 0.09);
+    transform: translateX(2px);
+  }
+
+  .atlas-card__use:focus-visible {
+    outline: 2px solid var(--cyan-bright);
+    outline-offset: 2px;
+  }
+
+  .atlas-card__use-kind {
+    font-family: var(--font-ticker);
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .atlas-card__use--engagement .atlas-card__use-kind {
+    color: rgba(221, 184, 61, 0.78);
+  }
+
+  .atlas-card__use-title {
+    font-family: var(--font-body);
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+  }
+
+  .atlas-card__use:hover .atlas-card__use-title {
+    color: var(--text-primary);
+  }
+
+  .atlas-card__use-hits {
+    font-family: var(--font-ticker);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: rgba(0, 212, 255, 0.6);
+  }
+
+  .atlas-card__void {
+    margin: 0;
+    font-size: 0.76rem;
+    line-height: 1.5;
+    color: var(--text-muted);
   }
 
   .atlas-card__foot {
