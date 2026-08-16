@@ -84,6 +84,13 @@ User brief: "remove the backdrop of the graph to make it feel like it's floating
 - **Synthetic floor grid removed entirely** (markup, CSS, runtime): the real diorama now supplies the depth reference, and the fake plane clipped as an ugly band at the stage edge.
 - Suite updated (scrim + edge-underlay assertions replace the grid assertion). **42 passed / 1 skipped / 0 failed.**
 
+## Implemented June 2026 (session 3e) — Octagonal matrix layout
+User brief: "make the graph resemble an octagonal sacred geometry like matrix".
+- **Force simulation and PRNG deleted.** Layout is now a deterministic three-ring octagonal armature: the most-connected term is the AXIS at centre, the next eight are seated on the primary octagon (order = category, then degree, so each channel occupies a contiguous arc), remaining terms sit on an outer octagon rotated by a half-step. Depth follows the geometry: axis nearest (z +84), primary ring alternates ±34 (antiprism, so orbit reveals it as a solid), outer ring recedes (−104). Constants: R_CORE 118 / R_RING 226 / R_OUTER 358, FLAT 0.7 (the figure is flattened on Y — a plate seen slightly from above, which also fits a 16:10 frame without cropping).
+- **Sacred-geometry armature** rendered as `[data-poly]` polylines + `[data-ax]` line pairs in the figure's own z-plane, re-projected every frame so it turns WITH the matrix: 3 concentric octagons + 1 half-step-rotated octagon (the eight-pointed star), 8 radial spokes core→outer, and the {8/3} octagram chording the primary ring. Cyan rings, gold core + octagram, dashed star, all with dark underlays; the whole group drops to 0.35 opacity while a term is selected.
+- Channel captions now sit on the outer margin at the mean bearing of their own arc; focus mode snaps neighbours to the same 45° bearings; `fitVisible` frames the whole figure via `data-atlas-extent-x/y` so the armature is never cropped (all 11 nodes verified in-frame at 1600×1000).
+- Tests: scene spec asserts 4 rings / 8 spokes / 8 octagram chords. **Suite 42 passed / 1 skipped / 0 failed.**
+
 ## Backlog (prioritized)
 P0 (user action): apply D1 migrations remotely (see above).
 P1: Praxis editorial rebuild (10 stub articles) — USER DEFERRED, wait for their content/direction. Engagement dossier content rebuild (user will supply copy; design ready).
@@ -92,7 +99,8 @@ P2: PraxisAsk LLM grounded-answer layer (ask_queries logging already exists for 
 ## Work log
 - 2026-06 session 1: env setup (previous fork), deep analysis, PRD created.
 - 2026-06 session 2: dossier pages, constellation, poses, e2e green, palette/materialize/h1 bug fixes, testing_agent pass.
-- 2026-06 session 3d (this): frameless atlas — panel/backdrop removed, contrast moved onto the marks, floor grid deleted.
+- 2026-06 session 3e (this): octagonal sacred-geometry matrix layout replaces the force sim.
+- 2026-06 session 3d: frameless atlas — panel/backdrop removed, contrast moved onto the marks, floor grid deleted.
 - 2026-06 session 3c: term provenance ("Used in") inside the Atlas inspector.
 - 2026-06 session 3b: Praxis/palette lexicon links now deep-link into the Atlas (`?term=`).
 - 2026-06 session 3: Lexicon Atlas — graph is now the page (3D projected field + inspector + traversal + focus mode + deep links + filter unification). Suite green.

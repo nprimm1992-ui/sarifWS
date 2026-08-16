@@ -101,6 +101,9 @@ test('lexicon atlas: scene renders frameless with nodes, edges and channels', as
       nodes: document.querySelectorAll('[data-atlas] [data-node]').length,
       edges: document.querySelectorAll('[data-atlas] [data-edge-a]').length,
       scrim: document.querySelectorAll('[data-atlas] [data-atlas-scrim]').length,
+      rings: document.querySelectorAll('[data-atlas] [data-poly]').length,
+      chords: document.querySelectorAll('[data-atlas] .atlas__glyph-pair--octagram').length,
+      spokes: document.querySelectorAll('[data-atlas] .atlas__glyph-pair--spoke').length,
       edgeUnderlays: document.querySelectorAll('[data-atlas] .atlas__edge-under').length,
       channels: document.querySelectorAll('[data-atlas] .atlas__chip-dot').length,
       clusters: document.querySelectorAll('[data-atlas] [data-cluster]').length,
@@ -114,6 +117,10 @@ test('lexicon atlas: scene renders frameless with nodes, edges and channels', as
   expect(scene.nodes, 'all lexicon terms plotted').toBeGreaterThanOrEqual(10);
   expect(scene.edges, 'relationship edges plotted').toBeGreaterThan(10);
   expect(scene.scrim, 'atmospheric scrim renders instead of a panel').toBe(1);
+  /* Octagonal armature: four rings, eight spokes, the {8/3} octagram. */
+  expect(scene.rings, 'octagon rings render').toBe(4);
+  expect(scene.spokes, 'eight radial spokes render').toBe(8);
+  expect(scene.chords, 'octagram chords render').toBe(8);
   expect(scene.edgeUnderlays, 'every edge carries a dark underlay for legibility').toBe(scene.edges);
   expect(scene.channels, 'channel chips carry colour dots').toBeGreaterThanOrEqual(4);
   expect(scene.clusters, 'cluster captions render').toBeGreaterThanOrEqual(4);

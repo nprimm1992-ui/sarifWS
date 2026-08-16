@@ -58,102 +58,80 @@ for (const e of graph.flat) {
   }
 }
 
-/* Deterministic PRNG — byte-stable layout across builds. */
-function mulberry32(seed: number) {
-  let a = seed;
-  return function () {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-const rand = mulberry32(1379);
+/* ── Octagonal matrix layout ─────────────────────────────────────
+ *
+ * The vocabulary is not an organic blob: it is a constructed figure.
+ * Terms are seated on a three-ring octagonal armature — an axis term at
+ * the centre, eight on the primary octagon, the remainder on an outer
+ * octagon rotated off-axis. Placement is fully deterministic (no force
+ * simulation, no PRNG): order around the ring is category, then degree,
+ * so each channel occupies a contiguous arc of the figure.
+ *
+ * Depth follows the geometry rather than the taxonomy: the axis sits
+ * nearest the viewer, the primary ring alternates ±Z like an antiprism
+ * (so orbiting reveals it as a solid, not a decal), and the outer ring
+ * recedes.
+ */
+const R_CORE = 118;
+const R_RING = 226;
+const R_OUTER = 358;
+const VERTICES = 8;
+const STEP = (Math.PI * 2) / VERTICES;
+const TOP = -Math.PI / 2;
+const HALF_STEP = STEP / 2;
+/* The figure is flattened on Y: a plate seen slightly from above rather
+   than a wheel facing the viewer. It also lets the whole construction
+   sit inside a 16:10 frame without cropping. */
+const FLAT = 0.7;
 
-/* Category cluster anchors in the XY field (pre-centering). */
-const ANCHORS: Record<string, [number, number]> = {
-  doctrine: [320, 200],
-  substrate: [700, 210],
-  discipline: [350, 430],
-  engagement: [680, 420],
-  uncategorized: [500, 310],
+/** Octagon vertex in the z-plane of the figure. */
+function vertex(radius: number, index: number, rotate = 0) {
+  const a = TOP + index * STEP + rotate;
+  return { x: Math.cos(a) * radius, y: Math.sin(a) * radius * FLAT, a };
+}
+
+const CAT_ORDER: Record<string, number> = {
+  doctrine: 0,
+  substrate: 1,
+  discipline: 2,
+  engagement: 3,
+  uncategorized: 4,
 };
 
-/* Depth channel per category: doctrine reads nearest (what the firm
-   believes is in front of you), substrate sits deepest (infrastructure
-   under everything). */
-const CAT_Z: Record<string, number> = {
-  doctrine: 95,
-  substrate: -110,
-  discipline: 25,
-  engagement: -35,
-  uncategorized: 0,
-};
+const degrees = new Map(graph.flat.map((n) => [n.id, n.related.length + n.incoming.length]));
 
-type P = { x: number; y: number };
-const pos = new Map<string, P>();
-for (const n of graph.flat) {
-  const anchor = ANCHORS[n.category] ?? ANCHORS.uncategorized;
-  pos.set(n.id, {
-    x: anchor[0] + (rand() - 0.5) * 220,
-    y: anchor[1] + (rand() - 0.5) * 180,
-  });
-}
+/* The axis is the most connected term — the figure is built around it. */
+const ordered = [...graph.flat].sort(
+  (a, b) => (degrees.get(b.id) ?? 0) - (degrees.get(a.id) ?? 0),
+);
+const axisId = ordered[0]?.id ?? '';
 
-/* Force relaxation: repulsion + edge springs + centre gravity +
-   category-anchor cohesion. 11 nodes × 320 iterations is sub-ms. */
-const ids = graph.flat.map((n) => n.id);
-const ITER = 320;
-for (let it = 0; it < ITER; it++) {
-  const cooling = 1 - it / ITER;
-  const force = new Map<string, P>(ids.map((id) => [id, { x: 0, y: 0 }]));
+const seated = graph.flat
+  .filter((n) => n.id !== axisId)
+  .sort(
+    (a, b) =>
+      (CAT_ORDER[a.category] ?? 9) - (CAT_ORDER[b.category] ?? 9) ||
+      (degrees.get(b.id) ?? 0) - (degrees.get(a.id) ?? 0) ||
+      a.term.localeCompare(b.term),
+  );
 
-  for (let i = 0; i < ids.length; i++) {
-    for (let j = i + 1; j < ids.length; j++) {
-      const pa = pos.get(ids[i])!;
-      const pb = pos.get(ids[j])!;
-      let dx = pa.x - pb.x;
-      let dy = pa.y - pb.y;
-      let d2 = dx * dx + dy * dy;
-      if (d2 < 1) { dx = rand() - 0.5; dy = rand() - 0.5; d2 = 1; }
-      const d = Math.sqrt(d2);
-      const rep = Math.min(38000 / d2, 74);
-      const fa = force.get(ids[i])!;
-      const fb = force.get(ids[j])!;
-      fa.x += (dx / d) * rep;
-      fa.y += (dy / d) * rep;
-      fb.x -= (dx / d) * rep;
-      fb.y -= (dy / d) * rep;
-    }
+const extras = Math.max(seated.length - VERTICES, 0);
+type Seat = { x: number; y: number; z: number; ring: 'axis' | 'ring' | 'outer'; a: number };
+const seats = new Map<string, Seat>();
+seats.set(axisId, { x: 0, y: 0, z: 84, ring: 'axis', a: 0 });
+seated.forEach((n, i) => {
+  if (i < VERTICES) {
+    const v = vertex(R_RING, i);
+    /* Antiprism shimmer: alternate vertices lean toward and away from
+       the viewer so the ring reads as a solid figure under orbit. */
+    seats.set(n.id, { x: v.x, y: v.y, z: i % 2 === 0 ? 34 : -34, ring: 'ring', a: v.a });
+  } else {
+    const slot = i - VERTICES;
+    const spread = extras > 0 ? (VERTICES / extras) * slot : 0;
+    const v = vertex(R_OUTER, spread, HALF_STEP);
+    seats.set(n.id, { x: v.x, y: v.y, z: -104, ring: 'outer', a: v.a });
   }
-
-  for (const e of edges) {
-    const pa = pos.get(e.a)!;
-    const pb = pos.get(e.b)!;
-    const dx = pb.x - pa.x;
-    const dy = pb.y - pa.y;
-    const d = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-    const pull = 0.02 * (d - 205);
-    const fa = force.get(e.a)!;
-    const fb = force.get(e.b)!;
-    fa.x += (dx / d) * pull;
-    fa.y += (dy / d) * pull;
-    fb.x -= (dx / d) * pull;
-    fb.y -= (dy / d) * pull;
-  }
-
-  for (const n of graph.flat) {
-    const p = pos.get(n.id)!;
-    const f = force.get(n.id)!;
-    const anchor = ANCHORS[n.category] ?? ANCHORS.uncategorized;
-    f.x += (VB_W / 2 - p.x) * 0.012 + (anchor[0] - p.x) * 0.01;
-    f.y += (300 - p.y) * 0.012 + (anchor[1] - p.y) * 0.01;
-    const step = 12 * cooling;
-    p.x += Math.max(-step, Math.min(step, f.x));
-    p.y += Math.max(-step, Math.min(step, f.y));
-  }
-}
+});
 
 /* ── Build-time projection with the home camera (no-JS baseline) ── */
 function project(wx: number, wy: number, wz: number) {
@@ -171,10 +149,6 @@ function project(wx: number, wy: number, wz: number) {
 const r1 = (v: number) => Math.round(v * 10) / 10;
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
 
-const degrees = new Map(graph.flat.map((n) => [n.id, n.related.length + n.incoming.length]));
-const avgDegree =
-  graph.flat.reduce((acc, n) => acc + (degrees.get(n.id) ?? 0), 0) / Math.max(graph.count, 1);
-
 type AtlasNode = {
   id: string;
   term: string;
@@ -187,6 +161,7 @@ type AtlasNode = {
   wx: number;
   wy: number;
   wz: number;
+  ring: string;
   sx: number;
   sy: number;
   s: number;
@@ -200,11 +175,11 @@ function truncateDef(s: string, max = 150): string {
 }
 
 const nodes: AtlasNode[] = graph.flat.map((n) => {
-  const p = pos.get(n.id)!;
+  const seat = seats.get(n.id)!;
   const degree = degrees.get(n.id) ?? 0;
-  const wx = r1(p.x - VB_W / 2);
-  const wy = r1(p.y - 300);
-  const wz = r1((CAT_Z[n.category] ?? 0) + (degree - avgDegree) * 16);
+  const wx = r1(seat.x);
+  const wy = r1(seat.y);
+  const wz = r1(seat.z);
   const proj = project(wx, wy, wz);
   return {
     id: n.id,
@@ -218,26 +193,97 @@ const nodes: AtlasNode[] = graph.flat.map((n) => {
     wx,
     wy,
     wz,
+    ring: seat.ring,
     sx: r1(proj.x),
     sy: r1(proj.y),
     s: r3(proj.s),
-    r: 5 + Math.min(degree, 6) * 0.7,
+    r: (seat.ring === 'axis' ? 8 : 5.4) + Math.min(degree, 6) * 0.55,
   };
 });
 
-/* Cluster captions float above each category anchor. */
-/* Captions ride above the topmost node of their own cluster (derived,
-   not hand-placed) so they can never land on a term label. */
+/* Channel captions sit on the figure's outer margin, at the mean
+   bearing of that channel's arc — so the caption points at its own
+   segment of the octagon instead of floating over a term label. */
 const clusters = graph.groups
   .filter((g) => g.entries.length > 0)
   .map((g) => {
-    const members = nodes.filter((n) => n.category === g.meta.id);
-    const wx = r1(members.reduce((acc, n) => acc + n.wx, 0) / members.length);
-    const wy = r1(Math.min(...members.map((n) => n.wy)) - 78);
-    const wz = r1(members.reduce((acc, n) => acc + n.wz, 0) / members.length);
-    const p = project(wx, wy, wz);
-    return { id: g.meta.id, label: g.meta.label, wx, wy, wz, sx: r1(p.x), sy: r1(p.y), s: r3(p.s) };
+    const members = graph.flat.filter((n) => n.category === g.meta.id);
+    const bearings = members
+      .map((n) => seats.get(n.id))
+      .filter((seat): seat is Seat => Boolean(seat) && seat!.ring !== 'axis');
+    const sum = bearings.reduce(
+      (acc, seat) => ({ x: acc.x + Math.cos(seat.a), y: acc.y + Math.sin(seat.a) }),
+      { x: 0, y: 0 },
+    );
+    const a = bearings.length > 0 ? Math.atan2(sum.y, sum.x) : TOP;
+    const radius = R_OUTER + 96;
+    const wx = r1(Math.cos(a) * radius);
+    const wy = r1(Math.sin(a) * radius * FLAT);
+    const p = project(wx, wy, 0);
+    return { id: g.meta.id, label: g.meta.label, wx, wy, wz: 0, sx: r1(p.x), sy: r1(p.y), s: r3(p.s) };
   });
+
+/* ── Sacred-geometry armature ────────────────────────────────────
+ * Faint scaffolding that makes the construction visible: three
+ * concentric octagons, a half-step-rotated octagon forming the
+ * eight-pointed star, eight radial spokes, and the {8/3} octagram
+ * chording the primary ring. All of it lives in the figure's own
+ * z-plane and is re-projected by the camera, so it turns with the
+ * matrix instead of sitting on the glass.
+ */
+type GlyphPoly = { pts: [number, number, number][]; kind: string };
+type GlyphLine = { ax: number; ay: number; az: number; bx: number; by: number; bz: number; kind: string };
+
+function ring(radius: number, rotate = 0): [number, number, number][] {
+  return Array.from({ length: VERTICES + 1 }, (_, i) => {
+    const v = vertex(radius, i % VERTICES, rotate);
+    return [r1(v.x), r1(v.y), 0] as [number, number, number];
+  });
+}
+
+const glyphPolys: GlyphPoly[] = [
+  { pts: ring(R_CORE), kind: 'core' },
+  { pts: ring(R_RING), kind: 'ring' },
+  { pts: ring(R_RING, HALF_STEP), kind: 'star' },
+  { pts: ring(R_OUTER), kind: 'outer' },
+];
+
+const glyphLines: GlyphLine[] = [];
+for (let i = 0; i < VERTICES; i++) {
+  const inner = vertex(R_CORE, i);
+  const outer = vertex(R_OUTER, i);
+  glyphLines.push({
+    ax: r1(inner.x), ay: r1(inner.y), az: 0,
+    bx: r1(outer.x), by: r1(outer.y), bz: 0,
+    kind: 'spoke',
+  });
+  /* {8/3} octagram — the chord that gives the figure its star. */
+  const from = vertex(R_RING, i);
+  const to = vertex(R_RING, (i + 3) % VERTICES);
+  glyphLines.push({
+    ax: r1(from.x), ay: r1(from.y), az: 0,
+    bx: r1(to.x), by: r1(to.y), bz: 0,
+    kind: 'octagram',
+  });
+}
+
+/* Build-time projections for the no-JS baseline. */
+const glyphPolyGeometry = glyphPolys.map((g) => ({
+  ...g,
+  data: g.pts.map((pt) => pt.join(',')).join(';'),
+  points: g.pts
+    .map((pt) => {
+      const pr = project(pt[0], pt[1], pt[2]);
+      return `${r1(pr.x)},${r1(pr.y)}`;
+    })
+    .join(' '),
+}));
+
+const glyphLineGeometry = glyphLines.map((g) => {
+  const pa = project(g.ax, g.ay, g.az);
+  const pb = project(g.bx, g.by, g.bz);
+  return { ...g, x1: r1(pa.x), y1: r1(pa.y), x2: r1(pb.x), y2: r1(pb.y) };
+});
 
 const channels = graph.groups
   .filter((g) => g.entries.length > 0)
@@ -277,6 +323,8 @@ const cards = graph.flat.map((n) => ({
   data-atlas
   data-lex-map
   data-lobby-subpose="lexicon-atlas"
+  data-atlas-extent-x={R_OUTER + 70}
+  data-atlas-extent-y={Math.round(R_OUTER * FLAT) + 70}
   data-testid="lexicon-atlas"
 >
   <header class="atlas__hud">
@@ -284,9 +332,9 @@ const cards = graph.flat.map((n) => ({
       <p class="ui-eyebrow atlas__eyebrow">Relational substrate</p>
       <h2 id="atlas-heading" class="atlas__heading">Lexicon Atlas</h2>
       <p class="atlas__hint">
-        The vocabulary as the matrix holds it — {graph.count} terms, {edges.length} declared
-        relationships, {channels.length} channels of depth. Drag to orbit, scroll to close in,
-        select a term to open its entry inside the field.
+        The vocabulary as the matrix holds it — {graph.count} terms seated on an octagonal
+        armature, {edges.length} declared relationships, {channels.length} channels arcing around
+        the figure. Drag to orbit, scroll to close in, select a term to open its entry in the field.
       </p>
     </div>
 
@@ -387,6 +435,25 @@ const cards = graph.flat.map((n) => ({
         fill="url(#atlas-scrim)"
         aria-hidden="true"
       />
+
+      <g class="atlas__glyph" data-atlas-glyph aria-hidden="true">
+        {glyphPolyGeometry.map((g) => (
+          <g class={`atlas__glyph-pair atlas__glyph-pair--${g.kind}`} data-poly={g.data}>
+            <polyline class="atlas__glyph-under" points={g.points} />
+            <polyline class="atlas__glyph-line" points={g.points} />
+          </g>
+        ))}
+        {glyphLineGeometry.map((g) => (
+          <g
+            class={`atlas__glyph-pair atlas__glyph-pair--${g.kind}`}
+            data-ax={g.ax} data-ay={g.ay} data-az={g.az}
+            data-bx={g.bx} data-by={g.by} data-bz={g.bz}
+          >
+            <line class="atlas__glyph-under" x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2} />
+            <line class="atlas__glyph-line" x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2} />
+          </g>
+        ))}
+      </g>
 
       <g class="atlas__clusters" data-atlas-clusters aria-hidden="true">
         {clusters.map((c) => (
@@ -876,6 +943,62 @@ const cards = graph.flat.map((n) => ({
     display: block;
     width: 100%;
     height: 100%;
+  }
+
+  /* ── Sacred-geometry armature ────────────────────────────────── */
+  .atlas__glyph-line,
+  .atlas__glyph-under {
+    fill: none;
+    vector-effect: non-scaling-stroke;
+    stroke-linejoin: miter;
+  }
+
+  .atlas__glyph-under {
+    stroke: rgba(2, 9, 15, 0.3);
+    stroke-width: 2;
+  }
+
+  .atlas__glyph-line {
+    stroke: rgba(130, 240, 255, 0.62);
+    stroke-width: 1;
+  }
+
+  .atlas__glyph-pair--core .atlas__glyph-line {
+    stroke: rgba(240, 205, 92, 0.6);
+  }
+
+  .atlas__glyph-pair--star .atlas__glyph-line {
+    stroke: rgba(120, 236, 255, 0.28);
+    stroke-dasharray: 3 7;
+  }
+
+  .atlas__glyph-pair--outer .atlas__glyph-line {
+    stroke: rgba(130, 240, 255, 0.42);
+  }
+
+  .atlas__glyph-pair--spoke .atlas__glyph-line {
+    stroke: rgba(120, 236, 255, 0.16);
+  }
+
+  .atlas__glyph-pair--octagram .atlas__glyph-line {
+    stroke: rgba(240, 205, 92, 0.3);
+  }
+
+  .atlas__glyph-pair--spoke .atlas__glyph-under,
+  .atlas__glyph-pair--star .atlas__glyph-under,
+  .atlas__glyph-pair--octagram .atlas__glyph-under {
+    stroke-width: 1.6;
+    stroke: rgba(2, 9, 15, 0.22);
+  }
+
+  /* The armature recedes while a term holds the field. */
+  .atlas__glyph {
+    transition: opacity 0.4s ease;
+  }
+
+  [data-atlas][data-selected] .atlas__glyph,
+  [data-atlas][data-focus] .atlas__glyph {
+    opacity: 0.35;
   }
 
   /* Channel signage is contextual, not permanent: a caption lights when

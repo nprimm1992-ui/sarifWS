@@ -9,7 +9,8 @@
  * static projection into a live one:
  *
  *   • perspective camera (yaw / pitch / zoom / look-at) re-projecting
- *     nodes, edges and cluster captions every frame,
+ *     nodes, edges, the octagonal armature and cluster captions every
+ *     frame,
  *   • ambient drift + pointer parallax so the field breathes with the
  *     WebGL diorama behind the page,
  *   • drag to orbit, wheel/pinch to close in, buttons to fit,
@@ -74,6 +75,9 @@ let byId = new Map();
 let edges = [];
 /** @type {Array<any>} */
 let clusters = [];
+/** Armature: octagon rings, spokes and the {8/3} octagram. */
+let glyphPolys = [];
+let glyphLines = [];
 let liveChannels = new Set();
 /** @type {Map<string, Set<string>>} */
 let adjacency = new Map();
@@ -139,6 +143,20 @@ function collect() {
     adjacency.get(e.a).add(e.b);
     adjacency.get(e.b).add(e.a);
   }
+
+  glyphPolys = Array.from(root.querySelectorAll('[data-poly]')).map((el) => ({
+    lines: Array.from(el.querySelectorAll('polyline')),
+    pts: (el.dataset.poly ?? '')
+      .split(';')
+      .filter(Boolean)
+      .map((pair) => pair.split(',').map(Number)),
+  }));
+
+  glyphLines = Array.from(root.querySelectorAll('[data-ax]')).map((el) => ({
+    lines: Array.from(el.querySelectorAll('line')),
+    ax: Number(el.dataset.ax), ay: Number(el.dataset.ay), az: Number(el.dataset.az),
+    bx: Number(el.dataset.bx), by: Number(el.dataset.by), bz: Number(el.dataset.bz),
+  }));
 
   clusters = Array.from(root.querySelectorAll('[data-cluster]')).map((el) => ({
     el,
@@ -222,6 +240,32 @@ function commit() {
     const dim = hidden.has(e.a) || hidden.has(e.b);
     e.el.classList.toggle('is-dim', dim);
     if (!dim) e.el.style.opacity = (fog((a.ps + b.ps) / 2) * 0.95).toFixed(3);
+  }
+
+  /* Armature is re-projected with the figure so the geometry turns with
+     it rather than sitting flat on the glass. */
+  for (const g of glyphPolys) {
+    let points = '';
+    for (const pt of g.pts) {
+      const p = project(pt[0], pt[1], pt[2]);
+      points += `${p.x.toFixed(1)},${p.y.toFixed(1)} `;
+    }
+    for (const line of g.lines) line.setAttribute('points', points.trim());
+  }
+
+  for (const g of glyphLines) {
+    const pa = project(g.ax, g.ay, g.az);
+    const pb = project(g.bx, g.by, g.bz);
+    const x1 = pa.x.toFixed(1);
+    const y1 = pa.y.toFixed(1);
+    const x2 = pb.x.toFixed(1);
+    const y2 = pb.y.toFixed(1);
+    for (const line of g.lines) {
+      line.setAttribute('x1', x1);
+      line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2);
+      line.setAttribute('y2', y2);
+    }
   }
 
   for (const c of clusters) {
@@ -333,7 +377,7 @@ function flyTo(x, y, z, zoom) {
   kick();
 }
 
-function fitNodes(list) {
+function fitNodes(list, extentX = 0, extentY = 0) {
   if (list.length === 0) {
     flyTo(0, 0, 0, 1);
     return;
@@ -356,6 +400,14 @@ function fitNodes(list) {
   maxY += 58;
   minX -= 30;
   maxX += 30;
+  if (extentX > 0) {
+    minX = Math.min(minX, -extentX);
+    maxX = Math.max(maxX, extentX);
+  }
+  if (extentY > 0) {
+    minY = Math.min(minY, -extentY);
+    maxY = Math.max(maxY, extentY);
+  }
   const w = Math.max(maxX - minX, 120);
   const h = Math.max(maxY - minY, 120);
   const sheet = isSheet();
@@ -368,7 +420,15 @@ function fitNodes(list) {
 }
 
 function fitVisible() {
-  fitNodes(nodes.filter((n) => !hidden.has(n.id)));
+  /* Unfiltered, the camera frames the whole figure — armature included —
+     so the octagon reads as a complete construction rather than a crop. */
+  const live = nodes.filter((n) => !hidden.has(n.id));
+  const whole = live.length === nodes.length;
+  fitNodes(
+    live,
+    whole ? Number(root?.dataset.atlasExtentX ?? 0) : 0,
+    whole ? Number(root?.dataset.atlasExtentY ?? 0) : 0,
+  );
 }
 
 /** Origin + its neighbours — the frame focus mode and selection use. */
@@ -446,10 +506,14 @@ function radialLayout() {
   origin.tx = origin.hx;
   origin.ty = origin.hy;
   origin.tz = origin.hz - 90;
+  /* Snap to the same eight bearings the matrix is built on, so focus
+     mode reads as a sub-figure of the octagon rather than a new shape. */
+  const step = Math.PI / 4;
+  const slots = near.length <= 8 ? step : (Math.PI * 2) / near.length;
   near.forEach((n, i) => {
-    const a = (i / Math.max(near.length, 1)) * Math.PI * 2 - Math.PI / 2;
-    n.tx = origin.hx + Math.cos(a) * 215;
-    n.ty = origin.hy + Math.sin(a) * 145;
+    const a = -Math.PI / 2 + i * slots;
+    n.tx = origin.hx + Math.cos(a) * 218;
+    n.ty = origin.hy + Math.sin(a) * 152;
     n.tz = origin.hz + Math.sin(a * 2) * 70;
   });
 }
@@ -883,6 +947,8 @@ function teardown() {
   nodes = [];
   edges = [];
   clusters = [];
+  glyphPolys = [];
+  glyphLines = [];
   byId = new Map();
   adjacency = new Map();
   root = null;
