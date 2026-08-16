@@ -91,6 +91,10 @@ User brief: "make the graph resemble an octagonal sacred geometry like matrix".
 - Channel captions now sit on the outer margin at the mean bearing of their own arc; focus mode snaps neighbours to the same 45° bearings; `fitVisible` frames the whole figure via `data-atlas-extent-x/y` so the armature is never cropped (all 11 nodes verified in-frame at 1600×1000).
 - Tests: scene spec asserts 4 rings / 8 spokes / 8 octagram chords. **Suite 42 passed / 1 skipped / 0 failed.**
 
+## Implemented June 2026 (session 3f) — Backdrop restored
+User asked for the stage backdrop back after the frameless experiment. `.atlas__stage` again carries the instrument-window treatment: hairline cyan border, `--clip-card` chamfer, radial vignette fill, `backdrop-filter: blur(3px) saturate(.9) brightness(.55)` and inset glow. The diorama still shows through (dimmed ~2 stops); `prefers-reduced-transparency` gets an opaque bed, `prefers-contrast: more` a bright border.
+Kept from the frameless pass (they now help on orbit into the light): per-edge dark underlays, node shade discs, heavy paint-order label halos, armature underlays, HUD text-shadows. The tracking scrim stays but at ~40% of its previous alpha so it reads as bloom on top of the dimmed bed rather than mud. Suite 42 passed / 1 skipped.
+
 ## Backlog (prioritized)
 P0 (user action): apply D1 migrations remotely (see above).
 P1: Praxis editorial rebuild (10 stub articles) — USER DEFERRED, wait for their content/direction. Engagement dossier content rebuild (user will supply copy; design ready).
@@ -99,7 +103,8 @@ P2: PraxisAsk LLM grounded-answer layer (ask_queries logging already exists for 
 ## Work log
 - 2026-06 session 1: env setup (previous fork), deep analysis, PRD created.
 - 2026-06 session 2: dossier pages, constellation, poses, e2e green, palette/materialize/h1 bug fixes, testing_agent pass.
-- 2026-06 session 3e (this): octagonal sacred-geometry matrix layout replaces the force sim.
+- 2026-06 session 3f (this): stage backdrop restored (instrument window) on top of the octagonal matrix.
+- 2026-06 session 3e: octagonal sacred-geometry matrix layout replaces the force sim.
 - 2026-06 session 3d: frameless atlas — panel/backdrop removed, contrast moved onto the marks, floor grid deleted.
 - 2026-06 session 3c: term provenance ("Used in") inside the Atlas inspector.
 - 2026-06 session 3b: Praxis/palette lexicon links now deep-link into the Atlas (`?term=`).
