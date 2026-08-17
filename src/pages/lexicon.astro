@@ -10,10 +10,9 @@
  */
 import Base from '../layouts/Base.astro';
 import LexiconAtlas from '../components/lexicon/LexiconAtlas.astro';
-import { buildLexiconGraph, formatUpdatedMonth } from '../lib/lexicon-graph';
+import { buildLexiconGraph } from '../lib/lexicon-graph';
 
 const graph = await buildLexiconGraph();
-const updatedMonth = formatUpdatedMonth(graph.updatedAt);
 ---
 
 <Base
@@ -21,34 +20,13 @@ const updatedMonth = formatUpdatedMonth(graph.updatedAt);
   description={`Sarif Consulting's operating vocabulary. ${graph.count} terms, ${graph.categoryCount} categories, version ${graph.version}. Filterable, machine-readable.`}
   noindex
 >
-  <article class="lex-page" data-lex-page data-lex-count={graph.count} data-lex-version={graph.version} data-lex-revised={updatedMonth}>
+  <article class="lex-page" data-lex-page>
 
     <!-- ═══════════════════════════  MASTHEAD  ═══════════════════════════ -->
     <header class="lex-masthead section" aria-labelledby="lex-heading">
       <div class="container lex-masthead__inner">
         <p class="section-label">Operating Vocabulary</p>
         <h1 id="lex-heading" class="section-header connector-line">Sarif Lexicon</h1>
-        <div class="lex-masthead__meta-row" role="list" aria-label="Artifact metadata">
-          <div class="lex-masthead__meta-item" role="listitem">
-            <span class="lex-masthead__meta-label">Version</span>
-            <span class="lex-masthead__meta-value">{graph.version}</span>
-          </div>
-          <span class="lex-masthead__meta-sep" aria-hidden="true">·</span>
-          <div class="lex-masthead__meta-item" role="listitem">
-            <span class="lex-masthead__meta-label">Entries</span>
-            <span class="lex-masthead__meta-value">{graph.count}</span>
-          </div>
-          <span class="lex-masthead__meta-sep" aria-hidden="true">·</span>
-          <div class="lex-masthead__meta-item" role="listitem">
-            <span class="lex-masthead__meta-label">Categories</span>
-            <span class="lex-masthead__meta-value">{graph.categoryCount}</span>
-          </div>
-          <span class="lex-masthead__meta-sep" aria-hidden="true">·</span>
-          <div class="lex-masthead__meta-item" role="listitem">
-            <span class="lex-masthead__meta-label">Revised</span>
-            <span class="lex-masthead__meta-value">{updatedMonth}</span>
-          </div>
-        </div>
       </div>
     </header>
 
@@ -92,45 +70,4 @@ const updatedMonth = formatUpdatedMonth(graph.updatedAt);
       var(--cyan-glow-text);
   }
 
-  .lex-masthead__meta-row {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: baseline;
-    gap: 4px 8px;
-    margin-top: clamp(16px, 2vw, 24px);
-    font-family: var(--font-heading);
-    font-size: 0.6rem;
-    font-weight: 500;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-  }
-
-  .lex-masthead__meta-item {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 8px;
-  }
-
-  .lex-masthead__meta-label {
-    color: rgba(221, 184, 61, 0.78);
-  }
-
-  .lex-masthead__meta-value {
-    color: var(--cyan-bright);
-    font-weight: 600;
-    letter-spacing: 0.12em;
-  }
-
-  .lex-masthead__meta-sep {
-    color: var(--text-muted);
-    opacity: 0.55;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .lex-masthead__meta-row {
-      transition: none;
-    }
-  }
 </style>

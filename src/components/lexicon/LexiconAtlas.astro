@@ -346,6 +346,18 @@ const cards = graph.flat.map((n) => ({
         <dt>Edges</dt><dd>{edges.length}</dd>
       </div>
       <div class="atlas__readout-cell">
+        <dt>Version</dt><dd>{graph.version}</dd>
+      </div>
+      <div class="atlas__readout-cell">
+        <dt>Entries</dt><dd>{graph.count}</dd>
+      </div>
+      <div class="atlas__readout-cell">
+        <dt>Categories</dt><dd>{graph.categoryCount}</dd>
+      </div>
+      <div class="atlas__readout-cell">
+        <dt>Revised</dt><dd>{formatIsoDay(graph.updatedAt)}</dd>
+      </div>
+      <div class="atlas__readout-cell">
         <dt>Selected</dt><dd data-atlas-readout-sel data-testid="atlas-readout-selected">—</dd>
       </div>
       <div class="atlas__readout-cell">
