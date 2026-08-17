@@ -769,10 +769,41 @@ const cards = graph.flat.map((n) => ({
 
   /* ── Control bar ─────────────────────────────────────────────── */
   .atlas__controls {
+    position: relative;
+    z-index: 2;
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 10px 16px;
+    gap: 8px 12px;
+    margin-bottom: -48px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 10px 12px 22px;
+    background: linear-gradient(
+      180deg,
+      rgba(2, 9, 16, 0.68) 0%,
+      rgba(2, 9, 16, 0.42) 46%,
+      rgba(2, 9, 16, 0) 100%
+    );
+    border-top: 1px solid rgba(0, 212, 255, 0.1);
+    pointer-events: none;
+  }
+
+  .atlas__controls > * {
+    pointer-events: auto;
+  }
+
+  @media (max-width: 900px) {
+    .atlas__controls {
+      margin-bottom: -36px;
+      padding-bottom: 18px;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .atlas__controls {
+      background: rgba(3, 10, 17, 0.96);
+    }
   }
 
   .atlas__search {
