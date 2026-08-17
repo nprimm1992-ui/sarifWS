@@ -25,7 +25,7 @@
  * No-JS baseline: positions below are projected at build time with the
  * home camera, so the scene renders correctly as a static SVG and
  * every node stays a plain `<a href="#term-id">` that lands on the
- * full register further down the page.
+ * term's inspector card within the same surface.
  */
 import { getLexiconGraph, LEXICON_CATEGORY_META, formatIsoDay } from '../../lib/lexicon-graph';
 import { getLexiconUsage } from '../../lib/lexicon-usage';
@@ -645,7 +645,6 @@ const cards = graph.flat.map((n) => ({
                 data-href={c.permalink}
                 aria-label={`Copy permalink for ${c.term}`}
               >Copy link</button>
-              <a class="atlas-card__action atlas-card__action--link" href={`#${c.id}`}>Register ↓</a>
               {c.revised && <span class="atlas-card__revised">Revised {c.revised}</span>}
             </footer>
           </article>

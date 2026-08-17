@@ -5,7 +5,7 @@
  * The scene itself is rendered at build time (LexiconAtlas.astro) with
  * the home camera already applied, so the graph is complete and
  * navigable without this module: every node is a plain <a href="#id">
- * pointing at the full register below. This island upgrades that
+ * pointing at the term's inspector card within the same surface. This island upgrades that
  * static projection into a live one:
  *
  *   • perspective camera (yaw / pitch / zoom / look-at) re-projecting
@@ -740,7 +740,7 @@ function onClick(evt) {
   const node = target.closest('[data-node]');
   if (node) {
     /* Keep the anchor for no-JS / middle-click, but in-page selection
-       must not jump the viewport down to the register. */
+       must not jump the viewport away from the atlas. */
     evt.preventDefault();
     const id = node.dataset.node;
     if (id) select(id);

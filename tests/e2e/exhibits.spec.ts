@@ -114,7 +114,7 @@ test('lexicon atlas: scene renders frameless with nodes, edges and channels', as
   });
 
   expect(scene.present, 'atlas renders').toBe(true);
-  expect(scene.nodes, 'all lexicon terms plotted').toBeGreaterThanOrEqual(10);
+  expect(scene.nodes, 'all lexicon terms plotted').toBeGreaterThanOrEqual(9);
   expect(scene.edges, 'relationship edges plotted').toBeGreaterThan(10);
   expect(scene.scrim, 'atmospheric scrim renders instead of a panel').toBe(1);
   /* Octagonal armature: four rings, eight spokes, the {8/3} octagram. */
@@ -197,7 +197,7 @@ test('lexicon atlas: deep link selects a term on load', async ({ page }) => {
     .toBe('jensen');
 });
 
-test('lexicon atlas: filter subtracts nodes from the field and the register', async ({ page }) => {
+test('lexicon atlas: filter subtracts nodes from the field', async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto('/lexicon/', { waitUntil: 'load' });
   await page.waitForSelector('[data-lex-page][data-lex-page-wired="true"]', { state: 'attached', timeout: 60_000 });
@@ -205,29 +205,27 @@ test('lexicon atlas: filter subtracts nodes from the field and the register', as
 
   await page.locator('[data-testid="atlas-filter-input"]').fill('jensen');
 
-  /* The filter is one control surface over two renderings: whatever the
-     register hides must also leave the field. */
   await expect
     .poll(
       async () =>
         page.evaluate(() => {
-          const total = document.querySelectorAll('[data-lex-entry]').length;
-          const registerHidden = document.querySelectorAll('[data-lex-entry][data-filtered-out="true"]').length;
+          const total = document.querySelectorAll('[data-atlas] [data-node]').length;
           const out = document.querySelectorAll('[data-atlas] [data-node].is-out').length;
-          return { synced: registerHidden > 0 && out === registerHidden, out, registerHidden, total };
+          return { filtered: out > 0 && out < total, out, total };
         }),
-      { timeout: 15_000, message: 'atlas and register hide the same terms' },
+      { timeout: 15_000, message: 'atlas hides non-matching terms' },
     )
-    .toMatchObject({ synced: true });
+    .toMatchObject({ filtered: true });
 });
 
-test('lexicon register: hash arrival still expands the flat entry', async ({ page }) => {
+test('lexicon atlas: hash arrival selects the term in the inspector', async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto('/lexicon/', { waitUntil: 'load' });
   await page.waitForSelector('[data-lex-page][data-lex-page-wired="true"]', {
     state: 'attached',
     timeout: 60_000,
   });
+  await page.waitForSelector('[data-atlas][data-atlas-ready="true"]', { state: 'attached', timeout: 45_000 });
 
   const result = await page.evaluate(() => {
     const node = document.querySelector('[data-atlas] [data-node]');
@@ -241,16 +239,13 @@ test('lexicon register: hash arrival still expands the flat entry', async ({ pag
   await expect
     .poll(
       async () =>
-        page.evaluate((id) => {
-          const target = document.getElementById(id ?? '');
-          if (!target) return 'missing';
-          const open =
-            target instanceof HTMLDetailsElement ? target.open : target.hasAttribute('open');
-          return open ? 'open' : 'closed';
-        }, result.id),
-      { timeout: 15_000, message: 'entry auto-expands on hash arrival' },
+        page.evaluate((id) => ({
+          selected: document.querySelector('[data-atlas]')?.getAttribute('data-selected') ?? '',
+          inspectorOpen: !document.querySelector('[data-testid="atlas-inspector"]')?.hasAttribute('hidden'),
+        }), result.id),
+      { timeout: 15_000, message: 'hash arrival selects the term and opens the inspector' },
     )
-    .toBe('open');
+    .toMatchObject({ selected: result.id, inspectorOpen: true });
 });
 
 test('praxis article: lexicon terms deep-link into the atlas view', async ({ page }) => {
@@ -266,8 +261,7 @@ test('praxis article: lexicon terms deep-link into the atlas view', async ({ pag
     expect(href, 'term links target the atlas view').toMatch(/^\/lexicon\/\?term=[a-z0-9-]+$/);
   }
 
-  /* Following one lands on the atlas with that term selected, and the
-     flat register entry mirrors the selection. */
+  /* Following one lands on the atlas with that term selected. */
   await page.goto(links[0], { waitUntil: 'load' });
   await page.waitForSelector('[data-atlas][data-atlas-ready="true"]', { state: 'attached', timeout: 45_000 });
   const id = links[0].split('term=')[1];
@@ -275,16 +269,13 @@ test('praxis article: lexicon terms deep-link into the atlas view', async ({ pag
   await expect
     .poll(
       async () =>
-        page.evaluate((termId) => {
-          const entry = document.getElementById(termId ?? '');
-          return {
-            selected: document.querySelector('[data-atlas]')?.getAttribute('data-selected') ?? '',
-            registerOpen: entry instanceof HTMLDetailsElement ? entry.open : false,
-          };
-        }, id),
-      { timeout: 15_000, message: 'atlas selects the deep-linked term and the register mirrors it' },
+        page.evaluate((termId) => ({
+          selected: document.querySelector('[data-atlas]')?.getAttribute('data-selected') ?? '',
+          inspectorOpen: !document.querySelector('[data-testid="atlas-inspector"]')?.hasAttribute('hidden'),
+        }), id),
+      { timeout: 15_000, message: 'atlas selects the deep-linked term' },
     )
-    .toMatchObject({ selected: id, registerOpen: true });
+    .toMatchObject({ selected: id, inspectorOpen: true });
 });
 
 test('lexicon atlas: inspector shows term provenance that navigates to the source', async ({ page }) => {

@@ -2,25 +2,13 @@
 /**
  * /lexicon/ — Sarif's operating vocabulary as a published artifact.
  *
- * Design intent (see plan "Lexicon as Artifact"):
- *   • Artifact metadata (version, counts, revised) sits at the bottom
- *     of the frosted index panel.
- *   • A sticky control bar at the top of the frosted index panel holds
- *     the filter input and category toggle chips. Filter + chip state is persisted
- *     to the URL (`?q=…&cat=…`) by the page island so links share
- *     state and back/forward restores it.
- *   • Entries render as dense, disclosable rows (via `<details>`).
- *     Collapsed = num + term + one-line lead. Expanded = full panel.
- *   • Left rail TOC appears ≥1200 px; scroll-spy highlights the
- *     active entry via IntersectionObserver.
- *   • Hash arrivals (`/lexicon/#coherence-decay`) auto-expand the
- *     entry and fire a one-shot cyan pulse so the eye lands correctly.
- *   • All interactive enhancement is keyboard-accessible and
- *     no-JS-safe: entries are toggleable without JS, controls
- *     degrade to no-ops, and anchor links keep working.
+ * The Atlas is the sole surface: the graph, its controls, and the
+ * term inspector. Filter state is persisted to the URL (`?q=…&cat=…`)
+ * by the page island so links share state and back/forward restore it.
+ * Hash arrivals (`/lexicon/#coherence-decay`) and `?term=` deep links
+ * select and open the matching node in the inspector.
  */
 import Base from '../layouts/Base.astro';
-import LexiconEntry from '../components/lexicon/LexiconEntry.astro';
 import LexiconAtlas from '../components/lexicon/LexiconAtlas.astro';
 import { buildLexiconGraph, formatUpdatedMonth } from '../lib/lexicon-graph';
 
@@ -33,105 +21,40 @@ const updatedMonth = formatUpdatedMonth(graph.updatedAt);
   description={`Sarif Consulting's operating vocabulary. ${graph.count} terms, ${graph.categoryCount} categories, version ${graph.version}. Filterable, machine-readable.`}
   noindex
 >
-  <article class="lex-page" data-lex-page data-lex-count={graph.count}>
+  <article class="lex-page" data-lex-page data-lex-count={graph.count} data-lex-version={graph.version} data-lex-revised={updatedMonth}>
 
     <!-- ═══════════════════════════  MASTHEAD  ═══════════════════════════ -->
     <header class="lex-masthead section" aria-labelledby="lex-heading">
       <div class="container lex-masthead__inner">
         <p class="section-label">Operating Vocabulary</p>
         <h1 id="lex-heading" class="section-header connector-line">Sarif Lexicon</h1>
+        <div class="lex-masthead__meta-row" role="list" aria-label="Artifact metadata">
+          <div class="lex-masthead__meta-item" role="listitem">
+            <span class="lex-masthead__meta-label">Version</span>
+            <span class="lex-masthead__meta-value">{graph.version}</span>
+          </div>
+          <span class="lex-masthead__meta-sep" aria-hidden="true">·</span>
+          <div class="lex-masthead__meta-item" role="listitem">
+            <span class="lex-masthead__meta-label">Entries</span>
+            <span class="lex-masthead__meta-value">{graph.count}</span>
+          </div>
+          <span class="lex-masthead__meta-sep" aria-hidden="true">·</span>
+          <div class="lex-masthead__meta-item" role="listitem">
+            <span class="lex-masthead__meta-label">Categories</span>
+            <span class="lex-masthead__meta-value">{graph.categoryCount}</span>
+          </div>
+          <span class="lex-masthead__meta-sep" aria-hidden="true">·</span>
+          <div class="lex-masthead__meta-item" role="listitem">
+            <span class="lex-masthead__meta-label">Revised</span>
+            <span class="lex-masthead__meta-value">{updatedMonth}</span>
+          </div>
+        </div>
       </div>
     </header>
 
     <!-- ══════════════════════════  ATLAS  ═════════════════════════════ -->
-    <!-- Primary surface: the graph, its controls and the term inspector. -->
+    <!-- Primary and sole surface: the graph, its controls and the term inspector. -->
     <LexiconAtlas />
-
-    <!-- ════════════════════════  FULL REGISTER  ═══════════════════════ -->
-    <!-- Secondary surface. The Atlas above is the way in; this is the
-         flat, printable, Ctrl+F-able, no-JS-complete corpus. It stays in
-         sync with the Atlas filter (same island owns both). -->
-    <header class="lex-register-head container">
-      <p class="ui-eyebrow lex-register-head__eyebrow">Flat corpus</p>
-      <h2 class="lex-register-head__title">Full register</h2>
-      <p class="lex-register-head__note">
-        Every entry in reading order — searchable in-page, printable, and complete without
-        scripting. Selecting a term in the Atlas above also lands here.
-      </p>
-    </header>
-
-    <div class="lex-grid container content-back-panel reveal-on-scroll">
-
-      <!-- LEFT RAIL TOC (≥1200 px) — semantic <nav> so screen readers expose it as a landmark. -->
-      <nav class="lex-rail" aria-label="Lexicon index">
-        <p class="lex-rail__label">Index</p>
-        <ol class="lex-rail__list" role="list">
-          {graph.flat.map((e) => (
-            <li class="lex-rail__item">
-              <a
-                href={`#${e.id}`}
-                class="lex-rail__link"
-                data-lex-rail-link
-                data-lex-target={e.id}
-              >
-                <span class="lex-rail__num">{e.num}</span>
-                <span class="lex-rail__term">{e.term}</span>
-              </a>
-            </li>
-          ))}
-        </ol>
-      </nav>
-
-      <!-- MAIN: category groups -->
-      <main class="lex-main" id="lex-main" data-lobby-subpose="lexicon-index">
-        <div class="lex-empty" data-lex-empty hidden>
-          <p class="lex-empty__title">No terms match.</p>
-          <p class="lex-empty__hint">Clear the filter or pick a different category.</p>
-          <button type="button" class="lex-empty__reset" data-lex-reset>Reset filters</button>
-        </div>
-
-        {graph.groups.map((group) => (
-          <section
-            class="lex-group"
-            data-lex-group
-            data-lex-category={group.meta.id}
-            aria-labelledby={`lex-group-${group.meta.id}`}
-          >
-            <header class="lex-group__header">
-              <h2 class="lex-group__title" id={`lex-group-${group.meta.id}`}>
-                {group.meta.label}
-              </h2>
-              <p class="lex-group__description">{group.meta.description}</p>
-            </header>
-            <div class="lex-group__entries">
-              {group.entries.map((entry) => <LexiconEntry entry={entry} />)}
-            </div>
-          </section>
-        ))}
-      </main>
-
-      <div class="lex-masthead__meta-row lex-meta-row--panel-footer" role="list" aria-label="Artifact metadata">
-        <div class="lex-masthead__meta-item" role="listitem">
-          <span class="lex-masthead__meta-label">Version</span>
-          <span class="lex-masthead__meta-value">{graph.version}</span>
-        </div>
-        <span class="lex-masthead__meta-sep" aria-hidden="true">·</span>
-        <div class="lex-masthead__meta-item" role="listitem">
-          <span class="lex-masthead__meta-label">Entries</span>
-          <span class="lex-masthead__meta-value">{graph.count}</span>
-        </div>
-        <span class="lex-masthead__meta-sep" aria-hidden="true">·</span>
-        <div class="lex-masthead__meta-item" role="listitem">
-          <span class="lex-masthead__meta-label">Categories</span>
-          <span class="lex-masthead__meta-value">{graph.categoryCount}</span>
-        </div>
-        <span class="lex-masthead__meta-sep" aria-hidden="true">·</span>
-        <div class="lex-masthead__meta-item" role="listitem">
-          <span class="lex-masthead__meta-label">Revised</span>
-          <span class="lex-masthead__meta-value">{updatedMonth}</span>
-        </div>
-      </div>
-    </div>
 
     <!-- Live region for ARIA announcements from the island. -->
     <div class="visually-hidden" role="status" aria-live="polite" data-lex-announce></div>
@@ -144,9 +67,7 @@ const updatedMonth = formatUpdatedMonth(graph.updatedAt);
 
 <style>
   .lex-page {
-    /* Layer stack inside .lex-page: masthead / controls / grid / footer */
     display: block;
-    /* Matches `#site-nav .nav-inner { height: 72px }` — sticky filter + rail offset. */
     --lex-nav-h: 72px;
   }
 
@@ -165,95 +86,25 @@ const updatedMonth = formatUpdatedMonth(graph.updatedAt);
     margin-inline: auto;
   }
 
-  /* H1 over the brighter About-style diorama needs extra lift; the
-     foliage crown now sits right under the headline. Page-scoped
-     override only — global `.section-header` stays untouched. */
   .lex-masthead .section-header {
     text-shadow:
       0 2px 22px rgba(6, 14, 22, 0.7),
       var(--cyan-glow-text);
   }
 
-  /*
-   * Lex index card: chamfered silhouette (`var(--clip-card)`). Applying clip-path on this host breaks
-   * `position: sticky` on descendants in Chromium — so the frost +
-   * border + shadow live on `::before`; the host overrides global
-   * `.content-back-panel` and stays unclipped.
-   */
-  .lex-grid.content-back-panel {
-    position: relative;
-    isolation: isolate;
-    clip-path: none;
-    overflow: visible;
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    padding-top: clamp(24px, 3vw, 40px) !important;
-    padding-inline: clamp(20px, 4vw, 40px);
-    padding-bottom: clamp(28px, 5vw, 48px);
-  }
-
-  .lex-grid.content-back-panel::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    box-sizing: border-box;
-    clip-path: var(--clip-card);
-    background: linear-gradient(
-      180deg,
-      rgba(6, 14, 22, 0.58) 0%,
-      rgba(4, 10, 18, 0.64) 100%
-    );
-    border: 1px solid rgba(0, 212, 255, 0.18);
-    backdrop-filter: blur(20px) saturate(1.15);
-    -webkit-backdrop-filter: blur(20px) saturate(1.15);
-    box-shadow:
-      inset 0 1px 0 rgba(0, 212, 255, 0.08),
-      0 16px 48px rgba(2, 10, 18, 0.45);
-  }
-
-  .lex-grid.content-back-panel > * {
-    position: relative;
-    z-index: 1;
-  }
-
-  /* Beat `> * { z-index: 1 }` for any overlaid child. */
-
-  @media (prefers-reduced-transparency: reduce) {
-    .lex-grid.content-back-panel::before {
-      background: rgba(4, 10, 18, 0.92);
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
-    }
-  }
-
-  /* Artifact metadata strip (shared typography; placement is masthead
-     history — now lives at bottom of `.lex-grid` via
-     `.lex-meta-row--panel-footer`). */
   .lex-masthead__meta-row {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     align-items: baseline;
     gap: 4px 8px;
+    margin-top: clamp(16px, 2vw, 24px);
     font-family: var(--font-heading);
     font-size: 0.6rem;
     font-weight: 500;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--text-muted);
-  }
-
-  /* Full-width footer row inside the frosted index card */
-  .lex-grid > .lex-meta-row--panel-footer {
-    grid-column: 1 / -1;
-    margin: clamp(20px, 3vw, 36px) calc(-1 * clamp(20px, 4vw, 40px)) calc(-1 * clamp(28px, 5vw, 48px));
-    padding: 16px clamp(20px, 4vw, 40px) clamp(22px, 4vw, 36px);
-    border-top: 1px solid rgba(0, 212, 255, 0.18);
   }
 
   .lex-masthead__meta-item {
@@ -277,301 +128,9 @@ const updatedMonth = formatUpdatedMonth(graph.updatedAt);
     opacity: 0.55;
   }
 
-  /* === Register head === */
-
-  .lex-register-head {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: clamp(14px, 2vw, 22px);
-    padding-top: clamp(8px, 2vw, 20px);
-    border-top: 1px solid rgba(221, 184, 61, 0.22);
-  }
-
-  .lex-register-head__eyebrow {
-    margin: 0;
-    color: rgba(221, 184, 61, 0.82);
-  }
-
-  .lex-register-head__title {
-    margin: 0;
-    font-family: var(--font-heading);
-    font-size: clamp(1rem, 1.6vw, 1.2rem);
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--text-primary);
-  }
-
-  .lex-register-head__note {
-    margin: 0;
-    max-width: 66ch;
-    font-size: 0.84rem;
-    line-height: 1.6;
-    color: var(--text-muted);
-  }
-
-  /* === Grid: rail + main === */
-
-  .lex-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
-    gap: clamp(24px, 3vw, 40px);
-    margin-block: clamp(8px, 1.5vw, 16px);
-  }
-
-  @media (min-width: 1200px) {
-    .lex-grid {
-      grid-template-columns: 220px minmax(0, 1fr);
-    }
-  }
-
-  /* Rail */
-  .lex-rail {
-    display: none;
-  }
-
-  /* ≥1200px: sticky index — transparent rail (no nested dark panel). */
-  @media (min-width: 1200px) {
-    .lex-rail {
-      display: block;
-      position: sticky;
-      top: calc(var(--lex-nav-h) + 16px);
-      align-self: start;
-      max-height: calc(100vh - var(--lex-nav-h) - 48px);
-      overflow-y: auto;
-      padding: 16px 14px 16px 18px;
-      background: transparent;
-      border: none;
-      clip-path: none;
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
-      box-shadow: none;
-    }
-  }
-
-  .lex-rail__label {
-    margin: 0 0 12px;
-    font-family: var(--font-heading);
-    font-size: 0.58rem;
-    font-weight: 600;
-    letter-spacing: 0.24em;
-    text-transform: uppercase;
-    color: rgba(221, 184, 61, 0.78);
-  }
-
-  .lex-rail__list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    border-left: 1px solid rgba(0, 212, 255, 0.12);
-  }
-
-  .lex-rail__item {
-    margin: 0;
-  }
-
-  /* Inactive label contrast: bump from text-secondary to text-primary
-     so rail terms stay readable over the frosted panel. Active state
-     still wins via var(--cyan-bright) + left border below. */
-  .lex-rail__link {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    padding: 6px 12px;
-    font-family: var(--font-body);
-    font-size: 0.78rem;
-    color: var(--text-primary);
-    text-decoration: none;
-    border-left: 2px solid transparent;
-    margin-left: -1px;
-    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
-  }
-
-  .lex-rail__link:hover {
-    color: var(--cyan-core);
-    background: rgba(0, 212, 255, 0.04);
-  }
-
-  .lex-rail__link[aria-current='true'] {
-    color: var(--cyan-bright);
-    border-left-color: var(--cyan-bright);
-    background: rgba(0, 212, 255, 0.06);
-  }
-
-  .lex-rail__num {
-    font-family: var(--font-heading);
-    font-size: 0.58rem;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    color: rgba(221, 184, 61, 0.85);
-    min-width: 2.2ch;
-  }
-
-  /* Main column */
-  .lex-main {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(40px, 5vw, 64px);
-  }
-
-  /* Category groups */
-  .lex-group {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-  }
-
-  .lex-group[data-filtered-hidden='true'] {
-    display: none;
-  }
-
-  .lex-group__header {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid rgba(221, 184, 61, 0.22);
-  }
-
-  .lex-group__title {
-    margin: 0;
-    font-family: var(--font-heading);
-    font-size: clamp(1.1rem, 2.2vw, 1.35rem);
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--cyan-bright);
-    text-shadow: var(--cyan-glow-text);
-  }
-
-  .lex-group__description {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.9rem;
-    line-height: 1.55;
-    color: var(--text-secondary);
-  }
-
-  .lex-group__entries {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  /* Empty state */
-  .lex-empty {
-    padding: 32px 24px;
-    text-align: center;
-    border: 1px dashed rgba(0, 212, 255, 0.22);
-    background: rgba(0, 212, 255, 0.03);
-    clip-path: var(--clip-card);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    align-items: center;
-  }
-
-  /* P0: make the `hidden` attribute AUTHORITATIVE. The HTML `hidden`
-     attribute sets `display: none` at the user-agent level, but any
-     explicit `display` declaration on `.lex-empty` (current or future)
-     outranks it by specificity. Without this guard a filter pass that
-     yields matches while the attribute is already set would still show
-     the empty panel if `.lex-empty` inherited `display: flex` from a
-     layout tweak. Belt-and-suspenders alongside `data-lex-state` on
-     <main>. */
-  .lex-empty[hidden] {
-    display: none !important;
-  }
-
-  .lex-empty__title {
-    margin: 0;
-    font-family: var(--font-heading);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--cyan-bright);
-  }
-
-  .lex-empty__hint {
-    margin: 0;
-    font-size: 0.86rem;
-    color: var(--text-secondary);
-  }
-
-  .lex-empty__reset {
-    margin-top: 4px;
-    font-family: var(--font-heading);
-    font-size: 0.58rem;
-    font-weight: 600;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    padding: 8px 14px;
-    color: var(--cyan-core);
-    border: 1px solid rgba(0, 212, 255, 0.3);
-    background: rgba(0, 212, 255, 0.05);
-    clip-path: var(--clip-sm);
-    cursor: pointer;
-    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-  }
-
-  .lex-empty__reset:hover,
-  .lex-empty__reset:focus-visible {
-    color: var(--cyan-bright);
-    border-color: rgba(0, 212, 255, 0.6);
-    background: rgba(0, 212, 255, 0.1);
-  }
-
-  .lex-empty__reset:focus-visible {
-    outline: 2px solid var(--cyan-bright);
-    outline-offset: 2px;
-  }
-
-  /* Filtered out entry: visual hide, keep in DOM for state-restore */
-  :global(.lex-entry[data-filtered-out='true']) {
-    display: none;
-  }
-
-  /* Visually hidden utility (if not already defined globally). */
-
-  /* Narrow-viewport polish. The layout already reflows via flex-wrap,
-     but below 480px the uppercase DOCTRINE/SUBSTRATE/DISCIPLINE group
-     headers cramp against the filter bar and can clip if a header is
-     unusually long. These overrides only relax tracking and tighten
-     the sticky bar's own padding/gap — they don't change structure. */
-  @media (max-width: 480px) {
-    .lex-group__title {
-      letter-spacing: 0.08em;
-      overflow-wrap: anywhere;
-    }
-  }
-
-  @media print {
-    .lex-rail {
-      display: none !important;
-    }
-    .lex-grid {
-      grid-template-columns: 1fr;
-    }
-    /* Entries are force-opened for print by the JS hook in
-       lexicon-page.ts (`beforeprint`); CSS alone cannot toggle
-       <details>. */
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .lex-rail__link {
+    .lex-masthead__meta-row {
       transition: none;
-    }
-  }
-
-  @media (prefers-contrast: more) {
-    .lex-rail__link[aria-current='true'] {
-      outline: 1px solid var(--cyan-bright);
     }
   }
 </style>
