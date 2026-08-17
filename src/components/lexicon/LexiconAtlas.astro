@@ -104,7 +104,9 @@ const degrees = new Map(graph.flat.map((n) => [n.id, n.related.length + n.incomi
 const ordered = [...graph.flat].sort(
   (a, b) => (degrees.get(b.id) ?? 0) - (degrees.get(a.id) ?? 0),
 );
-const axisId = ordered[0]?.id ?? '';
+/* The axis is the firm's thesis term — the figure is built around it. */
+const AXIS_ID = 'augment-your-intelligence';
+const axisId = graph.byId.has(AXIS_ID) ? AXIS_ID : (ordered[0]?.id ?? '');
 
 const seated = graph.flat
   .filter((n) => n.id !== axisId)
