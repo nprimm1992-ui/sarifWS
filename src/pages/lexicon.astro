@@ -22,9 +22,13 @@ const graph = await buildLexiconGraph();
 >
   <article class="lex-page" data-lex-page>
 
-    <!-- ══════════════════════════  ATLAS  ═════════════════════════════ -->
-    <!-- Primary and sole surface: the graph, its controls, metadata
-         readout, and the term inspector — all in one backdrop. -->
+    <header class="lex-masthead section" aria-labelledby="lex-heading">
+      <div class="container lex-masthead__inner">
+        <p class="section-label">Operating Vocabulary</p>
+        <h1 id="lex-heading" class="section-header connector-line">Sarif Lexicon</h1>
+      </div>
+    </header>
+
     <LexiconAtlas />
 
     <!-- Live region for ARIA announcements from the island. -->
@@ -40,5 +44,24 @@ const graph = await buildLexiconGraph();
   .lex-page {
     display: block;
     --lex-nav-h: 72px;
+  }
+
+  .lex-masthead {
+    padding-block: clamp(56px, 8vw, 96px) clamp(28px, 4vw, 40px);
+  }
+
+  .lex-masthead__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    max-width: 880px;
+    margin-inline: auto;
+  }
+
+  .lex-masthead .section-header {
+    text-shadow:
+      0 2px 22px rgba(6, 14, 22, 0.7),
+      var(--cyan-glow-text);
   }
 </style>
