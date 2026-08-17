@@ -4,7 +4,7 @@ import { glob } from 'astro/loaders';
 /**
  * Content collections for Sarif (Astro v6 loader-based).
  *
- * - lexicon: operational vocabulary (11 seed entries, migrated from src/pages/lexicon.astro).
+ * - lexicon: operational vocabulary (9 seed entries, migrated from src/pages/lexicon.astro).
  * - engagements: case dossiers (6 seed entries, migrated from src/pages/engagements.astro).
  * - praxis: long-form articles authored in MDX (seeded in Foundation F3).
  *

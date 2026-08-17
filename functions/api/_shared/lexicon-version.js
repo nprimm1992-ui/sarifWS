@@ -11,4 +11,4 @@
  *
  * See src/lib/lexicon-version.ts for the full bumping policy.
  */
-export const LEXICON_VERSION = '2026-04-v2';
+export const LEXICON_VERSION = '2026-08-v1';

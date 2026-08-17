@@ -8,7 +8,7 @@
   "appears": "Primary nav label. Section URL (/praxis). Page header. Each piece carries a sequential identifier — Praxis No. 01, No. 02 — so the archive reads as a single ongoing series rather than a dated feed. Category and date are secondary metadata; the number is the identity. Lexicon cross-links from About, Methodology essays and Contact page.",
   "related": [
     { "id": "metabolic-knowledge", "label": "Metabolic Knowledge" },
-    { "id": "architectural-depth", "label": "Architectural Depth" },
+    { "id": "coherence-decay", "label": "Coherence Decay" },
     { "id": "trace", "label": "Trace" }
   ]
 }

@@ -25,4 +25,4 @@
  * the two values in lockstep. See docs/api/pickup-contract.md §Lexicon for
  * downstream consumer expectations.
  */
-export const LEXICON_VERSION = '2026-04-v2';
+export const LEXICON_VERSION = '2026-08-v1';

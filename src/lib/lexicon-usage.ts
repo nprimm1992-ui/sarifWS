@@ -13,7 +13,7 @@
  * shows up in an article, that article appears in the term's inspector;
  * if it doesn't, the inspector says so.
  *
- * Cost: O(terms × documents) regex scans at build time only (11 × 18
+ * Cost: O(terms × documents) regex scans at build time only (9 × 18
  * today). Memoized per build process.
  */
 

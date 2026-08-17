@@ -15,7 +15,7 @@
  *
  * Invariants:
  *   - Entries without `category` fall into "uncategorized" (render as a
- *     distinct group at the end). Today all 11 seeded entries have a
+ *     distinct group at the end). Today all 9 seeded entries have a
  *     category; this is defensive for future additions.
  *   - Backlinks are STRICTLY derived from the `related` edges declared
  *     in JSON. We do not mine prose or use LLMs to hallucinate links.
@@ -25,7 +25,7 @@
  *
  * Performance: getCollection is memoized by Astro, and the
  * edge-inversion is O(E) where E is the total number of declared
- * related edges (33 today). We do not memoize further here.
+ * related edges (27 today). We do not memoize further here.
  */
 
 import { getCollection, type CollectionEntry } from 'astro:content';

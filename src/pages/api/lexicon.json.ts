@@ -11,7 +11,7 @@
  *     schemaVersion: 1,
  *     version: "2026-04-v2",            // human-facing lexicon version
  *     updatedAt: "2026-04-18" | null,
- *     count: 11,
+ *     count: 9,
  *     categories: [ { id, label, description, count } ],
  *     entries: [ FullEntry, ... ]
  *   }

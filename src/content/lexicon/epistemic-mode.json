@@ -8,7 +8,7 @@
   "appears": "Engagements page (as the standard across all deliverables). Methodology essays. Ask Sarif reading room (labels visible inline on every response). Signed deliverable PDFs.",
   "related": [
     { "id": "trace", "label": "Trace" },
-    { "id": "architectural-depth", "label": "Architectural Depth" },
-    { "id": "transmission", "label": "Transmission" }
+    { "id": "metabolic-knowledge", "label": "Metabolic Knowledge" },
+    { "id": "briefing", "label": "Briefing" }
   ]
 }

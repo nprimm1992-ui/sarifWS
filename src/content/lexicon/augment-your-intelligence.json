@@ -9,6 +9,6 @@
   "related": [
     { "id": "ucim", "label": "UCIM" },
     { "id": "jensen", "label": "Jensen" },
-    { "id": "architectural-depth", "label": "Architectural Depth" }
+    { "id": "trace", "label": "Trace" }
   ]
 }
