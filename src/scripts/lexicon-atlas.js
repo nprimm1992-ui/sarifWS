@@ -47,7 +47,6 @@ const YAW_LIMIT = 0.95;
 const PITCH_LIMIT = 0.42;
 const ZOOM_MIN = 0.6;
 const ZOOM_MAX = 2.8;
-const EASE = 0.09;
 const TRAIL_MAX = 5;
 
 let _bound = false;
@@ -55,6 +54,7 @@ let _abort = null;
 let _raf = 0;
 let _visible = true;
 let _io = null;
+let entrance = 0;
 
 let root = null;
 let stage = null;
@@ -94,6 +94,9 @@ const cam = {
      under the inspector so the selected term is never behind the panel
      (sideways on desktop, upward when the panel is a bottom sheet). */
   bx: 0, by: 0, tbx: 0, tby: 0,
+  /* Spring velocities — give the camera organic overshoot-and-settle
+     instead of a flat exponential lerp. */
+  vx: 0, vy: 0, vz: 0, vyaw: 0, vpitch: 0, vzoom: 0, vbx: 0, vby: 0,
 };
 const parallax = { x: 0, y: 0, tx: 0, ty: 0 };
 let drag = null;
@@ -112,6 +115,7 @@ function collect() {
     const hx = Number(el.dataset.wx);
     const hy = Number(el.dataset.wy);
     const hz = Number(el.dataset.wz);
+    const ring = el.dataset.ring || 'outer';
     return {
       id: el.dataset.node,
       el,
@@ -123,6 +127,13 @@ function collect() {
       tx: hx, ty: hy, tz: hz,
       px: 0, py: 0, ps: 1,
       blurred: false,
+      /* Breathing pulse: each node has a random phase so the field
+         shimmers organically rather than pulsing in lockstep. */
+      phase: Math.random() * Math.PI * 2,
+      pulseAmp: 0.035,
+      /* Staggered entrance: axis materializes first, then the ring,
+         then the outer perimeter — the figure assembles itself. */
+      enterAt: ring === 'axis' ? 0 : ring === 'ring' ? 0.12 : 0.28,
     };
   });
   byId = new Map(nodes.map((n) => [n.id, n]));
@@ -136,6 +147,8 @@ function collect() {
     particle: el.querySelector('.atlas__edge-particle'),
     a: el.dataset.edgeA,
     b: el.dataset.edgeB,
+    /* Per-edge phase offset so comet particles don't travel in sync. */
+    phase: Math.random(),
   }));
 
   adjacency = new Map();
@@ -209,12 +222,15 @@ function commit(t = 0) {
     n.px = p.x;
     n.py = p.y;
     n.ps = p.s;
-    const glyph = (p.s / cam.zoom) * uiScale;
+    /* Breathing pulse: the lit orbs subtly expand and contract, each
+       on its own phase so the field shimmers like a living instrument. */
+    const pulse = 1 + Math.sin(t * 0.0011 + n.phase) * n.pulseAmp;
+    const glyph = (p.s / cam.zoom) * uiScale * pulse;
     n.g.setAttribute('transform', `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) scale(${glyph.toFixed(3)})`);
-    /* Depth haze replaces filter-based DOF: the group now contains
-       filter-bearing elements (bloom on core), and nested SVG filters
-       don't compose. Opacity fog achieves the same atmospheric recede. */
-    n.g.style.opacity = fog(p.s).toFixed(3);
+    /* Entrance: nodes fade in by ring — axis first, then primary,
+       then outer — so the figure assembles itself on load. */
+    const ep = Math.max(0, Math.min(1, (entrance - n.enterAt) / 0.25));
+    n.g.style.opacity = (fog(p.s) * ep).toFixed(3);
   }
 
   for (const e of edges) {
@@ -236,17 +252,22 @@ function commit(t = 0) {
       line.setAttribute('x2', x2);
       line.setAttribute('y2', y2);
     }
-    /* Light particle travels along the edge when it's hot */
+    /* Comet particle: a light dot travels along the edge with a
+       per-edge phase offset. It fades at both endpoints so it reads
+       as a pulse of signal, not a dot crawling along a wire. */
     if (e.particle) {
       const dim = hidden.has(e.a) || hidden.has(e.b);
-      if (dim) {
-        e.particle.style.opacity = '0';
-      } else {
-        const phase = ((t || 0) * 0.0008) % 1;
-        const px = from.px + (to.px - from.px) * phase;
-        const py = from.py + (to.py - from.py) * phase;
-        e.particle.setAttribute('cx', px.toFixed(1));
-        e.particle.setAttribute('cy', py.toFixed(1));
+      if (!dim) {
+        const phase = ((t * 0.0006 + e.phase) % 1);
+        e.particle.setAttribute('cx', (from.px + (to.px - from.px) * phase).toFixed(1));
+        e.particle.setAttribute('cy', (from.py + (to.py - from.py) * phase).toFixed(1));
+        const isHot = e.el.classList.contains('is-hot');
+        if (isHot) {
+          const fade = Math.sin(phase * Math.PI);
+          e.particle.style.opacity = (0.15 + fade * 0.85).toFixed(2);
+        } else {
+          e.particle.style.opacity = '';
+        }
       }
     }
     const dim = hidden.has(e.a) || hidden.has(e.b);
@@ -322,7 +343,6 @@ function commit(t = 0) {
 function frame(t) {
   _raf = 0;
   const rm = reducedMotion();
-  const ease = rm ? 1 : EASE;
 
   if (!rm) {
     /* Ambient drift keeps the field alive at rest — the same slow
@@ -331,19 +351,31 @@ function frame(t) {
     const driftPitch = Math.sin(t * 0.00017 + 1.2) * 0.018;
     parallax.x += (parallax.tx + driftYaw - parallax.x) * 0.06;
     parallax.y += (parallax.ty + driftPitch - parallax.y) * 0.06;
+    /* Entrance ramp: nodes fade in by ring during the first second. */
+    entrance += (1 - entrance) * 0.035;
   } else {
     parallax.x = 0;
     parallax.y = 0;
+    entrance = 1;
   }
 
-  cam.x += (cam.tx - cam.x) * ease;
-  cam.y += (cam.ty - cam.y) * ease;
-  cam.z += (cam.tz - cam.z) * ease;
-  cam.yaw += (cam.tyaw - cam.yaw) * ease;
-  cam.pitch += (cam.tpitch - cam.pitch) * ease;
-  cam.zoom += (cam.tzoom - cam.zoom) * ease;
-  cam.bx += (cam.tbx - cam.bx) * ease;
-  cam.by += (cam.tby - cam.by) * ease;
+  if (rm) {
+    cam.x = cam.tx; cam.y = cam.ty; cam.z = cam.tz;
+    cam.yaw = cam.tyaw; cam.pitch = cam.tpitch; cam.zoom = cam.tzoom;
+    cam.bx = cam.tbx; cam.by = cam.tby;
+  } else {
+    /* Critically-damped spring: each axis overshoots slightly then
+       settles, giving fly-to-node a weighty, cinematic feel. */
+    const sk = 0.014, sd = 0.74;
+    cam.vx = (cam.vx + (cam.tx - cam.x) * sk) * sd; cam.x += cam.vx;
+    cam.vy = (cam.vy + (cam.ty - cam.y) * sk) * sd; cam.y += cam.vy;
+    cam.vz = (cam.vz + (cam.tz - cam.z) * sk) * sd; cam.z += cam.vz;
+    cam.vyaw = (cam.vyaw + (cam.tyaw - cam.yaw) * sk) * sd; cam.yaw += cam.vyaw;
+    cam.vpitch = (cam.vpitch + (cam.tpitch - cam.pitch) * sk) * sd; cam.pitch += cam.vpitch;
+    cam.vzoom = (cam.vzoom + (cam.tzoom - cam.zoom) * sk) * sd; cam.zoom += cam.vzoom;
+    cam.vbx = (cam.vbx + (cam.tbx - cam.bx) * sk) * sd; cam.bx += cam.vbx;
+    cam.vby = (cam.vby + (cam.tby - cam.by) * sk) * sd; cam.by += cam.vby;
+  }
 
   commit(t);
   if (_visible) _raf = requestAnimationFrame(frame);
@@ -491,6 +523,9 @@ function applyStates() {
     n.tz = n.hz + zOff;
     n.tx = n.hx;
     n.ty = n.hy;
+    /* Pulse amplitude reacts to state: the selected term beats
+       strongest, its neighbours breathe gently, the rest is calm. */
+    n.pulseAmp = isOrigin ? 0.1 : isHot ? 0.06 : 0.035;
   }
   for (const e of edges) {
     const hot = Boolean(selected && (e.a === selected || e.b === selected));
@@ -883,6 +918,7 @@ function bind() {
 
   collect();
   if (nodes.length === 0) return;
+  entrance = 0;
 
   _abort = new AbortController();
   const { signal } = _abort;
@@ -956,6 +992,7 @@ function teardown() {
   focusMode = false;
   trail = [];
   hidden = new Set();
+  entrance = 0;
   nodes = [];
   edges = [];
   clusters = [];

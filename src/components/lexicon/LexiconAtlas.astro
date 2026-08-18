@@ -1126,6 +1126,10 @@ const cards = graph.flat.map((n) => ({
     pointer-events: none;
   }
 
+  .atlas__scrim {
+    animation: atlasScrimBreathe 8s ease-in-out infinite;
+  }
+
   /* Readers who ask for reduced transparency get an opaque bed behind
      the field instead of the see-through diorama. */
   @media (prefers-reduced-transparency: reduce) {
@@ -1163,6 +1167,7 @@ const cards = graph.flat.map((n) => ({
   .atlas__glyph-line {
     stroke: rgba(130, 240, 255, 0.5);
     stroke-width: 1;
+    animation: atlasGlyphBreathe 7s ease-in-out infinite;
   }
 
   .atlas__glyph-pair--core .atlas__glyph-line {
@@ -1283,11 +1288,36 @@ const cards = graph.flat.map((n) => ({
     to { stroke-dashoffset: 0; }
   }
 
-  @keyframes atlasParticle {
-    0% { offset-distance: 0%; opacity: 0; }
-    10% { opacity: 1; }
-    90% { opacity: 1; }
-    100% { offset-distance: 100%; opacity: 0; }
+  /* ── Premium motion keyframes ─────────────────────────────────── */
+
+  /* Tooltip materializes with a soft fade */
+  @keyframes atlasTipIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* Inspector card content rises into place when switching terms */
+  @keyframes atlasCardIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Armature breathing — the sacred geometry inhales and exhales */
+  @keyframes atlasGlyphBreathe {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.68; }
+  }
+
+  /* Scrim breathes — the atmospheric bloom pulses gently */
+  @keyframes atlasScrimBreathe {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.82; }
+  }
+
+  /* Axis energy ring pulses in brightness as it spins */
+  @keyframes atlasEnergyPulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.85; }
   }
 
   /* ── Nodes ───────────────────────────────────────────────────── */
@@ -1367,7 +1397,7 @@ const cards = graph.flat.map((n) => ({
     stroke-width: 1;
     stroke-dasharray: 4 8;
     transform-origin: center;
-    animation: atlasEnergySpin 18s linear infinite;
+    animation: atlasEnergySpin 18s linear infinite, atlasEnergyPulse 4s ease-in-out infinite;
   }
 
   @keyframes atlasEnergySpin {
@@ -1425,6 +1455,11 @@ const cards = graph.flat.map((n) => ({
 
   .atlas__node.is-out { opacity: 0 !important; pointer-events: none; }
 
+  /* Inspector card content rises into place when a new term is opened */
+  .atlas-card:not([hidden]) {
+    animation: atlasCardIn 0.42s cubic-bezier(0.16, 0.84, 0.24, 1) both;
+  }
+
   /* ── Hover tip ───────────────────────────────────────────────── */
   .atlas__tip {
     position: absolute;
@@ -1438,6 +1473,7 @@ const cards = graph.flat.map((n) => ({
     -webkit-backdrop-filter: blur(14px);
     pointer-events: none;
     transform: translate(-50%, calc(-100% - 14px));
+    animation: atlasTipIn 0.2s ease-out both;
   }
 
   .atlas__tip-meta {
