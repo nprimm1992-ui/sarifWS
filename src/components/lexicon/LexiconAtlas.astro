@@ -510,15 +510,6 @@ const cards = graph.flat.map((n) => ({
           <stop offset="70%" stop-color="rgba(0,212,255,0.4)" />
           <stop offset="100%" stop-color="rgba(0,100,160,0.2)" />
         </radialGradient>
-        {/* Atmospheric scrim: a soft dark bloom that tracks the field
-             itself, not the frame. It reads as the graph's own shadow in
-             the diorama's air — enough local contrast for cyan on the
-             bright terraced ground, with no panel edge anywhere. */}
-        <radialGradient id="atlas-scrim">
-          <stop offset="0%" stop-color="rgba(2,9,15,0.34)" />
-          <stop offset="55%" stop-color="rgba(2,9,15,0.2)" />
-          <stop offset="100%" stop-color="rgba(2,9,15,0)" />
-        </radialGradient>
         {/* Deep-space nebula — the graph's own atmospheric background */}
         <radialGradient id="atlas-nebula" cx="50%" cy="42%" r="55%">
           <stop offset="0%" stop-color="rgba(0,40,80,0.18)" />
@@ -567,13 +558,7 @@ const cards = graph.flat.map((n) => ({
         cx={CX} cy={CY * 0.92} rx={VB_W * 0.52} ry={VB_H * 0.52}
         fill="url(#atlas-nebula)"
       />
-      <ellipse
-        class="atlas__scrim"
-        data-atlas-scrim
-        cx={CX} cy={CY} rx={VB_W * 0.46} ry={VB_H * 0.46}
-        fill="url(#atlas-scrim)"
-        aria-hidden="true"
-      />
+
 
       {/* Ground-plane shadows: each node casts a soft pool on the z=0 plate,
           re-projected every frame so the shadow tracks the orb above it. */}
@@ -1170,10 +1155,6 @@ const cards = graph.flat.map((n) => ({
     pointer-events: none;
   }
 
-  .atlas__scrim {
-    animation: atlasScrimBreathe 8s ease-in-out infinite;
-  }
-
   /* Ground-plane shadows: each node's dark pool on the z=0 plate. */
   .atlas__shadow {
     fill: url(#atlas-shadow-grad);
@@ -1187,9 +1168,6 @@ const cards = graph.flat.map((n) => ({
       background: rgba(3, 10, 17, 0.97);
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
-    }
-    .atlas__scrim {
-      display: none;
     }
   }
 
@@ -1358,12 +1336,6 @@ const cards = graph.flat.map((n) => ({
   @keyframes atlasGlyphBreathe {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.68; }
-  }
-
-  /* Scrim breathes — the atmospheric bloom pulses gently */
-  @keyframes atlasScrimBreathe {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.82; }
   }
 
   /* Axis energy ring pulses in brightness as it spins */

@@ -1199,6 +1199,7 @@ function createFloatingGeometry() {
     () => new THREE.OctahedronGeometry(0.4, 0),
     () => new THREE.DodecahedronGeometry(0.4, 0),
     () => new THREE.BoxGeometry(0.55, 0.55, 0.55),
+    () => new THREE.TorusGeometry(0.3, 0.10, 8, 20),
     () => new THREE.TetrahedronGeometry(0.45, 0),
   ];
 

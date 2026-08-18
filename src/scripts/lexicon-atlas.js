@@ -65,7 +65,6 @@ let readoutSel = null;
 let readoutZoom = null;
 let voidEl = null;
 let focusBtn = null;
-let scrim = null;
 
 /** @type {Array<any>} */
 let nodes = [];
@@ -330,33 +329,6 @@ function commit(t = 0) {
     c.el.setAttribute('x', p.x.toFixed(1));
     c.el.setAttribute('y', p.y.toFixed(1));
     c.el.setAttribute('font-size', (13 * (p.s / cam.zoom) * uiScale).toFixed(1));
-  }
-
-  /* The scrim is the only thing standing in for the old panel: a soft
-     bloom centred on the projected field, sized to it, with nothing to
-     read as an edge. */
-  if (scrim) {
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, live = 0;
-    for (const n of nodes) {
-      if (hidden.has(n.id)) continue;
-      live += 1;
-      minX = Math.min(minX, n.px);
-      maxX = Math.max(maxX, n.px);
-      minY = Math.min(minY, n.py);
-      maxY = Math.max(maxY, n.py);
-    }
-    if (live > 0) {
-      const cx = (minX + maxX) / 2;
-      const cy = (minY + maxY) / 2;
-      /* Clamp inside the frame: a soft gradient clipped by the stage
-         edge would draw the very panel edge we just removed. */
-      const rx = Math.min((maxX - minX) / 2 + 230, cx, 1000 - cx);
-      const ry = Math.min((maxY - minY) / 2 + 190, cy, vbH - cy);
-      scrim.setAttribute('cx', cx.toFixed(1));
-      scrim.setAttribute('cy', cy.toFixed(1));
-      scrim.setAttribute('rx', Math.max(rx, 40).toFixed(1));
-      scrim.setAttribute('ry', Math.max(ry, 40).toFixed(1));
-    }
   }
 
   if (readoutZoom) readoutZoom.textContent = `${cam.zoom.toFixed(2)}×`;
@@ -952,7 +924,6 @@ function bind() {
   readoutZoom = root.querySelector('[data-atlas-readout-zoom]');
   voidEl = root.querySelector('[data-atlas-void]');
   focusBtn = root.querySelector('[data-atlas-focus]');
-  scrim = root.querySelector('[data-atlas-scrim]');
   if (!stage) return;
 
   collect();
@@ -1043,7 +1014,6 @@ function teardown() {
   adjacency = new Map();
   root = null;
   stage = null;
-  scrim = null;
   _bound = false;
 }
 
