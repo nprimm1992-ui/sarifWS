@@ -127,11 +127,13 @@ function collect() {
   });
   byId = new Map(nodes.map((n) => [n.id, n]));
 
-  /* Each edge is a pair (dark underlay + cyan stroke) so a 1px line
-     stays legible against both halves of the diorama. */
+  /* Each edge is a pair (dark underlay + cyan stroke) plus a traveling
+     light particle so a 1px line stays legible against both halves of
+     the diorama and reads as signal flow when hot. */
   edges = Array.from(root.querySelectorAll('[data-edge-a]')).map((el) => ({
     el,
     lines: Array.from(el.querySelectorAll('line')),
+    particle: el.querySelector('.atlas__edge-particle'),
     a: el.dataset.edgeA,
     b: el.dataset.edgeB,
   }));
@@ -195,7 +197,7 @@ function fog(s) {
   return Math.max(0.3, Math.min(1, 0.42 + norm * 0.6));
 }
 
-function commit() {
+function commit(t = 0) {
   const project = makeProjector();
   const lerp = reducedMotion() ? 1 : 0.12;
 
@@ -209,13 +211,10 @@ function commit() {
     n.ps = p.s;
     const glyph = (p.s / cam.zoom) * uiScale;
     n.g.setAttribute('transform', `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) scale(${glyph.toFixed(3)})`);
+    /* Depth haze replaces filter-based DOF: the group now contains
+       filter-bearing elements (bloom on core), and nested SVG filters
+       don't compose. Opacity fog achieves the same atmospheric recede. */
     n.g.style.opacity = fog(p.s).toFixed(3);
-    const wantBlur = p.s / cam.zoom < 0.93;
-    if (wantBlur !== n.blurred) {
-      n.blurred = wantBlur;
-      if (wantBlur) n.g.setAttribute('filter', 'url(#atlas-dof)');
-      else n.g.removeAttribute('filter');
-    }
   }
 
   for (const e of edges) {
@@ -236,6 +235,19 @@ function commit() {
       line.setAttribute('y1', y1);
       line.setAttribute('x2', x2);
       line.setAttribute('y2', y2);
+    }
+    /* Light particle travels along the edge when it's hot */
+    if (e.particle) {
+      const dim = hidden.has(e.a) || hidden.has(e.b);
+      if (dim) {
+        e.particle.style.opacity = '0';
+      } else {
+        const phase = ((t || 0) * 0.0008) % 1;
+        const px = from.px + (to.px - from.px) * phase;
+        const py = from.py + (to.py - from.py) * phase;
+        e.particle.setAttribute('cx', px.toFixed(1));
+        e.particle.setAttribute('cy', py.toFixed(1));
+      }
     }
     const dim = hidden.has(e.a) || hidden.has(e.b);
     e.el.classList.toggle('is-dim', dim);
@@ -333,7 +345,7 @@ function frame(t) {
   cam.bx += (cam.tbx - cam.bx) * ease;
   cam.by += (cam.tby - cam.by) * ease;
 
-  commit();
+  commit(t);
   if (_visible) _raf = requestAnimationFrame(frame);
 }
 
