@@ -123,6 +123,7 @@ function collect() {
       el,
       g: el.querySelector('.atlas__node-tx'),
       degree: Number(el.dataset.degree) || 0,
+      r: (ring === 'axis' ? 8 : 5.4) + Math.min(Number(el.dataset.degree) || 0, 6) * 0.55,
       hx, hy, hz,
       /* current (animated) and target world position */
       cx: hx, cy: hy, cz: hz,
