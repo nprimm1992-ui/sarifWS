@@ -44,7 +44,7 @@ const HOME_YAW = -0.18;
 const HOME_PITCH = -0.13;
 
 const YAW_LIMIT = 0.95;
-const PITCH_LIMIT = 0.42;
+const PITCH_LIMIT = 0.58;
 const ZOOM_MIN = 0.6;
 const ZOOM_MAX = 2.8;
 const TRAIL_MAX = 5;
@@ -75,6 +75,8 @@ let byId = new Map();
 let edges = [];
 /** @type {Array<any>} */
 let clusters = [];
+/** @type {Array<any>} */
+let shadows = [];
 /** Armature: octagon rings, spokes and the {8/3} octagram. */
 let glyphPolys = [];
 let glyphLines = [];
@@ -178,6 +180,11 @@ function collect() {
     id: el.dataset.cluster,
     wx: Number(el.dataset.wx), wy: Number(el.dataset.wy), wz: Number(el.dataset.wz),
   }));
+
+  shadows = Array.from(root.querySelectorAll('[data-shadow]')).map((el) => ({
+    el,
+    id: el.dataset.shadow,
+  }));
 }
 
 /* ── Projection ───────────────────────────────────────────────── */
@@ -206,8 +213,8 @@ function makeProjector() {
 function fog(s) {
   /* Depth haze: distant terms sink toward the diorama, near terms sit
      fully lit. `s` is the perspective scale at that depth. */
-  const norm = (s / cam.zoom - 0.86) / 0.3;
-  return Math.max(0.3, Math.min(1, 0.42 + norm * 0.6));
+  const norm = (s / cam.zoom - 0.82) / 0.38;
+  return Math.max(0.22, Math.min(1, 0.34 + norm * 0.68));
 }
 
 function commit(t = 0) {
@@ -231,6 +238,22 @@ function commit(t = 0) {
        then outer — so the figure assembles itself on load. */
     const ep = Math.max(0, Math.min(1, (entrance - n.enterAt) / 0.25));
     n.g.style.opacity = (fog(p.s) * ep).toFixed(3);
+  }
+
+  /* Ground-plane shadows: each node casts a soft dark pool on the z=0
+     plate, re-projected every frame so the shadow tracks the orb and
+     the figure reads as a solid object in space, not a decal. */
+  for (const sh of shadows) {
+    const n = byId.get(sh.id);
+    if (!n) continue;
+    const p = project(n.cx, n.cy, 0);
+    sh.el.setAttribute('cx', p.x.toFixed(1));
+    sh.el.setAttribute('cy', p.y.toFixed(1));
+    sh.el.setAttribute('rx', (n.r * 2.4 * p.s).toFixed(1));
+    sh.el.setAttribute('ry', (n.r * 0.75 * p.s).toFixed(1));
+    const isOut = hidden.has(n.id) || (focusMode && n.id !== selected && !neighborsOf(selected).has(n.id));
+    const ep = Math.max(0, Math.min(1, (entrance - n.enterAt) / 0.25));
+    sh.el.style.opacity = isOut ? '0' : (0.38 * ep).toFixed(3);
   }
 
   for (const e of edges) {
@@ -347,8 +370,8 @@ function frame(t) {
   if (!rm) {
     /* Ambient drift keeps the field alive at rest — the same slow
        breathing register as the lobby camera. */
-    const driftYaw = Math.sin(t * 0.00011) * 0.035;
-    const driftPitch = Math.sin(t * 0.00017 + 1.2) * 0.018;
+    const driftYaw = Math.sin(t * 0.00011) * 0.045;
+    const driftPitch = Math.sin(t * 0.00017 + 1.2) * 0.024;
     parallax.x += (parallax.tx + driftYaw - parallax.x) * 0.06;
     parallax.y += (parallax.ty + driftPitch - parallax.y) * 0.06;
     /* Entrance ramp: nodes fade in by ring during the first second. */
@@ -423,6 +446,8 @@ function flyTo(x, y, z, zoom) {
 
 function fitNodes(list, extentX = 0, extentY = 0) {
   if (list.length === 0) {
+    cam.tyaw = HOME_YAW;
+    cam.tpitch = HOME_PITCH;
     flyTo(0, 0, 0, 1);
     return;
   }
@@ -459,7 +484,8 @@ function fitNodes(list, extentX = 0, extentY = 0) {
      the reader can actually see. */
   const availW = (selected && !sheet ? 540 : 820) / uiScale;
   const availH = ((selected && sheet ? 0.40 : 0.66) * vbH) / uiScale;
-  const zoom = Math.min(availW / w, availH / h, 2.4);
+  const maxZoom = list.length <= 1 ? 1.6 : ZOOM_MAX;
+  const zoom = Math.min(availW / w, availH / h, maxZoom);
   flyTo((minX + maxX) / 2, (minY + maxY) / 2, sumZ / list.length, zoom);
 }
 
@@ -467,6 +493,12 @@ function fitVisible() {
   /* Unfiltered, the camera frames the whole figure — armature included —
      so the octagon reads as a complete construction rather than a crop. */
   const live = nodes.filter((n) => !hidden.has(n.id));
+  if (live.length === 0) {
+    cam.tyaw = HOME_YAW;
+    cam.tpitch = HOME_PITCH;
+    flyTo(0, 0, 0, 1);
+    return;
+  }
   const whole = live.length === nodes.length;
   fitNodes(
     live,
@@ -557,15 +589,21 @@ function radialLayout() {
      mode reads as a sub-figure of the octagon rather than a new shape. */
   const step = Math.PI / 4;
   const slots = near.length <= 8 ? step : (Math.PI * 2) / near.length;
+  const rx = Math.max(170, Math.min(290, 150 + near.length * 18));
+  const ry = rx * 0.7;
   near.forEach((n, i) => {
     const a = -Math.PI / 2 + i * slots;
-    n.tx = origin.hx + Math.cos(a) * 218;
-    n.ty = origin.hy + Math.sin(a) * 152;
+    n.tx = origin.hx + Math.cos(a) * rx;
+    n.ty = origin.hy + Math.sin(a) * ry;
     n.tz = origin.hz + Math.sin(a * 2) * 70;
   });
 }
 
 function setFocusMode(on) {
+  if (on && selected && hidden.has(selected)) {
+    clearSelection();
+    return;
+  }
   focusMode = Boolean(on && selected);
   if (focusMode) root.dataset.focus = '1';
   else delete root.dataset.focus;
@@ -967,7 +1005,8 @@ function bind() {
 
   window.addEventListener('resize', () => {
     syncViewBox();
-    if (!selected) fitVisible();
+    if (selected) fitNodes(egoNodes());
+    else fitVisible();
     kick();
   }, { signal });
 
@@ -996,6 +1035,7 @@ function teardown() {
   nodes = [];
   edges = [];
   clusters = [];
+  shadows = [];
   glyphPolys = [];
   glyphLines = [];
   byId = new Map();

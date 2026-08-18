@@ -120,18 +120,18 @@ const seated = graph.flat
 const extras = Math.max(seated.length - VERTICES, 0);
 type Seat = { x: number; y: number; z: number; ring: 'axis' | 'ring' | 'outer'; a: number };
 const seats = new Map<string, Seat>();
-seats.set(axisId, { x: 0, y: 0, z: 84, ring: 'axis', a: 0 });
+seats.set(axisId, { x: 0, y: 0, z: -100, ring: 'axis', a: 0 });
 seated.forEach((n, i) => {
   if (i < VERTICES) {
     const v = vertex(R_RING, i);
     /* Antiprism shimmer: alternate vertices lean toward and away from
        the viewer so the ring reads as a solid figure under orbit. */
-    seats.set(n.id, { x: v.x, y: v.y, z: i % 2 === 0 ? 34 : -34, ring: 'ring', a: v.a });
+    seats.set(n.id, { x: v.x, y: v.y, z: i % 2 === 0 ? -52 : 52, ring: 'ring', a: v.a });
   } else {
     const slot = i - VERTICES;
     const spread = extras > 0 ? (VERTICES / extras) * slot : 0;
     const v = vertex(R_OUTER, spread, HALF_STEP);
-    seats.set(n.id, { x: v.x, y: v.y, z: -104, ring: 'outer', a: v.a });
+    seats.set(n.id, { x: v.x, y: v.y, z: 150, ring: 'outer', a: v.a });
   }
 });
 
@@ -236,18 +236,18 @@ const clusters = graph.groups
 type GlyphPoly = { pts: [number, number, number][]; kind: string };
 type GlyphLine = { ax: number; ay: number; az: number; bx: number; by: number; bz: number; kind: string };
 
-function ring(radius: number, rotate = 0): [number, number, number][] {
+function ring(radius: number, rotate = 0, z = 0): [number, number, number][] {
   return Array.from({ length: VERTICES + 1 }, (_, i) => {
     const v = vertex(radius, i % VERTICES, rotate);
-    return [r1(v.x), r1(v.y), 0] as [number, number, number];
+    return [r1(v.x), r1(v.y), z] as [number, number, number];
   });
 }
 
 const glyphPolys: GlyphPoly[] = [
-  { pts: ring(R_CORE), kind: 'core' },
-  { pts: ring(R_RING), kind: 'ring' },
-  { pts: ring(R_RING, HALF_STEP), kind: 'star' },
-  { pts: ring(R_OUTER), kind: 'outer' },
+  { pts: ring(R_CORE, 0, -20), kind: 'core' },
+  { pts: ring(R_RING, 0, 0), kind: 'ring' },
+  { pts: ring(R_RING, HALF_STEP, 5), kind: 'star' },
+  { pts: ring(R_OUTER, 0, 30), kind: 'outer' },
 ];
 
 const glyphLines: GlyphLine[] = [];
@@ -255,8 +255,8 @@ for (let i = 0; i < VERTICES; i++) {
   const inner = vertex(R_CORE, i);
   const outer = vertex(R_OUTER, i);
   glyphLines.push({
-    ax: r1(inner.x), ay: r1(inner.y), az: 0,
-    bx: r1(outer.x), by: r1(outer.y), bz: 0,
+    ax: r1(inner.x), ay: r1(inner.y), az: -20,
+    bx: r1(outer.x), by: r1(outer.y), bz: 30,
     kind: 'spoke',
   });
   /* {8/3} octagram — the chord that gives the figure its star. */
@@ -552,6 +552,12 @@ const cards = graph.flat.map((n) => ({
           <stop offset="50%" stop-color="rgba(0,212,255,0.12)" />
           <stop offset="100%" stop-color="rgba(0,212,255,0)" />
         </radialGradient>
+        {/* Ground-plane shadow gradient — soft dark pool under each node */}
+        <radialGradient id="atlas-shadow-grad">
+          <stop offset="0%" stop-color="rgba(1, 5, 10, 0.5)" />
+          <stop offset="55%" stop-color="rgba(1, 5, 10, 0.22)" />
+          <stop offset="100%" stop-color="rgba(1, 5, 10, 0)" />
+        </radialGradient>
       </defs>
 
       {/* Deep-space atmospheric layers */}
@@ -568,6 +574,22 @@ const cards = graph.flat.map((n) => ({
         fill="url(#atlas-scrim)"
         aria-hidden="true"
       />
+
+      {/* Ground-plane shadows: each node casts a soft pool on the z=0 plate,
+          re-projected every frame so the shadow tracks the orb above it. */}
+      <g class="atlas__shadows" data-atlas-shadows aria-hidden="true">
+        {nodes.map((n) => {
+          const sp = project(n.wx, n.wy, 0);
+          return (
+            <ellipse
+              class="atlas__shadow"
+              data-shadow={n.id}
+              cx={r1(sp.x)} cy={r1(sp.y)}
+              rx={r1(n.r * 2.4 * sp.s)} ry={r1(n.r * 0.75 * sp.s)}
+            />
+          );
+        })}
+      </g>
 
       <g class="atlas__glyph" data-atlas-glyph aria-hidden="true">
         {glyphPolyGeometry.map((g) => (
@@ -1150,6 +1172,12 @@ const cards = graph.flat.map((n) => ({
 
   .atlas__scrim {
     animation: atlasScrimBreathe 8s ease-in-out infinite;
+  }
+
+  /* Ground-plane shadows: each node's dark pool on the z=0 plate. */
+  .atlas__shadow {
+    fill: url(#atlas-shadow-grad);
+    transition: opacity 0.3s ease;
   }
 
   /* Readers who ask for reduced transparency get an opaque bed behind
