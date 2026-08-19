@@ -100,7 +100,7 @@ test('lexicon atlas: scene renders frameless with nodes, edges and channels', as
       present: Boolean(root),
       nodes: document.querySelectorAll('[data-atlas] [data-node]').length,
       edges: document.querySelectorAll('[data-atlas] [data-edge-a]').length,
-      scrim: document.querySelectorAll('[data-atlas] [data-atlas-scrim]').length,
+      nebula: document.querySelectorAll('[data-atlas] .atlas__nebula').length,
       rings: document.querySelectorAll('[data-atlas] [data-poly]').length,
       chords: document.querySelectorAll('[data-atlas] .atlas__glyph-pair--octagram').length,
       spokes: document.querySelectorAll('[data-atlas] .atlas__glyph-pair--spoke').length,
@@ -116,7 +116,10 @@ test('lexicon atlas: scene renders frameless with nodes, edges and channels', as
   expect(scene.present, 'atlas renders').toBe(true);
   expect(scene.nodes, 'all lexicon terms plotted').toBeGreaterThanOrEqual(9);
   expect(scene.edges, 'relationship edges plotted').toBeGreaterThan(10);
-  expect(scene.scrim, 'atmospheric scrim renders instead of a panel').toBe(1);
+  /* The tracking scrim was retired in favour of a static nebula bed plus the
+     `.atlas__controls` gradient; assert the surviving atmospheric layer so this
+     stays a real regression guard rather than dead coverage. */
+  expect(scene.nebula, 'atmospheric nebula bed renders').toBe(1);
   /* Octagonal armature: four rings, eight spokes, the {8/3} octagram. */
   expect(scene.rings, 'octagon rings render').toBe(4);
   expect(scene.spokes, 'eight radial spokes render').toBe(8);
