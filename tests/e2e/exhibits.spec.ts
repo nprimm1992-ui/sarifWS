@@ -167,6 +167,67 @@ test('engagement dossiers: specimen plates are readable and never occluded', asy
   expect(platesSeen, 'at least one dossier ships a specimen plate').toBeGreaterThan(0);
 });
 
+test('engagement dossiers: documents of record are safe, external and unique', async ({ page }) => {
+  test.setTimeout(120_000);
+  const slugs = await discoverExhibitSlugs(page);
+
+  /* The documents section is the load-bearing claim on the whole surface:
+     it invites a visitor to audit the work. Assert the properties that
+     make that invitation safe and honest, for whatever dossiers carry it.
+
+     Reachability is deliberately NOT asserted here — these are
+     third-party publishing URLs behind bot protection, so a network probe
+     would make the suite flaky and dependent on an external service. The
+     build-time sentinel covers shape, https and duplication instead. */
+  let sectionsSeen = 0;
+
+  for (const slug of slugs) {
+    await page.goto(`/engagements/${slug}/`, { waitUntil: 'load' });
+    const section = page.locator('[data-testid="exhibit-docs"]');
+    if ((await section.count()) === 0) continue;
+    sectionsSeen += 1;
+
+    const links = page.locator('[data-testid="exhibit-doc-link"]');
+    const n = await links.count();
+    expect(n, `${slug} documents section is not empty`).toBeGreaterThan(0);
+
+    const rows = await links.evaluateAll((els) =>
+      els.map((el) => {
+        const a = el as HTMLAnchorElement;
+        const box = a.getBoundingClientRect();
+        return {
+          href: a.getAttribute('href') ?? '',
+          target: a.getAttribute('target') ?? '',
+          rel: a.getAttribute('rel') ?? '',
+          text: (a.textContent ?? '').replace(/\s+/g, ' ').trim(),
+          height: Math.round(box.height),
+          clipped: a.scrollWidth > a.clientWidth + 1,
+        };
+      }),
+    );
+
+    for (const [i, r] of rows.entries()) {
+      expect(r.href, `${slug} doc ${i} is an absolute https URL`).toMatch(/^https:\/\//);
+      expect(r.target, `${slug} doc ${i} opens in a new tab`).toBe('_blank');
+      expect(r.rel, `${slug} doc ${i} is tabnabbing-safe`).toContain('noopener');
+      expect(r.text.length, `${slug} doc ${i} has a readable label`).toBeGreaterThan(10);
+      expect(r.clipped, `${slug} doc ${i} does not clip horizontally`).toBe(false);
+      /* 44px is the WCAG 2.5.5 target-size floor. */
+      expect(r.height, `${slug} doc ${i} is a comfortable tap target`).toBeGreaterThanOrEqual(44);
+    }
+
+    const hrefs = rows.map((r) => r.href.replace(/\/+$/, ''));
+    expect(new Set(hrefs).size, `${slug} documents are distinct`).toBe(hrefs.length);
+
+    /* The intro line derives its count from the collection; a hardcoded
+       number here would rot the moment a document is added. */
+    const intro = (await section.locator('.exh-docs__intro').innerText()).trim();
+    expect(intro, `${slug} intro states the true document count`).toContain(String(n));
+  }
+
+  expect(sectionsSeen, 'at least one dossier publishes documents').toBeGreaterThan(0);
+});
+
 test('engagements index: directory links to every dossier', async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto('/engagements/', { waitUntil: 'load' });

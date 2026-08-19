@@ -62,6 +62,7 @@ if (files.length === 0) {
 const seenNums = new Map();
 const seenSorts = new Map();
 let heroCount = 0;
+let docCount = 0;
 
 for (const file of files) {
   const abs = join(DIR, file);
@@ -190,7 +191,83 @@ for (const file of files) {
     });
   }
 
-  /* --- 5. registry collisions ---------------------------------------- */
+  /* --- 5. documents of record ----------------------------------------
+     These are the load-bearing claim on the whole surface: an engagement
+     that says "five documents" and links four is worse than one that
+     links none. Zod already guarantees shape and URL syntax, so this
+     checks the things Zod cannot see — reachability of the host, https,
+     duplicate hrefs, and agreement with any count asserted in prose. */
+  if (Array.isArray(data.documents)) {
+    const seenHrefs = new Map();
+    data.documents.forEach((doc, i) => {
+      const where = `${file} — documents[${i}]`;
+
+      if (typeof doc.href === 'string') {
+        let url;
+        try {
+          url = new URL(doc.href);
+        } catch {
+          findings.push(`${where} has an unparseable href: ${doc.href}`);
+          return;
+        }
+        if (url.protocol !== 'https:') {
+          findings.push(
+            `${where} uses ${url.protocol} — documents of record must be https ` +
+              `so the browser does not flag the proof surface as insecure.`,
+          );
+        }
+        const key = doc.href.replace(/\/+$/, '');
+        if (seenHrefs.has(key)) {
+          findings.push(
+            `${where} duplicates documents[${seenHrefs.get(key)}] (${key}). ` +
+              `Two catalogue rows pointing at one file overstates the deliverable count.`,
+          );
+        } else {
+          seenHrefs.set(key, i);
+        }
+      }
+
+      /* Labels are rendered verbatim; markup would show as literal text. */
+      for (const field of ['label', 'kind', 'note']) {
+        const v = doc[field];
+        if (typeof v === 'string' && /<[a-z/][^>]*>/i.test(v)) {
+          findings.push(
+            `${where}.${field} contains markup. Document fields render as ` +
+              `plain text, so tags would appear literally on the page.`,
+          );
+        }
+      }
+      if (typeof doc.label === 'string' && doc.label.trim().length < 8) {
+        findings.push(`${where}.label is too short to identify a document: "${doc.label}"`);
+      }
+    });
+
+    /* Prose/inventory agreement. If a highlight or lead asserts a written
+       count of documents, the array must match it — this is exactly the
+       drift that turns a proof surface into a liability. */
+    const WORD_TO_N = {
+      one: 1, two: 2, three: 3, four: 4, five: 5,
+      six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+    };
+    const prose = [...(data.leads ?? []), ...(data.highlights ?? [])].join(' ');
+    const claim = prose.match(
+      /\b(one|two|three|four|five|six|seven|eight|nine|ten)[-\s]document\b/i,
+    );
+    if (claim) {
+      const claimed = WORD_TO_N[claim[1].toLowerCase()];
+      if (claimed !== data.documents.length) {
+        findings.push(
+          `${file} — prose claims a "${claim[1]}-document" suite but ` +
+            `documents[] has ${data.documents.length} entr${
+              data.documents.length === 1 ? 'y' : 'ies'
+            }. The catalogue must match the claim.`,
+        );
+      }
+    }
+    docCount += data.documents.length;
+  }
+
+  /* --- 6. registry collisions ---------------------------------------- */
   if (typeof data.num === 'string') {
     if (seenNums.has(data.num)) {
       findings.push(
@@ -223,5 +300,6 @@ if (findings.length > 0) {
 
 console.log(
   `${TAG} OK — ${files.length} engagement(s); ${heroCount} with specimen plate; ` +
-    `leads/highlights markup consistent; registry unique`,
+    `${docCount} document(s) of record; leads/highlights markup consistent; ` +
+    `registry unique`,
 );
