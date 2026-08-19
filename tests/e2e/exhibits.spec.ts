@@ -108,6 +108,65 @@ test('engagement dossiers: exhibit walk is a closed ring', async ({ page }) => {
   expect(current, 'walk wraps back to the first exhibit').toBe(start);
 });
 
+test('engagement dossiers: specimen plates are readable and never occluded', async ({ page }) => {
+  test.setTimeout(120_000);
+  const slugs = await discoverExhibitSlugs(page);
+
+  /* Plates are optional per dossier, so this asserts a property of whatever
+     plates exist rather than a fixed inventory. Three invariants:
+
+     1. The plate links to the full-resolution asset. Dense analytical
+        graphics are illegible at plate size, so the artefact must remain
+        inspectable or it is decoration.
+     2. The served image is at least as wide as the box it renders into —
+        catches an under-sized source being upscaled by the browser.
+     3. The mount bar sits BELOW the image, never on top of it. This is the
+        regression guard for the collision bug: floating chrome landed on
+        the eng-001 matrix's own title and source credit. */
+  let platesSeen = 0;
+
+  for (const slug of slugs) {
+    await page.goto(`/engagements/${slug}/`, { waitUntil: 'load' });
+    const plate = page.locator('[data-testid="exhibit-hero"]');
+    if ((await plate.count()) === 0) continue;
+    platesSeen += 1;
+
+    const zoom = page.locator('[data-testid="exhibit-hero-zoom"]');
+    await expect(zoom, `${slug} plate links to full resolution`).toHaveAttribute(
+      'href',
+      /\/_astro\/.+\.(webp|png|jpg|jpeg|avif)$/,
+    );
+    await expect(zoom, `${slug} plate opens in a new tab`).toHaveAttribute('target', '_blank');
+    await expect(zoom, `${slug} plate link is safe`).toHaveAttribute('rel', /noopener/);
+
+    const geom = await plate.evaluate((fig) => {
+      const img = fig.querySelector('img') as HTMLImageElement;
+      const mount = fig.querySelector('.exh-plate__mount');
+      const i = img.getBoundingClientRect();
+      const m = mount ? mount.getBoundingClientRect() : null;
+      return {
+        css: Math.round(i.width),
+        natural: img.naturalWidth,
+        imgBottom: Math.round(i.bottom),
+        mountTop: m ? Math.round(m.top) : null,
+        alt: img.getAttribute('alt') ?? '',
+      };
+    });
+
+    expect(geom.natural, `${slug} plate is not upscaled by the browser`).toBeGreaterThanOrEqual(
+      geom.css,
+    );
+    expect(geom.alt.length, `${slug} plate carries descriptive alt text`).toBeGreaterThan(11);
+    expect(geom.mountTop, `${slug} plate has a mount bar`).not.toBeNull();
+    expect(
+      geom.mountTop,
+      `${slug} mount bar sits below the image, not over it`,
+    ).toBeGreaterThanOrEqual(geom.imgBottom);
+  }
+
+  expect(platesSeen, 'at least one dossier ships a specimen plate').toBeGreaterThan(0);
+});
+
 test('engagements index: directory links to every dossier', async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto('/engagements/', { waitUntil: 'load' });

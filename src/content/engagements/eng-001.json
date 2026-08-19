@@ -1,19 +1,25 @@
 {
   "num": "001",
-  "classification": "Engagement 001 — Policy Infrastructure",
-  "sector": "Civic policy",
+  "classification": "Engagement 001 — Public Capital Deployment",
+  "sector": "Housing policy",
   "accent": "policy",
   "statValue": "$106M",
-  "statLabel": "Deployment matrix scope",
+  "statLabel": "Uncommitted funds mapped",
+  "heroImage": "./_images/eng-001.webp",
+  "heroAlt": "Sankey-style deployment matrix mapping $106M in Portland housing funds across eight legally distinct sources, with uncommitted balances in saturated color flowing to recommended program allocations and KPI alignments, dated April 9, 2026.",
   "leads": [
-    "A major metropolitan area faced a systemic crisis with no shortage of proposals but no deployment architecture connecting real funding to validated interventions. We built the bridge between policy intent and fiscal execution."
+    "$106 million in Portland housing funds sat uncommitted with no architecture connecting them to validated interventions — while the shelter system exited 17 percent of people to permanent housing against its own 41 percent goal, and more than 18,000 people went unhoused.",
+    "No commission preceded the work. The engagement was a deliberate live test of the Sarif methodology: whether one analyst with an AI-augmented production stack could produce civic intelligence at the standard a council floor demands, delivered cold to the officials who would have to act on it.",
+    "Within days of delivery, council committed approximately $56 million through the Keep Portland Housed ordinance — the quantum the deployment matrix had identified as deployable. Two sitting councilors and the executive director of a regional housing coalition responded directly. The suite was then revised twice inside the live budget window to protect implementation."
   ],
   "highlights": [
-    "9-chapter policy playbook anchored to RCT-validated intervention mathematics",
-    "$106M deployment matrix mapping 8 funding sources to 17 endpoints",
-    "Three rounds of adversarial stress-testing — every assumption challenged, every number pressure-tested",
-    "Three production-grade infographics translating complex fiscal flows into decision-ready visuals",
-    "Delivered to elected officials in 10 days."
+    "Ten-chapter strategic playbook grounded in a ten-city global evidence corpus — Houston, Helsinki, Glasgow, Bakersfield, Vienna",
+    "$106M deployment matrix mapping eight legally distinct funds, committed versus deployable, dollar by dollar",
+    "Five-document council suite — playbook, leaders' brief, priority-actions memo, budget alignment brief, agency execution audit — published via <a href=\"https://thelivingstack.substack.com\" target=\"_blank\" rel=\"noopener noreferrer\">The Living Stack</a>",
+    "Execution-gap catch: $5.6M committed by council, $0 budgeted by the executing agency twelve days later",
+    "Every figure cited to a decision-package ID or verbatim budget quote; silence documented as 'budget does not state'",
+    "Direct response from two sitting councilors and the executive director of a regional housing coalition",
+    "Created, refined and delivered in ten working days — then re-cut twice inside the live 60-day budget window as council acted."
   ],
   "sort": 1
 }
