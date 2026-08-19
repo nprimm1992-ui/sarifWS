@@ -1,5 +1,6 @@
 ---
 import { getCollection, getEntry } from 'astro:content';
+import { Picture } from 'astro:assets';
 import Base from '../../layouts/Base.astro';
 
 export async function getStaticPaths() {
@@ -54,13 +55,20 @@ const nextTitle = displayTitle(next.classification);
 /**
  * Meta description generator — must land in the 110–180 char window the
  * postbuild sentinel enforces (scripts/check-meta-descriptions.mjs).
- * Apostrophes / quotes / ampersands are stripped because Astro's
- * attribute escaping would inflate (or the sentinel's regex would
- * truncate) the measured length.
+ *
+ * Apostrophes and ampersands are no longer stripped. That stripping was a
+ * workaround for a bug in the sentinel, whose regex used `[^"']*` and so
+ * ended its capture at the first apostrophe — silently truncating its own
+ * measurement. The sentinel now uses a quote-aware, entity-decoded capture,
+ * so punctuation is measured honestly and prose can read naturally.
+ *
+ * Double quotes are still removed: they terminate the HTML attribute and
+ * Astro escapes them to `&quot;`, which is legible but wastes 5 characters
+ * of a 180-character budget for no reader benefit.
  */
 function metaDescription(): string {
   const base = `Engagement ${data.num} dossier — ${data.sector}. ${data.statValue} ${data.statLabel}. `;
-  const lead = (data.leads[0] ?? '').replace(/['"\u2019&]/g, '');
+  const lead = (data.leads[0] ?? '').replace(/["\u201C\u201D]/g, '');
   let out = (base + lead).replace(/\s+/g, ' ').trim();
   if (out.length > 178) {
     out = out.slice(0, 177);
@@ -71,11 +79,31 @@ function metaDescription(): string {
 
 const logCount = String(data.highlights.length).padStart(2, '0');
 const specimenTotal = String(total).padStart(3, '0');
+
+/**
+ * Specimen plate (optional hero).
+ *
+ * `heroImage` / `heroAlt` are optional in the engagements schema, so a
+ * dossier without imagery keeps the original plaque + body layout
+ * untouched. When present the plate renders above the mandate and is
+ * promoted to the social embed, mirroring Praxis (src/pages/praxis/[slug].astro).
+ *
+ * Both fields are required *together* — an image with no alt text is an
+ * accessibility regression, so the plate only renders when `heroAlt` is a
+ * non-empty string. Authors get a build-time failure from the sentinel
+ * (scripts/check-engagement-hero.mjs) rather than silent omission.
+ */
+const heroAlt = data.heroAlt?.trim();
+const hasHero = Boolean(data.heroImage && heroAlt);
 ---
 
 <Base
   title={`${title} — Engagement ${data.num} — Sarif Consulting`}
   description={metaDescription()}
+  ogImage={hasHero ? data.heroImage!.src : undefined}
+  ogImageAlt={hasHero ? heroAlt : undefined}
+  ogImageWidth={hasHero ? data.heroImage!.width : undefined}
+  ogImageHeight={hasHero ? data.heroImage!.height : undefined}
 >
   <article
     class="exh section"
@@ -163,6 +191,27 @@ const specimenTotal = String(total).padStart(3, '0');
       </aside>
 
       <div class="exh-body">
+        {hasHero && (
+          <figure class="exh-plate reveal-on-scroll" data-testid="exhibit-hero">
+            <Picture
+              src={data.heroImage!}
+              alt={heroAlt!}
+              widths={[600, 960, 1280, 1600]}
+              sizes="(min-width: 960px) 720px, 100vw"
+              formats={['avif', 'webp']}
+              loading="eager"
+              decoding="async"
+              fetchpriority="high"
+              pictureAttributes={{ class: 'exh-plate__picture' }}
+            />
+            <span class="exh-plate__corner exh-plate__corner--tl" aria-hidden="true"></span>
+            <span class="exh-plate__corner exh-plate__corner--br" aria-hidden="true"></span>
+            <span class="exh-plate__label" aria-hidden="true">Plate {data.num}</span>
+            {/* No <figcaption> — `alt` already carries the description and a
+                visually-hidden caption would double-announce it. */}
+          </figure>
+        )}
+
         <section class="exh-mandate content-back-panel reveal-on-scroll" aria-labelledby="exh-mandate-heading" data-testid="exhibit-mandate">
           <h2 id="exh-mandate-heading" class="exh-section-heading">
             <span class="exh-section-heading__index" aria-hidden="true">01</span>
@@ -582,6 +631,74 @@ const specimenTotal = String(total).padStart(3, '0');
     font-size: 0.72em;
     color: var(--exh-a1);
     text-shadow: 0 0 12px rgba(var(--exh-a1-rgb), 0.4);
+  }
+
+  /* ── Specimen plate (optional hero) ───────────────────────────────
+     Framed like a mounted exhibit plate rather than a blog hero: a thin
+     accent hairline, two machined corner brackets, and a plate number in
+     the lower-left. Only renders when the dossier supplies heroImage +
+     heroAlt. */
+  .exh-plate {
+    position: relative;
+    margin: 0;
+    padding: clamp(10px, 1.4vw, 16px);
+    border: 1px solid rgba(var(--exh-a1-rgb), 0.18);
+    background:
+      linear-gradient(135deg, rgba(var(--exh-a1-rgb), 0.05), transparent 60%),
+      rgba(4, 12, 18, 0.5);
+    clip-path: var(--clip-sm);
+  }
+
+  .exh-plate :global(.exh-plate__picture) {
+    display: block;
+  }
+
+  .exh-plate :global(img) {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    filter: saturate(0.92) contrast(1.04);
+  }
+
+  .exh-plate__corner {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    pointer-events: none;
+    border-color: var(--exh-a1);
+    opacity: 0.75;
+  }
+
+  .exh-plate__corner--tl {
+    top: 4px;
+    left: 4px;
+    border-top: 2px solid;
+    border-left: 2px solid;
+  }
+
+  .exh-plate__corner--br {
+    right: 4px;
+    bottom: 4px;
+    border-right: 2px solid;
+    border-bottom: 2px solid;
+  }
+
+  .exh-plate__label {
+    position: absolute;
+    left: clamp(14px, 2vw, 22px);
+    bottom: clamp(14px, 2vw, 22px);
+    padding: 4px 10px;
+    font-family: var(--font-ticker);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+    background: rgba(4, 12, 18, 0.78);
+    border-left: 2px solid var(--exh-a1);
+    backdrop-filter: blur(8px);
   }
 
   .exh-mandate {

@@ -13,7 +13,7 @@
  *
  *   | Table                 | Window   | Carve-out                          |
  *   | --------------------- | -------- | ---------------------------------- |
- *   | ask_queries           | 30 days  | none                               |
+ *   | ask_queries           | 30 days  | none — writer removed, drains only |
  *   | cta_clicks            | 30 days  | none                               |
  *   | client_web_vitals     | 30 days  | none                               |
  *   | client_errors         | 30 days  | none                               |
@@ -47,6 +47,11 @@ import {
 import { BODY_LIMITS } from '../_shared/request-guards.js';
 
 const TELEMETRY_TABLES = Object.freeze([
+  /* `ask_queries` retains its purge entry after the Ask Praxis surface and
+     its /api/ask writer were removed: the table still holds historical rows,
+     and keeping the sweep is what lets them age out instead of persisting
+     forever. Nothing writes to it now, so this drains to empty and stays
+     there. Dropping the table is a separate, destructive migration. */
   { name: 'ask_queries', days: 30 },
   { name: 'cta_clicks', days: 30 },
   { name: 'client_web_vitals', days: 30 },

@@ -25,18 +25,58 @@ const engagements = engagementEntries
   .sort((a, b) => a._sort - b._sort || a.num.localeCompare(b.num))
   .map(({ _sort: _unused, ...rest }) => rest);
 
+/**
+ * Count-derived copy.
+ *
+ * The hero line and meta description used to hardcode "Six engagements
+ * across six sectors". Adding or removing a dossier silently made both
+ * statements false, and the meta description is length-gated by
+ * scripts/check-meta-descriptions.mjs (110–180 chars), so drifting copy
+ * could also break the build in a way that looks unrelated to the edit.
+ * Deriving from the collection keeps the claim true by construction.
+ */
+const NUMBER_WORDS = [
+  'Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six',
+  'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve',
+];
+const count = engagements.length;
+const countWord = NUMBER_WORDS[count] ?? String(count);
+const sectorCount = new Set<string>(engagements.map((e) => e.sector)).size;
+const sectorWord = NUMBER_WORDS[sectorCount]?.toLowerCase() ?? String(sectorCount);
+
+/* Meta description must land in the 110–180 char window the postbuild
+   sentinel enforces. Sector names are listed until the budget is spent so
+   the snippet stays specific without risking overflow. */
+const sectorList: string[] = Array.from(
+  new Set<string>(engagements.map((e) => e.sector.toLowerCase())),
+);
+function engagementsMetaDescription(): string {
+  const head = `${countWord} engagements across ${sectorWord} sectors: `;
+  const tail = ' Production-grade strategic deliverables in days, not months.';
+  const picked: string[] = [];
+  for (const s of sectorList) {
+    const candidate = [...picked, s].join(', ');
+    if ((head + candidate + '.' + tail).length > 178) break;
+    picked.push(s);
+  }
+  const body = picked.length > 0 ? `${picked.join(', ')}.` : sectorList[0] ?? '';
+  let out = (head + body + tail).replace(/\s+/g, ' ').trim();
+  /* Floor guard: pad with the firm name rather than emit a thin snippet. */
+  if (out.length < 110) out = `${out} Sarif Consulting engagement archive.`;
+  return out;
+}
 ---
 
 <Base
   title="Engagements — Sarif Consulting"
-  description="Six engagements across six sectors: civic, crisis response, founder strategy, enterprise positioning, AI architecture, coalition. Production-grade deliverables in days, not months."
+  description={engagementsMetaDescription()}
 >
   <section class="eng-hero section" aria-labelledby="eng-heading">
     <div class="container eng-hero-inner">
       <p class="section-label reveal-on-scroll">What We Have Done</p>
       <h1 id="eng-heading" class="section-header connector-line reveal-on-scroll">Engagements</h1>
       <p class="eng-intro content-back-panel reveal-on-scroll sarif-gold-cap-line">
-        Six engagements across six sectors.
+        {countWord} engagements across {sectorWord} sectors.
       </p>
     </div>
 

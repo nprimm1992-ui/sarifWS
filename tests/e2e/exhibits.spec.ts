@@ -9,14 +9,25 @@ import { test, expect } from '@playwright/test';
  * lobby, so structural assertions run via page.evaluate.
  */
 
-const EXHIBIT_SLUGS = [
-  'eng-001',
-  'eng-002',
-  'eng-003',
-  'eng-004',
-  'eng-005',
-  'eng-006',
-];
+/**
+ * Exhibit slugs are discovered from the live directory rather than
+ * hardcoded. The hall is authored content — engagements get added,
+ * replaced, and renumbered — so a frozen list turns every legitimate
+ * content edit into a red suite. Discovery keeps this a structural
+ * guard (every dossier resolves, titles are unique, the walk is a
+ * closed ring) instead of a content snapshot.
+ */
+async function discoverExhibitSlugs(page: import('@playwright/test').Page): Promise<string[]> {
+  await page.goto('/engagements/', { waitUntil: 'domcontentloaded' });
+  const slugs = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('[data-testid^="exhibit-directory-link"]'))
+      .map((a) => a.getAttribute('href') ?? '')
+      .map((href) => href.replace(/^\/engagements\/|\/$/g, ''))
+      .filter(Boolean),
+  );
+  expect(slugs.length, 'exhibition directory is not empty').toBeGreaterThan(0);
+  return slugs;
+}
 
 test('engagement dossier: exhibit chrome renders on eng-001', async ({ page }) => {
   test.setTimeout(60_000);
@@ -53,10 +64,11 @@ test('engagement dossier: exhibit chrome renders on eng-001', async ({ page }) =
   expect(present.h1.length, 'h1 has content').toBeGreaterThan(0);
 });
 
-test('engagement dossiers: all six exhibits resolve with unique h1', async ({ page }) => {
-  test.setTimeout(90_000);
+test('engagement dossiers: every exhibit resolves with a unique h1', async ({ page }) => {
+  test.setTimeout(120_000);
+  const slugs = await discoverExhibitSlugs(page);
   const titles = new Set<string>();
-  for (const slug of EXHIBIT_SLUGS) {
+  for (const slug of slugs) {
     await page.goto(`/engagements/${slug}/`, { waitUntil: 'domcontentloaded' });
     const h1 = await page.evaluate(
       () => document.querySelector('h1')?.textContent?.trim() ?? '',
@@ -64,10 +76,39 @@ test('engagement dossiers: all six exhibits resolve with unique h1', async ({ pa
     expect(h1.length, `${slug} h1 present`).toBeGreaterThan(0);
     titles.add(h1);
   }
-  expect(titles.size, 'six distinct exhibit titles').toBe(6);
+  expect(titles.size, 'every exhibit title is distinct').toBe(slugs.length);
 });
 
-test('engagements index: directory links to all six dossiers', async ({ page }) => {
+test('engagement dossiers: exhibit walk is a closed ring', async ({ page }) => {
+  test.setTimeout(120_000);
+  const slugs = await discoverExhibitSlugs(page);
+
+  /* Follow `next` from the first exhibit and assert we traverse every
+     dossier exactly once before returning to the start. This is the
+     property the modulo arithmetic in [slug].astro is meant to provide
+     — the hall has no dead ends — and it holds at any hall size. */
+  const start = slugs[0];
+  const walk: string[] = [];
+  let current = start;
+
+  for (let i = 0; i < slugs.length; i += 1) {
+    walk.push(current);
+    await page.goto(`/engagements/${current}/`, { waitUntil: 'domcontentloaded' });
+    const nextHref = await page.evaluate(
+      () =>
+        document
+          .querySelector('[data-testid="exhibit-next-link"]')
+          ?.getAttribute('href') ?? '',
+    );
+    expect(nextHref, `${current} has a next link`).toMatch(/^\/engagements\/.+\/$/);
+    current = nextHref.replace(/^\/engagements\/|\/$/g, '');
+  }
+
+  expect(new Set(walk).size, 'walk visits each exhibit exactly once').toBe(slugs.length);
+  expect(current, 'walk wraps back to the first exhibit').toBe(start);
+});
+
+test('engagements index: directory links to every dossier', async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto('/engagements/', { waitUntil: 'load' });
   await page.waitForTimeout(800);
@@ -82,7 +123,7 @@ test('engagements index: directory links to all six dossiers', async ({ page }) 
     };
   });
 
-  expect(directory.count, 'six directory links').toBe(6);
+  expect(directory.count, 'directory is populated').toBeGreaterThan(0);
   for (const href of directory.hrefs) {
     expect(href, 'directory href points at a dossier').toMatch(/^\/engagements\/eng-\d{3}\/$/);
   }

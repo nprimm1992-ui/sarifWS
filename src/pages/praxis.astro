@@ -1,37 +1,10 @@
 ---
 import Base from '../layouts/Base.astro';
 import { getCollection } from 'astro:content';
-import PraxisAsk from '../components/PraxisAsk.astro';
-
-/**
- * Corpus-size gate for the Praxis field-notes assistant (PraxisAsk).
- *
- * The assistant runs a lexical token-intersection search over the
- * published Praxis corpus (see src/scripts/praxis-ask.js). Below a
- * meaningful corpus size, every multi-token query either matches the
- * entire library or nothing — the UX reads as a toy even though the
- * pipeline is production-grade. Gate the *surface* on corpus depth
- * while leaving the backend warm:
- *
- *   - /search-index.json still emits all Praxis entries (also powers
- *     the command palette; must not be gated).
- *   - /api/ask Cloudflare Function stays deployed; writes simply
- *     pause while the UI is absent.
- *   - Component source + CSS stay in the tree so re-enable is zero-
- *     effort: ship the 12th article and the next build restores it.
- *
- * Threshold rationale: 12 is roughly a year of monthly cadence, which
- * gives the scoring weights (title 3× / tags 2× / summary 1×) enough
- * lexical spread to actually discriminate between articles rather
- * than returning the same 2–3 results for every query.
- */
-const PRAXIS_ASK_MIN_CORPUS = 12;
 
 const published = (await getCollection('praxis', (entry) => !entry.data.draft)).sort(
   (a, b) => a.data.publishDate.getTime() - b.data.publishDate.getTime(),
 );
-
-const praxisAskEnabled = published.length >= PRAXIS_ASK_MIN_CORPUS;
 
 // Faceted navigation (P9c) — distinct values for sidebar filters. URL state
 // lives in query params; the client script toggles DOM visibility on
@@ -177,7 +150,6 @@ const praxisPublishedLabel = (date: Date) =>
             </button>
           </aside>
 
-          {praxisAskEnabled && <PraxisAsk />}
 
           {/*
             Subpose stays on the list — when the reader scrolls past
@@ -255,8 +227,8 @@ const praxisPublishedLabel = (date: Date) =>
 
 <style>
   /* Round-8 — unified Praxis grid.
-     One <section> hosts the hero, the facets aside, PraxisAsk, the
-     card list, and the empty-state in a single scaffold. Two layout
+     One <section> hosts the hero, the facets aside, the card list,
+     and the empty-state in a single scaffold. Two layout
      variants are driven by [data-state] on `.praxis__inner`:
        data-state="index"  — full grid: hero spans both columns,
                              facets sticks beside ask/list/empty.
@@ -268,14 +240,7 @@ const praxisPublishedLabel = (date: Date) =>
   /* Praxis is a single-column stack: hero → facets → list → empty.
      The filter aside lives in normal document flow as its own grid
      row above the list; it scrolls with the page like any other
-     block. No fixed/sticky positioning.
-
-     The `ask` row is only allocated when PraxisAsk renders — the
-     component is corpus-size gated (see PRAXIS_ASK_MIN_CORPUS in
-     the frontmatter), so below the threshold we must not leave an
-     empty grid row that inherits the row `gap` and produces a
-     phantom vertical band. `:has()` keeps the two templates in
-     lockstep with the render gate with zero extra props. */
+     block. No fixed/sticky positioning. */
   .praxis__inner[data-state='index'] {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -288,14 +253,6 @@ const praxisPublishedLabel = (date: Date) =>
     align-items: start;
   }
 
-  .praxis__inner[data-state='index']:has(.praxis-ask) {
-    grid-template-areas:
-      'hero'
-      'facets'
-      'ask'
-      'list'
-      'empty';
-  }
 
   .praxis__inner[data-state='coming'] {
     display: flex;
@@ -469,9 +426,6 @@ const praxisPublishedLabel = (date: Date) =>
     }
   }
 
-  :global(.praxis-ask) {
-    grid-area: ask;
-  }
 
   /* Panel-label eyebrow at the left edge of the bar. Visually
      anchors the control strip and serves as the accessible section

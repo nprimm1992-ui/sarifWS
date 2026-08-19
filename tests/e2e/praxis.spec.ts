@@ -37,30 +37,3 @@ test('praxis facets hide non-matching cards', async ({ page }) => {
   await expect(visibleCards.first()).toBeVisible();
 });
 
-test('praxis-ask surfaces inline results and logs on navigation', async ({ page }) => {
-  await page.goto('/praxis/');
-  const input = page.locator('[data-praxis-ask-input]');
-  /* PraxisAsk is corpus-size gated (see PRAXIS_ASK_MIN_CORPUS in
-     src/pages/praxis.astro). Below the threshold the component does
-     not render; skip rather than fail so the suite stays green on
-     every published-count between 0 and the gate. */
-  if ((await input.count()) === 0) {
-    test.skip(true, 'praxis-ask gated off until corpus >= PRAXIS_ASK_MIN_CORPUS');
-  }
-  const results = page.locator('[data-praxis-ask-results]');
-  await expect(input).toBeVisible();
-  /* Capture the /api/ask beacon so we can assert we log, without
-     asserting on the response (204 by design). */
-  const logPromise = page.waitForRequest(
-    (req) => req.url().endsWith('/api/ask') && req.method() === 'POST',
-    { timeout: 5_000 },
-  ).catch(() => null);
-  await input.fill('coherence');
-  await expect(results).toBeVisible();
-  /* Index fetch is lazy on first keystroke — poll rather than counting
-     instantly, or the assertion races the async load. */
-  const options = results.locator('[role="option"]');
-  await expect(options.first()).toBeVisible({ timeout: 8_000 });
-  expect(await options.count()).toBeGreaterThan(0);
-  await logPromise;
-});
