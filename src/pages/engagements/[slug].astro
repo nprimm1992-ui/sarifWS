@@ -193,20 +193,68 @@ const hasHero = Boolean(data.heroImage && heroAlt);
       <div class="exh-body">
         {hasHero && (
           <figure class="exh-plate reveal-on-scroll" data-testid="exhibit-hero">
-            <Picture
-              src={data.heroImage!}
-              alt={heroAlt!}
-              widths={[600, 960, 1280, 1600]}
-              sizes="(min-width: 960px) 720px, 100vw"
-              formats={['avif', 'webp']}
-              loading="eager"
-              decoding="async"
-              fetchpriority="high"
-              pictureAttributes={{ class: 'exh-plate__picture' }}
-            />
+            {/*
+              The plate links to the full-resolution asset.
+
+              Engagement plates are frequently dense analytical artefacts
+              (deployment matrices, financial models) whose smallest labels
+              are unreadable at the ~716px the plate occupies on desktop and
+              ~328px on mobile. Rendering such an artefact as decoration only
+              would waste its actual evidentiary value, so the plate doubles
+              as a link to the original file — "step closer to the exhibit".
+
+              `target="_blank"` with `rel="noopener"` keeps the dossier open
+              behind the inspected asset, matching how a visitor would expect
+              a museum magnifier to behave.
+            */}
+            {/*
+              NOTHING is overlaid on the artwork.
+
+              Engagement plates are edge-to-edge analytical graphics: the
+              eng-001 deployment matrix carries a title top-left, legend chips
+              top-right, and a source credit along the bottom. Every corner is
+              occupied, so any floating chip collides with real content — and
+              since each dossier ships a different graphic, no corner can be
+              declared safe in advance. Both the plate number and the
+              full-resolution cue therefore live in a mount bar BELOW the
+              image, inside the frame. Collision-proof by construction.
+
+              The whole unit (image + mount bar) is one link, so there is a
+              single tab stop and a single accessible name; the bar's contents
+              are aria-hidden decoration.
+            */}
+            <a
+              class="exh-plate__zoom"
+              href={data.heroImage!.src}
+              target="_blank"
+              rel="noopener"
+              data-testid="exhibit-hero-zoom"
+              aria-label={`View plate ${data.num} at full resolution: ${heroAlt}`}
+            >
+              <Picture
+                src={data.heroImage!}
+                alt={heroAlt!}
+                widths={[600, 960, 1280, 1600, 2048]}
+                sizes="(min-width: 960px) 720px, 100vw"
+                formats={['avif', 'webp']}
+                loading="eager"
+                decoding="async"
+                fetchpriority="high"
+                pictureAttributes={{ class: 'exh-plate__picture' }}
+              />
+              <span class="exh-plate__mount" aria-hidden="true">
+                <span class="exh-plate__label">Plate {data.num}</span>
+                <span class="exh-plate__magnify">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                    <circle cx="7" cy="7" r="4.4" stroke="currentColor" stroke-width="1.4" />
+                    <path d="M10.4 10.4 14 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="square" />
+                  </svg>
+                  Full resolution
+                </span>
+              </span>
+            </a>
             <span class="exh-plate__corner exh-plate__corner--tl" aria-hidden="true"></span>
             <span class="exh-plate__corner exh-plate__corner--br" aria-hidden="true"></span>
-            <span class="exh-plate__label" aria-hidden="true">Plate {data.num}</span>
             {/* No <figcaption> — `alt` already carries the description and a
                 visually-hidden caption would double-announce it. */}
           </figure>
@@ -685,20 +733,78 @@ const hasHero = Boolean(data.heroImage && heroAlt);
     border-bottom: 2px solid;
   }
 
-  .exh-plate__label {
-    position: absolute;
-    left: clamp(14px, 2vw, 22px);
-    bottom: clamp(14px, 2vw, 22px);
-    padding: 4px 10px;
+  /* Full-resolution affordance. The whole plate is the hit target; the
+     chip is the visible cue, revealed on hover/focus and always shown on
+     touch (where there is no hover to discover it with). */
+  .exh-plate__zoom {
+    display: block;
+    position: relative;
+    text-decoration: none;
+    cursor: zoom-in;
+  }
+
+  .exh-plate__zoom:focus-visible {
+    outline: 2px solid var(--exh-a1);
+    outline-offset: 3px;
+  }
+
+  /*
+     Mount bar — the museum wall label, not a sticker on the artwork.
+
+     Sits below the image inside the frame, so it can never occlude the
+     graphic regardless of what each dossier's plate looks like. The plate
+     number anchors left; the full-resolution cue anchors right and gains
+     emphasis on hover/focus (it never appears/disappears, so the
+     affordance is discoverable on touch and by keyboard without a
+     hover-only fallback).
+  */
+  .exh-plate__mount {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: clamp(8px, 1vw, 12px);
+    padding-top: clamp(8px, 1vw, 12px);
+    border-top: 1px solid rgba(var(--exh-a1-rgb), 0.16);
     font-family: var(--font-ticker);
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: var(--text-primary);
-    background: rgba(4, 12, 18, 0.78);
+  }
+
+  .exh-plate__label {
+    padding-left: 8px;
     border-left: 2px solid var(--exh-a1);
-    backdrop-filter: blur(8px);
+    color: var(--text-primary);
+  }
+
+  .exh-plate__magnify {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.16em;
+    color: var(--text-secondary);
+    transition: color 0.25s ease;
+  }
+
+  .exh-plate__magnify svg {
+    flex: none;
+    opacity: 0.85;
+  }
+
+  .exh-plate__zoom:hover .exh-plate__magnify,
+  .exh-plate__zoom:focus-visible .exh-plate__magnify {
+    color: var(--exh-a1);
+  }
+
+  /* Narrow plates: stack so neither element truncates. */
+  @media (max-width: 460px) {
+    .exh-plate__mount {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 7px;
+    }
   }
 
   .exh-mandate {
@@ -972,6 +1078,7 @@ const hasHero = Boolean(data.heroImage && heroAlt);
   @media (prefers-reduced-motion: reduce) {
     .exh-telemetry__dot { animation: none; }
     .exh-plaque__scan { animation: none; opacity: 0; }
+    .exh-plate__magnify { transition: none; }
     .exh-log__entry { transition: none; }
     .exh-log__entry:hover { transform: none; }
     .exh-nav__card { transition: none; }
