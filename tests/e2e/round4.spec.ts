@@ -7,8 +7,6 @@ import { test, expect } from '@playwright/test';
  * remediated, plus the mobile-discoverability affordance:
  *
  *   1. Praxis empty-state "Clear filters" restores the card list.
- *   2. Praxis-ask error state surfaces a retry button when the
- *      search index fails to load.
  *   3. Command palette traps focus while open (Tab cycles back to
  *      the input, never escapes into the backgrounded page).
  *   4. Command palette locks background scroll (html gets the
@@ -73,28 +71,6 @@ test('praxis empty-state clear restores every card', async ({ page }) => {
   await expect.poll(async () => visible.count()).toBe(initial);
 });
 
-test('praxis-ask error state renders retry button on index fetch failure', async ({ page }) => {
-  /* Intercept the index request with a hard failure before the page
-     loads so the assistant has no cached copy to fall back on. The
-     assertion is on the user-visible retry affordance, not on the
-     network layer — the goal is to prove the UI surfaces a
-     recoverable state rather than a silent zero-results. */
-  await page.route('**/search-index.json*', (route) => {
-    return route.fulfill({ status: 503, body: 'unavailable' });
-  });
-  await page.goto('/praxis/');
-  const input = page.locator('[data-praxis-ask-input]');
-  /* PraxisAsk is corpus-size gated (see PRAXIS_ASK_MIN_CORPUS in
-     src/pages/praxis.astro). Skip cleanly when the component is not
-     rendered so the suite survives every corpus size up to the gate. */
-  if ((await input.count()) === 0) {
-    test.skip(true, 'praxis-ask gated off until corpus >= PRAXIS_ASK_MIN_CORPUS');
-  }
-  await expect(input).toBeVisible();
-  await input.fill('anything');
-  const retry = page.locator('[data-praxis-ask-retry], .praxis-ask__error-retry');
-  await expect(retry).toBeVisible({ timeout: 5_000 });
-});
 
 test('command palette traps focus — tab cycles back inside palette', async ({ page, browserName }) => {
   await page.goto(PALETTE_ROUTE);

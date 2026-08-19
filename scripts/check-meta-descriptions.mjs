@@ -27,8 +27,45 @@ if (!existsSync(distDir)) {
   process.exit(0);
 }
 
-const META_DESC_RE = /<meta\s+name=["']description["']\s+content=["']([^"']*)["'][^>]*>/i;
-const NOINDEX_RE = /<meta\s+name=["']robots["']\s+content=["']noindex/i;
+/*
+ * Quote-aware attribute capture.
+ *
+ * The previous pattern used `content=["']([^"']*)["']` — a character class
+ * excluding BOTH quote styles. That terminates the capture at the first
+ * apostrophe inside the value, so a description containing "the firm's"
+ * was measured only up to "the firm" and the remainder was invisible to
+ * the length check.
+ *
+ * That is a measure-then-validate-the-measurement bug: the gate silently
+ * truncated its own input and then passed the truncation. `/about` shipped
+ * a 209-char description (29 over MAX) while this script reported 130 and
+ * exited 0. It is also why src/pages/engagements/[slug].astro strips
+ * apostrophes from generated descriptions — a workaround for this bug
+ * rather than a real constraint.
+ *
+ * The fix backreferences the opening delimiter (\1) and uses a lazy body,
+ * so the capture ends only at the matching quote. Values are then HTML-
+ * entity-decoded before measuring, because `&amp;` occupies 5 characters
+ * in the markup but renders as 1 in a search snippet — and the snippet is
+ * what the 110–180 budget is actually about.
+ */
+const META_DESC_RE = /<meta\s+name=(["'])description\1\s+content=(["'])([\s\S]*?)\2/i;
+/* Same quote-aware shape. Robots values are keyword tokens (`noindex,
+   nofollow`) so an apostrophe is implausible here, but keeping one pattern
+   style across the file means nobody has to re-derive which regex is safe. */
+const NOINDEX_RE = /<meta\s+name=(["'])robots\1\s+content=(["'])[\s\S]*?noindex[\s\S]*?\2/i;
+
+/** Decode the entity subset Astro emits when escaping attribute values. */
+function decodeEntities(s) {
+  return s
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(Number.parseInt(h, 16)))
+    .replace(/&amp;/g, '&'); /* last — so &amp;lt; does not become < */
+}
 
 // Third-party bundled HTML we don't author (eg. the UCIM visualizer
 // React build output) is excluded — we can't hand-edit its <head>.
@@ -61,7 +98,7 @@ for (const abs of htmlFiles) {
     continue;
   }
 
-  const desc = m[1];
+  const desc = decodeEntities(m[3]);
   const len = desc.length;
   results.push({ rel, len });
 
