@@ -15,11 +15,43 @@
   "highlights": [
     "Ten-chapter strategic playbook grounded in a ten-city global evidence corpus — Houston, Helsinki, Glasgow, Bakersfield, Vienna",
     "$106M deployment matrix mapping eight legally distinct funds, committed versus deployable, dollar by dollar",
-    "Five-document council suite — playbook, leaders' brief, priority-actions memo, budget alignment brief, agency execution audit — published via <a href=\"https://thelivingstack.substack.com\" target=\"_blank\" rel=\"noopener noreferrer\">The Living Stack</a>",
+    "Five-document council suite delivered cold to sitting officials, published via <a href=\"https://thelivingstack.substack.com\" target=\"_blank\" rel=\"noopener noreferrer\">The Living Stack</a> — all five open below",
     "Execution-gap catch: $5.6M committed by council, $0 budgeted by the executing agency twelve days later",
     "Every figure cited to a decision-package ID or verbatim budget quote; silence documented as 'budget does not state'",
     "Direct response from two sitting councilors and the executive director of a regional housing coalition",
     "Created, refined and delivered in ten working days — then re-cut twice inside the live 60-day budget window as council acted."
+  ],
+  "documents": [
+    {
+      "label": "Strategic Playbook for Mitigating Homelessness in Portland, Oregon",
+      "kind": "Playbook",
+      "href": "https://gamma.app/docs/Strategic-Playbook-for-Mitigating-Homelessness-in-Portland-Oregon-157fgxb8iwikm0b",
+      "note": "Ten chapters grounded in a ten-city evidence corpus — Houston, Helsinki, Glasgow, Bakersfield, Vienna."
+    },
+    {
+      "label": "Portland's Homelessness Crisis: A Strategic Brief for Elected Leaders",
+      "kind": "Leaders' brief",
+      "href": "https://gamma.app/docs/Portlands-Homelessness-Crisis-A-Strategic-Brief-for-Elected-Leade-74ji6kxalhywvmn",
+      "note": "Version 2, April 2026. The decision case, compressed for a council floor."
+    },
+    {
+      "label": "Near-Term Priority Actions for Council Implementation",
+      "kind": "Priority actions",
+      "href": "https://gamma.app/docs/Near-Term-Priority-Actions-for-Council-Implementation-v2-s5cwtzt43dgog25",
+      "note": "Version 2. Protecting and completing the Keep Portland Housed framework."
+    },
+    {
+      "label": "Portland at the Inflection Point: Three Decisions in 60 Days",
+      "kind": "Budget alignment brief",
+      "href": "https://gamma.app/docs/Portland-at-the-Inflection-Point-Three-Decisions-in-60-Days-c7nmverrl5cexgp",
+      "note": "The Mayor's FY2026-27 proposed budget read against the Keep Portland Housed ordinance."
+    },
+    {
+      "label": "Prosper Portland Alignment Brief",
+      "kind": "Agency execution audit",
+      "href": "https://gamma.app/docs/Prosper-Portland-Alignment-Brief-eu3wovn3bp1yau6",
+      "note": "Where council commitment and agency budget diverged."
+    }
   ],
   "sort": 1
 }

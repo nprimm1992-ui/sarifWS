@@ -113,6 +113,33 @@ const engagements = defineCollection({
       highlights: z.array(z.string().min(1)).min(1),
       heroImage: image().optional(),
       heroAlt: z.string().optional(),
+      /**
+       * Primary sources — the actual deliverables, published.
+       *
+       * An exhibition hall that describes artefacts without letting the
+       * visitor read them is a brochure. `documents` is the vitrine: each
+       * entry is a real, publicly reachable file so a prospect can audit
+       * the claim rather than take it on trust.
+       *
+       * `kind` is a free-text artefact descriptor ("Playbook", "Council
+       * brief") rather than an enum: engagements across housing, venture
+       * and education produce genuinely different document species and a
+       * closed list would either bloat or force bad fits.
+       *
+       * URLs are absolute and external by construction — these live on
+       * publishing platforms (Gamma, Substack), not in this repo — so the
+       * renderer hard-codes target/rel rather than trusting the author.
+       */
+      documents: z
+        .array(
+          z.object({
+            label: z.string().min(1),
+            kind: z.string().min(1),
+            href: z.string().url(),
+            note: z.string().optional(),
+          }),
+        )
+        .optional(),
       sort: z.number().int().optional(),
     }),
 });
