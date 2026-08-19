@@ -36,6 +36,15 @@ interface Props {
   videoSrc?: string;
   videoSrcAv1?: string;
   videoAlt?: string;
+  /**
+   * Full `type` values including the codecs parameter, derived from the actual
+   * files at build time (see pickAboutVideoPair in about.astro). Bare
+   * `video/webm` makes canPlayType answer "maybe", which lets an AV1-incapable
+   * browser accept the AV1 source and then fail with no fallback. Profile and
+   * level differ per asset, so these cannot be hardcoded here.
+   */
+  videoType?: string;
+  videoTypeAv1?: string;
 }
 
 const {
@@ -49,6 +58,8 @@ const {
   videoSrc,
   videoSrcAv1,
   videoAlt = 'Ambient visual supporting the card content',
+  videoType,
+  videoTypeAv1,
 } = Astro.props;
 
 /**
@@ -99,10 +110,16 @@ const videoSrcAv1Encoded = encodePublicMediaUrl(videoSrcAv1 ?? '');
         aria-label={videoAlt}
         data-dossier-video
       >
+        {/* Codec strings are explicit, not bare `video/webm` / `video/mp4`.
+            `canPlayType('video/webm')` answers "maybe" — a browser that decodes
+            WebM but *not* AV1 will accept this source, commit to it, and then
+            fail with no fallback attempt. With the codecs parameter the same
+            call answers "probably" or "", so AV1-incapable clients skip
+            straight to the H.264 MP4. Verified via canPlayType in Chromium. */}
         {videoSrcAv1Encoded && (
-          <source data-src={videoSrcAv1Encoded} type="video/webm" />
+          <source data-src={videoSrcAv1Encoded} type={videoTypeAv1 ?? 'video/webm'} />
         )}
-        <source data-src={videoSrcEncoded} type="video/mp4" />
+        <source data-src={videoSrcEncoded} type={videoType ?? 'video/mp4'} />
       </video>
     </div>
   )}

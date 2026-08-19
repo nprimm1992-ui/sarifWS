@@ -1,5 +1,5 @@
 ---
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Base from '../layouts/Base.astro';
@@ -13,18 +13,90 @@ const publicDir = fileURLToPath(new URL('../../public', import.meta.url));
  * are absent on disk. `existsSync` here is authoritative at build time. Prefer on-disk root
  * filenames (your shipped assets), then optional `public/media/about/` renames. */
 
+/**
+ * Read the H.264 profile/level out of an MP4's `avcC` box and format the RFC 6381
+ * codecs string (`avc1.PPCCLL`). Parsed from bytes rather than hardcoded because
+ * levels genuinely differ per asset — the two /about clips are level 4.0 and 3.1 —
+ * and a misdeclared level is worse than none: the browser may reject a file it
+ * could actually play.
+ *
+ * Returns undefined when the box isn't found, and callers fall back to the bare
+ * MIME type. Build-time only; never runs in the browser.
+ */
+function h264CodecString(abs: string): string | undefined {
+  try {
+    const buf = readFileSync(abs);
+    const marker = buf.indexOf('avcC', 0, 'latin1');
+    if (marker < 0) return undefined;
+    /* avcC payload: [0]=configurationVersion, [1]=AVCProfileIndication,
+       [2]=profile_compatibility, [3]=AVCLevelIndication */
+    const profile = buf[marker + 5];
+    const compat = buf[marker + 6];
+    const level = buf[marker + 7];
+    if (profile === undefined || compat === undefined || level === undefined) return undefined;
+    const hex = (n: number) => n.toString(16).padStart(2, '0');
+    return `avc1.${hex(profile)}${hex(compat)}${hex(level)}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * AV1 codecs string (`av01.P.LLT.BB`) read from the Matroska CodecPrivate block,
+ * which for V_AV1 holds the AV1CodecConfigurationRecord:
+ *
+ *   byte 0: marker(1) | version(7)               -> expect 0x81
+ *   byte 1: seq_profile(3) | seq_level_idx(5)
+ *   byte 2: seq_tier(1) | high_bitdepth(1) | twelve_bit(1) | ...
+ *
+ * Verified against the shipped assets: payload `81 05 0d ...` decodes to
+ * profile 0, level 5, Main tier, 8-bit -> `av01.0.05M.08`.
+ */
+function av1CodecString(abs: string): string | undefined {
+  try {
+    const buf = readFileSync(abs);
+    const trackId = buf.indexOf('V_AV1', 0, 'latin1');
+    if (trackId < 0) return undefined;
+    /* CodecPrivate EBML element id is 0x63A2, followed by a length vint. */
+    const cp = buf.indexOf(Buffer.from([0x63, 0xa2]), trackId);
+    if (cp < 0) return undefined;
+    const lenByte = buf[cp + 2];
+    if (lenByte === undefined) return undefined;
+    const payload = buf.subarray(cp + 3, cp + 3 + (lenByte & 0x7f));
+    if (payload.length < 3) return undefined;
+    const [b0, b1, b2] = [payload[0], payload[1], payload[2]];
+    if (b0 === undefined || b1 === undefined || b2 === undefined) return undefined;
+    if (b0 >> 7 !== 1) return undefined; /* marker bit absent -> not a config record */
+    const profile = b1 >> 5;
+    const levelIdx = b1 & 0x1f;
+    const tier = ((b2 >> 7) & 1) === 1 ? 'H' : 'M';
+    const highBitdepth = (b2 >> 6) & 1;
+    const twelveBit = (b2 >> 5) & 1;
+    const depth = twelveBit === 1 ? '12' : highBitdepth === 1 ? '10' : '08';
+    return `av01.${profile}.${String(levelIdx).padStart(2, '0')}${tier}.${depth}`;
+  } catch {
+    return undefined;
+  }
+}
+
 /** First on-disk MP4 match wins; optional AV1/WebM sibling when present. */
 function pickAboutVideoPair(
   candidates: ReadonlyArray<{
     readonly mp4: { readonly abs: string; readonly url: string };
     readonly webm?: { readonly abs: string; readonly url: string };
   }>,
-): { mp4?: string; webm?: string } {
+): { mp4?: string; webm?: string; mp4Type?: string; webmType?: string } {
   for (const c of candidates) {
     if (!existsSync(c.mp4.abs)) continue;
-    const webm =
-      c.webm && existsSync(c.webm.abs) ? c.webm.url : undefined;
-    return { mp4: c.mp4.url, webm };
+    const hasWebm = Boolean(c.webm && existsSync(c.webm.abs));
+    const avc = h264CodecString(c.mp4.abs);
+    const av1 = hasWebm && c.webm ? av1CodecString(c.webm.abs) : undefined;
+    return {
+      mp4: c.mp4.url,
+      webm: hasWebm && c.webm ? c.webm.url : undefined,
+      mp4Type: avc ? `video/mp4; codecs="${avc}"` : 'video/mp4',
+      webmType: av1 ? `video/webm; codecs="${av1}"` : 'video/webm',
+    };
   }
   return {};
 }
@@ -204,6 +276,8 @@ const serviceCards = [
         ]}
         videoSrc={methodologyVideos.mp4}
         videoSrcAv1={methodologyVideos.webm}
+        videoType={methodologyVideos.mp4Type}
+        videoTypeAv1={methodologyVideos.webmType}
         videoAlt="Context flow visualization — one operator, one intelligence layer"
       />
 
@@ -262,6 +336,8 @@ const serviceCards = [
         ]}
         videoSrc={principleVideos.mp4}
         videoSrcAv1={principleVideos.webm}
+        videoType={principleVideos.mp4Type}
+        videoTypeAv1={principleVideos.webmType}
         videoAlt="The principal at the center of the intelligence network"
       />
     </div>
