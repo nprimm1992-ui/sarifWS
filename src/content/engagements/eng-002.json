@@ -1,18 +1,46 @@
 {
   "num": "002",
-  "classification": "Engagement 002 — Civic Campaign Arsenal",
-  "sector": "Land use",
+  "classification": "Engagement 002 — The Lloyd Commons",
+  "sector": "Civic infrastructure",
   "accent": "civic",
-  "statValue": "87",
-  "statLabel": "Pages forensically analyzed",
+  "statValue": "$184.5M",
+  "statLabel": "Base-case capital architecture",
+  "heroImage": "./_images/eng-002.webp",
+  "heroAlt": "Architectural rendering of the proposed Lloyd Commons civic core — the retained mall interior reused as a year-round public market, with timber vendor stalls including a Stumptown Coffee kiosk and produce stands, tree planters and bench seating along a central promenade, and shoppers on three levels of open balcony walkways.",
   "leads": [
-    "A coalition was preparing an appeal against a major land-use decision. Their legal team had reviewed the regulatory record. They missed the critical evidence. We found it — a single-paragraph sustainability finding with zero mention of embodied carbon, adaptive reuse or the jurisdiction's own policy recommendations."
+    "Lloyd Center is 29.3 acres on three light-rail lines — one of the most transit-rich sites on the West Coast — approved for demolition of a seismically sound civic core while 2.4 million square feet of parking garages remained unexamined. The staff findings never analyzed the asymmetry.",
+    "The coalition had public will — 10,000+ petition signatures, 600+ pages of testimony — but no instrument an institution could act on: no financial architecture, no legal crosswalk, no phased alternative. We built the missing instrument: a 29-card friendly amendment, a source-verified financial model, the approval-criteria crosswalk that carried the appeal, and the rendering set that made the alternative visible.",
+    "Council denied the appeal unanimously on July 8, 2026 — the outcome the engagement's own strategy analysis had projected as base case. The filing did its work: the substantive claims are permanent civic record, the alliance architecture behind the approval is now public, and Phase 2 pivots from remand to transaction — a coalition-aligned acquisition inside the owner's announced strategic-review window."
   ],
   "highlights": [
-    "Forensic analysis of an 87-page regulatory decision",
-    "7-document campaign arsenal built for a de novo hearing",
-    "Critical evidentiary gap identified that the coalition's own legal counsel had overlooked",
-    "Materials deployed to coalition leadership, six municipal officials and an economic development agency."
+    "29-card hybrid document — civic proposal, legal brief, financial analysis and design argument in one navigable instrument",
+    "17-tab financial model: $184.5M base case, $166.5M verified-only, 73-assumption register, architectural-historian peer review absorbed across revision cycles",
+    "Bespoke project-management tooling built for the Lloyd Commons nonprofit — coalition operations infrastructure",
+    "Full alternative-architecture rendering set: retained civic core as year-round public market, rooftop commons, district-scale buildout",
+    "Counterparty ownership forensics drawn from SEC filings, reframed publicly — not a development vision, an exit strategy",
+    "Two substantial-evidence gaps carried the remand ask: H.10 phasing feasibility and 6.LD-1 demolition-phase waste — findings staff never analyzed",
+    "Public record at scale: 10,000+ verified signatures, 600+ pages of testimony, cross-source coverage KGW, KOIN, KATU, KPTV, PBJ, Willamette Week",
+    "Full corpus built inside the first month; four versioned passes maintained across the live appeal window."
+  ],
+  "documents": [
+    {
+      "label": "The Lloyd Commons",
+      "kind": "Friendly amendment",
+      "href": "https://gamma.app/docs/The-Lloyd-Commons-ucukduimam1dxq7",
+      "note": "The full 29-card instrument, with a reader's guide routing council staff, press and philanthropy to the sections that concern them."
+    },
+    {
+      "label": "The Lloyd Commons Deck",
+      "kind": "Streamlined deck",
+      "href": "https://gamma.app/docs/The-Lloyd-Commons-Deck-rjd0mtk6ghuzjmu",
+      "note": "The argument compressed: never demolish-or-save, always 2.4 million square feet of parking against 1.18 million of civic core."
+    },
+    {
+      "label": "The Lloyd Commons Financial Model",
+      "kind": "Financial model",
+      "href": "https://gamma.app/docs/The-Lloyd-Commons-Financial-Model-cuojyf8lrfpaya7",
+      "note": "Seventeen tabs, Workbook v1.3 canonical. Presented as institutional-grade analysis, not bankable underwriting."
+    }
   ],
   "sort": 2
 }
