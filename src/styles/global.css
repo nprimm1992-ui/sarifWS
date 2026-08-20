@@ -1129,6 +1129,33 @@ article.ucim-brief .ucim-brief__cue-text.ui-eyebrow,
   transform: translateY(20px);
 }
 
+/* Above-the-fold opt-out.
+ *
+ * `.reveal-on-scroll` hides its element in BLOCKING CSS and relies on either
+ * the `view()` scroll timeline or the JS IntersectionObserver to bring it back.
+ * For content that is already inside the initial viewport that is actively
+ * harmful:
+ *
+ *   1. LCP. Chrome ignores zero-opacity elements when picking the Largest
+ *      Contentful Paint candidate, so an above-fold hero image marked
+ *      `.reveal-on-scroll` cannot register until something un-hides it.
+ *      Measured on /engagements/eng-001/ (4x CPU, 1.6 Mbps): the plate's AVIF
+ *      finished decoding at 705ms but the figure was still opacity 0 at 838ms,
+ *      only reaching opacity 1 at 1275ms, pushing FCP to 1904ms and LCP to
+ *      2188ms. The bytes were never the bottleneck; the reveal gate was.
+ *
+ *   2. Robustness. Anything above the fold that starts hidden is one failed
+ *      stylesheet/animation away from being invisible with no scroll event
+ *      available to rescue it — a content-blanking fail-open.
+ *
+ * Elements that are above the fold by construction therefore opt out. They keep
+ * the class for JS bookkeeping (observer accounting, View Transitions re-init)
+ * but never start hidden. */
+.reveal-on-scroll--immediate {
+  opacity: 1;
+  transform: none;
+}
+
 .reveal-on-scroll.is-visible {
   opacity: 1 !important;
   transform: translateY(0) !important;
@@ -1138,7 +1165,12 @@ article.ucim-brief .ucim-brief__cue-text.ui-eyebrow,
 }
 
 @supports (animation-timeline: scroll()) {
-  .reveal-on-scroll:not(.is-visible) {
+  /* `--immediate` is excluded: `revealUp` starts at opacity 0, and an element
+     already inside the viewport on first paint sits at progress 0 of its own
+     `entry` range, so the animation would re-hide exactly what the opt-out
+     un-hid. This is what actually gated the engagement plate — the JS observer
+     had not even run yet (`jsRan: false`) when the figure measured opacity 0. */
+  .reveal-on-scroll:not(.is-visible):not(.reveal-on-scroll--immediate) {
     animation: revealUp linear both;
     animation-timeline: view();
     animation-range: entry 0% entry 35%;

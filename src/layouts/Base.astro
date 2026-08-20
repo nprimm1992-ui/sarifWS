@@ -1,7 +1,7 @@
 ---
 import { ClientRouter } from 'astro:transitions';
 import { existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import Nav from '../components/Nav.astro';
 import CapabilityTicker from '../components/CapabilityTicker.astro';
 import EngagementTicker from '../components/EngagementTicker.astro';
@@ -21,11 +21,21 @@ const DEFAULT_OG_IMAGE = '/og-image.jpg';
  *  asset actually shipped. Absent HDR → synthetic hemisphere IBL takes
  *  over in the lobby module at runtime, no preload required. The check
  *  runs once per SSG page build (cheap fs.existsSync); any mutation in
- *  public/env/ between builds is automatically picked up. */
-const hdrEnvPath = fileURLToPath(new URL('../../public/env/lobby-studio.hdr', import.meta.url));
-const hdrEnvMapShipped = existsSync(hdrEnvPath);
-const hdrMobileEnvPath = fileURLToPath(new URL('../../public/env/lobby-studio-mobile.hdr', import.meta.url));
-const hdrMobileEnvShipped = existsSync(hdrMobileEnvPath);
+ *  public/env/ between builds is automatically picked up.
+ *
+ *  ── Resolve from process.cwd(), NEVER from import.meta.url ──────────────────
+ *
+ *  This layout is compiled and executed from inside the build output, so during
+ *  `astro build` `import.meta.url` points at the emitted chunk rather than at
+ *  src/layouts/. Walking '../../public' from there resolved to `<root>/dist/public`,
+ *  which does not exist — so both existsSync() calls returned false unconditionally
+ *  and the preload hints could never be emitted no matter what shipped. The same
+ *  mistake silently deleted both dossier videos from /about/ (see src/pages/about.astro).
+ *  `process.cwd()` is the project root under both `astro dev` and `astro build`,
+ *  which is what the comment above actually promises. */
+const publicEnvDir = join(process.cwd(), 'public', 'env');
+const hdrEnvMapShipped = existsSync(join(publicEnvDir, 'lobby-studio.hdr'));
+const hdrMobileEnvShipped = existsSync(join(publicEnvDir, 'lobby-studio-mobile.hdr'));
 
 const isHomepage = Astro.url.pathname === '/' || Astro.url.pathname === '';
 const pathNorm = Astro.url.pathname.replace(/\/+$/, '') || '/';
