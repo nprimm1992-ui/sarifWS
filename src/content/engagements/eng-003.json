@@ -3,8 +3,13 @@
   "classification": "Engagement 003 — Regulated Voice Architecture",
   "sector": "Legal services",
   "accent": "legal",
-  "statValue": "$10K",
-  "statLabel": "First paid engagement, fixed fee",
+  "services": [
+    "digital-production",
+    "strategic-intelligence",
+    "brand-positioning"
+  ],
+  "statValue": "5 nodes",
+  "statLabel": "Regulated intake architecture",
   "heroImage": "./_images/eng-003.webp",
   "heroAlt": "Flow diagram of the intake architecture. Three outlined boxes on the left — Local Services Ads, Website Inquiries and After-Hours Calls — feed arrows into a solid navy box labelled Intake Intelligence Layer, subtitled One voice. One memory. One record. From there single arrows continue rightward to a Unified Intake Record box and then to a Morning Handoff to Intake Specialist box. Caption beneath reads: a first-responder system. Never advises. Always escalates when a person needs a person.",
   "leads": [

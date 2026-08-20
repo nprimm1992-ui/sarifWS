@@ -43,6 +43,27 @@ const next = all[(idx + 1) % total];
 
 const data = entry.data;
 
+/*
+ * Practice lanes this engagement drew on.
+ *
+ * The hall's argument is that every exhibit demonstrates a service a
+ * prospect can actually buy, so each dossier states its lanes and links
+ * them to the real section on /services. Labels live HERE rather than in
+ * the JSON so that renaming a lane is a one-line change instead of a
+ * six-file migration; the ids are validated against services.astro by
+ * scripts/check-engagement-hero.mjs.
+ */
+const SERVICE_LABELS: Record<string, string> = {
+  'strategic-intelligence': 'Strategic Intelligence',
+  'brand-positioning': 'Brand & Positioning',
+  'digital-production': 'Digital Production',
+  'content-media': 'Content & Media',
+};
+const services = data.services.map((id) => ({
+  id,
+  label: SERVICE_LABELS[id] ?? id,
+}));
+
 /** "Engagement 001 — Policy Infrastructure" → "Policy Infrastructure". */
 function displayTitle(classification: string): string {
   const parts = classification.split('—');
@@ -178,6 +199,26 @@ const hasDocs = docs.length > 0;
           <div class="exh-plaque__meta-row">
             <dt>Registry</dt>
             <dd>ENG-{data.num} · {data.num}/{specimenTotal}</dd>
+          </div>
+          <div class="exh-plaque__meta-row">
+            <dt>Practice</dt>
+            <dd>
+              <ul class="exh-lanes" data-testid="exhibit-services">
+                {services.map((s) => (
+                  <li>
+                    {/*
+                      Anchor is `lane-<id>`, NOT `<id>` — that is the id
+                      services.astro actually emits on each <section>. The
+                      first version linked to `#<id>`, which resolved to
+                      nothing: the page still returned 200, the fragment
+                      silently failed to match, and no test noticed. Hence
+                      the gate now asserts the rendered anchor, not the id.
+                    */}
+                    <a href={`/services/#lane-${s.id}`} class="exh-lane">{s.label}</a>
+                  </li>
+                ))}
+              </ul>
+            </dd>
           </div>
         </dl>
 
@@ -684,6 +725,54 @@ const hasDocs = docs.length > 0;
     font-size: 12.5px;
     color: var(--text-secondary);
     text-align: right;
+  }
+
+  /*
+     Practice lanes. Right-aligned chips that wrap, matching the plaque's
+     other meta rows. Each is a real link into /services, so it gets a
+     visible affordance (underline on hover, accent hairline border) rather
+     than being styled as a decorative tag — a chip that navigates and does
+     not look like it can is worse than no chip.
+  */
+  .exh-lanes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+
+  .exh-lane {
+    display: inline-block;
+    padding: 3px 8px;
+    border: 1px solid rgba(var(--exh-a1-rgb), 0.28);
+    border-radius: 2px;
+    font-family: var(--font-ticker);
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    white-space: nowrap;
+    color: var(--text-secondary);
+    background: rgba(var(--exh-a1-rgb), 0.06);
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  }
+
+  .exh-lane:hover,
+  .exh-lane:focus-visible {
+    color: var(--exh-a1);
+    border-color: rgba(var(--exh-a1-rgb), 0.6);
+    background: rgba(var(--exh-a1-rgb), 0.14);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .exh-lane:focus-visible {
+    outline: 2px solid var(--exh-a1);
+    outline-offset: 2px;
   }
 
   .exh-plaque__cta {
@@ -1247,6 +1336,7 @@ const hasDocs = docs.length > 0;
     .exh-telemetry__dot { animation: none; }
     .exh-plaque__scan { animation: none; opacity: 0; }
     .exh-plate__magnify { transition: none; }
+    .exh-lane { transition: none; }
     .exh-docs__link { transition: none; }
     .exh-docs__link:hover,
     .exh-docs__link:focus-visible { padding-left: clamp(4px, 0.8vw, 10px); }

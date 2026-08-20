@@ -86,9 +86,37 @@ function stripComments(source) {
     .replace(/(^|[^:])\/\/[^\n]*/g, (m, p1) => p1 + ' '.repeat(m.length - p1.length));
 }
 
+/**
+ * Coverage floor for the functions/ scan.
+ *
+ * `walk()` swallows a failed readdirSync and returns an empty array, so if
+ * functions/ were moved or renamed this lint would scan nothing, collect zero
+ * violations and report "OK — no fail-open posture checks" — itself a
+ * fail-open, and a particularly ironic one in the script whose entire purpose
+ * is catching that species.
+ *
+ * 19 .js files ship under functions/ today. Graduated rather than `> 0`
+ * because the realistic regression is a subdirectory dropping out of the
+ * walk, not the whole tree disappearing.
+ */
+const MIN_FUNCTION_FILES = 19;
+
+const scanned = walk(FUNCTIONS_DIR);
+if (scanned.length < MIN_FUNCTION_FILES) {
+  console.error(
+    `[check-env-contract] FAIL — scanned ${scanned.length} file(s) under functions/, ` +
+      `expected at least ${MIN_FUNCTION_FILES}.\n` +
+      '  walk() returns an empty array when the directory cannot be read, so a\n' +
+      '  moved or renamed functions/ tree would make this lint pass by examining\n' +
+      '  nothing. Verify the path, or lower MIN_FUNCTION_FILES deliberately if\n' +
+      '  files were genuinely removed.',
+  );
+  process.exit(1);
+}
+
 const violations = [];
 
-for (const file of walk(FUNCTIONS_DIR)) {
+for (const file of scanned) {
   const rel = relative(ROOT, file);
   if (ALLOWLIST.has(rel)) continue;
 
@@ -140,5 +168,6 @@ if (violations.length > 0) {
 }
 
 console.log(
-  '[check-env-contract] OK — no fail-open ENVIRONMENT posture checks in functions/',
+  `[check-env-contract] OK — no fail-open ENVIRONMENT posture checks in ` +
+    `${scanned.length} file(s) under functions/`,
 );

@@ -3,14 +3,19 @@
   "classification": "Engagement 002 — The Lloyd Commons",
   "sector": "Civic infrastructure",
   "accent": "civic",
+  "services": [
+    "strategic-intelligence",
+    "brand-positioning",
+    "digital-production"
+  ],
   "statValue": "$179.3M",
   "statLabel": "Base-case project cost",
   "heroImage": "./_images/eng-002.webp",
-  "heroAlt": "Architectural rendering of the proposed Lloyd Commons civic core — the retained mall interior reused as a year-round public market, with timber vendor stalls including a Stumptown Coffee kiosk and produce stands, tree planters and bench seating along a central promenade, and shoppers on three levels of open balcony walkways.",
+  "heroAlt": "The engagement corpus photographed from above on a polished concrete floor in a daylit lobby. Twelve printed reports fan out in a complete circle around a teal leather portfolio embossed with the Sarif Consulting gold wing mark, a matching pen beside it and bound teal notebooks at the lower corners. The documents carry headings including Governance Built in Phases, The Real Cost, What Lloyd Commons Is and Is Not, Portland Must Learn From Its Past, Adaptive Reuse vs. Full Demolition, The Real Choice and Portland's Next World-Class Civic Landmark, alongside site renderings, comparison tables and cost charts. Behind the arrangement a living wall of ferns covers a concrete pier and a full-height window looks out onto pedestrians crossing a plaza.",
   "leads": [
     "Lloyd Center is 29.3 acres on three light-rail lines — one of the most transit-rich sites on the West Coast — approved for demolition of a seismically sound civic core while 2.4 million square feet of parking garages remained unexamined. The staff findings never analyzed the asymmetry.",
     "The coalition had public will — 10,000+ petition signatures, 600+ pages of testimony — but no instrument an institution could act on: no financial architecture, no legal crosswalk, no phased alternative. We built the missing instrument: a 29-card friendly amendment, a source-verified financial model, the approval-criteria crosswalk that carried the appeal, and the rendering set that made the alternative visible.",
-    "Council denied the appeal unanimously on July 8, 2026 — the outcome the engagement's own strategy analysis had projected as base case. The filing did its work: the substantive claims are permanent civic record, the alliance architecture behind the approval is now public, and Phase 2 pivots from remand to transaction — a coalition-aligned acquisition inside the owner's announced strategic-review window."
+    "Council denied the appeal unanimously on July 8, 2026. The filing still did its work: the substantive claims are permanent civic record, the alliance architecture behind the approval is now public, and Phase 2 pivots from remand to transaction — a coalition-aligned acquisition inside the owner's announced strategic-review window."
   ],
   "highlights": [
     "29-card hybrid document — civic proposal, legal brief, financial analysis and design argument in one navigable instrument",

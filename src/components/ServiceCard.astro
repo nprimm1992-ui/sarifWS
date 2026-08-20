@@ -16,7 +16,7 @@
  * emphasis — compile-time-static data only. Any literal < > & in copy must be
  * escaped (&lt; &gt; &amp;) or they will be interpreted as markup.
  */
-export type ServiceAccent = 'intelligence' | 'digital' | 'narrative' | 'media';
+export type ServiceAccent = 'intelligence' | 'digital' | 'brand' | 'media';
 
 interface Props {
   title: string;
@@ -174,7 +174,7 @@ const {
     );
   }
 
-  .service-card-border[data-service-accent='narrative'] .service-card__accent {
+  .service-card-border[data-service-accent='brand'] .service-card__accent {
     background: linear-gradient(
       to bottom,
       var(--sarif-gold) 0%,

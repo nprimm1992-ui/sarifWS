@@ -159,27 +159,51 @@ const walk = (dir, pred) => {
 };
 
 const fnCount = walk(join(ROOT, 'functions'), (p) => p.endsWith('.js')).length;
-const fnClaim = claim('functions', /(\d+)\s+Workers functions/i);
-if (fnClaim !== null) {
+/*
+ * Matched from both the prose ("19 Workers functions") and the stat LABEL
+ * ("Shipped with 19 edge functions"). statLabel is prose the reader sees
+ * first, so it earns the same scrutiny as the body — and being a label
+ * rather than a sentence is not an exemption from being true.
+ */
+const statFns = data.statLabel?.match(/(\d+)\s*edge functions/i)?.[1];
+for (const [where, c] of [
+  ['prose', claim('functions', /(\d+)\s+Workers functions/i)],
+  ['statLabel', statFns ? Number(statFns) : null],
+]) {
+  if (c === null) continue;
   checks.push({
-    label: 'Workers functions',
-    claimed: fnClaim,
+    label: `Workers functions (${where})`,
+    claimed: c,
     actual: fnCount,
-    ok: fnClaim === fnCount,
-    remedy: `Update the count in eng-006's serverless highlight.`,
+    ok: c === fnCount,
+    remedy:
+      `Update the count in BOTH eng-006's statLabel and its serverless ` +
+      `highlight.`,
   });
 }
 
 /* --- 4. built routes ----------------------------------------------- */
+/*
+ * Checked in BOTH places the number appears. The route count is now the
+ * headline stat as well as a body figure, and a headline that disagrees
+ * with its own prose is the most visible way for this dossier to be wrong
+ * — it is the first thing on the page and the last thing anyone re-reads.
+ */
 const routeCount = walk(DIST, (p) => p.endsWith('.html')).length;
-const routeClaim = claim('routes', /(\d+)\s+routes/i);
-if (routeClaim !== null) {
+const statRoutes = data.statValue?.match(/(\d+)\s*routes/i)?.[1];
+for (const [where, c] of [
+  ['prose', claim('routes', /(\d+)\s+routes/i)],
+  ['statValue', statRoutes ? Number(statRoutes) : null],
+]) {
+  if (c === null) continue;
   checks.push({
-    label: 'built HTML routes',
-    claimed: routeClaim,
+    label: `built HTML routes (${where})`,
+    claimed: c,
     actual: routeCount,
-    ok: routeClaim === routeCount,
-    remedy: `Update the route count in eng-006's final highlight.`,
+    ok: c === routeCount,
+    remedy:
+      `Update the route count in BOTH eng-006's statValue and its final ` +
+      `highlight — the headline stat and the body copy must not disagree.`,
   });
 }
 
@@ -190,10 +214,42 @@ if (routeClaim !== null) {
  * sitting in scripts/ that nothing invokes is not a gate, and counting it
  * would overstate the posture — which is the exact failure mode this file
  * exists to prevent.
+ *
+ * Counted by ROLE, not by filename prefix. The previous version matched
+ * /check-[a-z-]+\.mjs/, which silently depended on a naming convention:
+ * verify-sitemap.mjs is a real sentinel — it runs in this pipeline and
+ * exits 1 on a malformed sitemap — but it was invisible to the count purely
+ * because it is not spelled "check-". That is the same assume-don't-derive
+ * mistake as hardcoding an anchor prefix. So the rule is now explicit: every
+ * step in postbuild is a sentinel EXCEPT the ones that exist to transform
+ * output rather than to reject it.
  */
 const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
 const postbuild = pkg.scripts?.postbuild ?? '';
-const gateCount = new Set(postbuild.match(/check-[a-z-]+\.mjs/g) ?? []).size;
+/**
+ * Postbuild steps that mutate the build instead of gating it. These are
+ * pipeline *steps*, not sentinels: inject-csp-hashes rewrites _headers, it
+ * does not refuse a bad build.
+ */
+const NON_GATE_STEPS = new Set(['inject-csp-hashes.mjs']);
+const allSteps = new Set(postbuild.match(/[a-z][a-z-]*\.mjs/g) ?? []);
+const gateSteps = [...allSteps].filter((s) => !NON_GATE_STEPS.has(s));
+const gateCount = gateSteps.length;
+/*
+ * Fail closed if the parse collapses. A renamed script field or a switch to
+ * a task runner would leave allSteps empty, gateCount at 0, and — since the
+ * claim below only runs `if (gateWord)` — could quietly stop asserting
+ * anything at all.
+ */
+if (allSteps.size === 0) {
+  console.error(
+    '[check-self-claims] FAIL — parsed 0 steps out of package.json\'s postbuild ' +
+      'script.\n    The sentinel count is derived from that string, so a parse ' +
+      'failure here would\n    silently stop verifying the claim rather than ' +
+      'report a mismatch.',
+  );
+  process.exit(1);
+}
 const WORD_TO_N = {
   four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
   ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14,

@@ -1,14 +1,19 @@
 {
   "num": "006",
-  "classification": "Engagement 006 — The Near-Future Lobby",
+  "classification": "Engagement 006 — Real-Time 3D Web Environment",
   "sector": "Design",
   "accent": "digital",
-  "statValue": "9.0 KB",
-  "statLabel": "Landing HTML, gzipped",
+  "services": [
+    "digital-production",
+    "brand-positioning",
+    "content-media"
+  ],
+  "statValue": "22 routes",
+  "statLabel": "Shipped with 19 edge functions",
   "heroImage": "./_images/eng-006.webp",
   "heroAlt": "The site's landing scene, captured live from the running build. A floating terraced island of hexagonal basalt columns rises out of a pale sand plane ruled with faint hexagonal gridlines, planted with moss, clipped topiary spheres and small red-leafed trees. A glowing gold wing emblem crowns the central column. Gold and blue wireframe polyhedra — icosahedra, tori, cones — drift through the surrounding space against a deep navy gradient. Over the scene sit the wordmark SARIF CONSULTING at upper left, a nav row reading About, Engagements, Services, Praxis, Lexicon, Contact, and a scrolling capability ticker. The headline SARIF CONSULTING is set large in yellow at centre, above a bordered call to action reading Augment Your Intelligence.",
   "leads": [
-    "The brief was a website. What we built was an environment — a real-time 3D lobby you walk into rather than a page you scroll, staged in a near-future that has made its peace with plants. First light took 48 working hours, concept to production deployment.",
+    "The brief was a website. What we built was an environment — a real-time 3D lobby you walk into rather than a page you scroll, rendered in the browser at device pixel ratio. First light took 48 working hours, concept to production deployment.",
     "Then we spent twice that again on the part nobody sees. The interesting engineering was not the lobby; it was making a WebGL environment behave like a text document — fast on first paint, legible without JavaScript, navigable without a mouse, and safe under a strict Content-Security-Policy.",
     "The site is now its own proof surface. It is the reference implementation for how we work: every claim on it is checked by a build gate, and the gates were written because each of them once caught something we had gotten wrong."
   ],
@@ -19,8 +24,8 @@
     "Strict CSP with build-time hash injection: 12 sha256 tokens generated per deploy, with the three unavoidable relaxations documented against the exact rendering failure each one prevents",
     "Accessibility treated as a rendering constraint, not a checklist — 45 reduced-motion style blocks and 13 runtime motion guards, live regions, skip links, and a published WCAG 2.1 AA conformance statement naming its own limitations",
     "Serverless edge backend across 19 Workers functions — contact transmission, DSAR handling, scheduled data purge, CSP violation reporting and Web Vitals capture",
-    "Eight build sentinels gating every deploy on HTML and bundle budgets, meta-description length, media integrity, environment posture and dossier truthfulness — including one that checks this dossier's own claims against the repository, because a claim that can be verified by counting has no excuse for being wrong",
-    "22 routes, 40 end-to-end tests, ~41,000 lines. First light in 48 working hours; the rest of the time went into the part nobody sees."
+    "Ten build sentinels gating every deploy on HTML and bundle budgets, meta-description length, media integrity, environment posture, bot-protection coherence, sitemap structure and dossier truthfulness — including one that checks this dossier against the repository, because a countable claim has no excuse for being wrong",
+    "22 routes, 41 end-to-end tests, ~41,000 lines. First light in 48 working hours; the rest of the time went into the part nobody sees."
   ],
   "sort": 6
 }

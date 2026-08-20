@@ -53,7 +53,7 @@ const STATIC_PAGES: IndexItem[] = [
     type: 'page',
     title: 'Services',
     url: '/services/',
-    summary: 'Capabilities across intelligence, digital, narrative, and media.',
+    summary: 'Capabilities across intelligence, digital, brand, and media.',
     tags: ['services', 'capabilities'],
     meta: {},
   },

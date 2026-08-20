@@ -35,6 +35,26 @@ its own `astro preview`.
 - **No live form submissions**: the contact suite never POSTs — Turnstile
   and D1 are both hard to mock safely from a smoke test. We validate
   structure and client-side validation only.
+- **`astro preview` runs NO Pages Functions.** It is a static file server.
+  Every `POST /api/*` therefore 404s locally while working correctly in
+  production (verified 204 under `npx wrangler pages dev dist`). This is why
+  the suite runs a single lane against `astro preview` rather than a second
+  Functions lane: no spec asserts on an API response, so a second lane would
+  add CI time and a Wrangler dependency without covering anything new. If a
+  spec ever *does* need a real API response, it must run under
+  `wrangler pages dev dist` — `astro preview` would give it a false 404.
+- **Resource failures are asserted on the network layer, not the console.**
+  Chromium's console text for a failed request is
+  `"Failed to load resource: the server responded with a status of 404 (Not Found)"`
+  — with **no URL in it**. A text filter therefore cannot distinguish the two
+  expected telemetry-beacon 404s from a genuinely missing CSS bundle, and the
+  suite previously suppressed *all* 404s to tolerate the two it knew about.
+  `nav-routes.spec.ts` now listens on `page.on('response')`, where URL, method
+  and `resourceType` are available, and suppresses only
+  `POST /api/*` beacons (`ping`/`fetch`/`xhr`). Every other `>=400` fails the
+  test and names the offending URL. Verified by canary: deleting one
+  `dist/_astro/*.css` fails 8 routes with
+  `404 GET /_astro/Base.<hash>.css`, where the old filter passed silently.
 - **No 3D asserts**: the lobby scene is verified to *mount* (canvas
   element present) but not rendered-pixel correctness. GL in CI
   environments is unreliable.

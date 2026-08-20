@@ -90,6 +90,9 @@ const lexicon = defineCollection({
 export type LexiconCategory = (typeof LEXICON_CATEGORIES)[number];
 export { LEXICON_CATEGORIES };
 
+export type ServiceLane = (typeof SERVICE_LANES)[number];
+export { SERVICE_LANES };
+
 const ENGAGEMENT_ACCENTS = [
   'policy',
   'civic',
@@ -100,6 +103,29 @@ const ENGAGEMENT_ACCENTS = [
   'legal',
 ] as const;
 
+/**
+ * Practice lanes an engagement drew on.
+ *
+ * These ids are NOT free text and NOT a new taxonomy: they are the exact
+ * `lanes[].id` values declared in `src/pages/services.astro`, so a dossier
+ * chip can deep-link to `/services#<id>` and land on the real section. If
+ * the two lists ever diverge the chips become dead anchors, so
+ * `scripts/check-engagement-hero.mjs` asserts this array against the
+ * services page rather than trusting them to stay in sync by convention.
+ *
+ * Why a closed enum rather than strings: the hall's whole argument is that
+ * every exhibit demonstrates a service you can actually buy. A typo'd or
+ * invented lane silently breaks that argument — the chip renders, the link
+ * 404s to an anchor that does not exist, and nobody notices because a
+ * missing fragment is not an HTTP error.
+ */
+const SERVICE_LANES = [
+  'strategic-intelligence',
+  'brand-positioning',
+  'digital-production',
+  'content-media',
+] as const;
+
 const engagements = defineCollection({
   loader: glob({ pattern: '**/*.json', base: './src/content/engagements' }),
   schema: ({ image }) =>
@@ -108,6 +134,12 @@ const engagements = defineCollection({
       classification: z.string().min(1),
       sector: z.string().min(1),
       accent: z.enum(ENGAGEMENT_ACCENTS),
+      /**
+       * Which practice lanes this engagement drew on, most central first.
+       * Required and non-empty: an exhibit that cannot name the service it
+       * demonstrates is a story, not a case.
+       */
+      services: z.array(z.enum(SERVICE_LANES)).min(1),
       statValue: z.string().min(1),
       statLabel: z.string().min(1),
       leads: z.array(z.string().min(1)).min(1),

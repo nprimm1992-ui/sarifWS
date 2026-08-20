@@ -1,6 +1,12 @@
 # Sarif — Jensen Pickup API Contract
 
-**Status:** Phase A (scope B). Endpoints are live, authenticated, and dormant until the Jensen-side `contact_drafting` surface mode consumes them.
+**Status:** Phase A (scope B). **Jensen integration is forthcoming.** The
+endpoints in this document are already deployed, authenticated and covered by
+tests, but no caller consumes them yet — they stay dormant until the Jensen-side
+`contact_drafting` surface mode ships. Until then, inbound transmissions are
+handled entirely through Nicholas's operator workflow; nothing on the public
+site depends on these routes, and their being unused is expected rather than a
+regression.
 **Base URL (production):** `https://sarifconsulting.ai`
 **Base URL (staging / preview):** Cloudflare Pages preview URL for the current PR
 **Transport:** HTTPS only.
@@ -28,7 +34,28 @@ All pickup routes require:
 Authorization: Bearer <JENSEN_PICKUP_TOKEN>
 ```
 
-`JENSEN_PICKUP_TOKEN` is a 64-character hex string, installed as a Cloudflare Pages environment variable on the Sarif site. Jensen stores the same token in its own secret manager. Rotating the token requires updating both sides in a narrow window; plan rotations against the backlog.
+**Provision two scoped tokens, not one.** `functions/api/_shared/pickup-auth.js`
+resolves credentials per scope:
+
+| Variable | Grants | Used by |
+| -------- | ------ | ------- |
+| `JENSEN_PICKUP_READ_TOKEN` | `read` only | `GET /api/pickup` (polling) |
+| `JENSEN_PICKUP_WRITE_TOKEN` | `write` only | `POST /api/pickup/:id/claim`, `.../draft` |
+| `JENSEN_PICKUP_TOKEN` | **both** — legacy | rollout compatibility only |
+
+A configured read token deliberately does **not** grant write. Jensen polls far
+more often than it writes, so the polling credential is the one most likely to
+leak through logs or a misconfigured client; scoping it means such a leak cannot
+mutate or claim transmissions.
+
+`JENSEN_PICKUP_TOKEN` is the pre-split single token that grants both scopes. It
+still works, but should not be provisioned on new deploys — set the scoped pair
+instead and drop the legacy variable once no caller depends on it.
+
+Each is a 64-character hex string (`openssl rand -hex 32`), installed as a
+Cloudflare Pages environment variable on the Sarif site. Jensen stores the same
+values in its own secret manager. Rotating requires updating both sides in a
+narrow window; plan rotations against the backlog.
 
 The token is compared with a constant-time check (`verifyBearer` in `functions/api/_shared/validate.js`) to avoid timing oracles. Missing or malformed headers return `401 Unauthorized` with a generic error body.
 

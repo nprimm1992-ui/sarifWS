@@ -7,8 +7,8 @@ language, the imagery and linking rules, and the exact commands that verify the
 work.
 
 **Repo:** `nprimm1992-ui/sarifWS` · **Content root:** `src/content/engagements/`
-**Last verified against:** build of 21 pages, 9 postbuild steps green (8 `check-*`
-sentinels + the CSP hash injector), 0 type errors, 46 E2E passed.
+**Last verified against:** build of 21 pages, 11 postbuild steps green (10 gating
+sentinels + the CSP hash injector), 0 type errors, 47 E2E passed.
 
 ---
 
@@ -30,14 +30,14 @@ One file drives both. There is no separate card copy.
 
 ### Current hall (6 exhibits)
 
-| id | num | title | sector | accent | statValue | sort | plate | docs |
-|---|---|---|---|---|---|---|---|---|
-| `eng-001` | 001 | The Deployment Matrix | Housing policy | `policy` | `$106M` | 1 | yes | 5 |
-| `eng-002` | 002 | The Lloyd Commons | Civic infrastructure | `civic` | `$179.3M` | 2 | yes | 3 |
-| `eng-003` | 003 | Regulated Voice Architecture | Legal services | `legal` | `$10K` | 3 | yes | — |
-| `eng-004` | 004 | Retreat-First Transformation | Founder strategy | `founder` | `0.18%` | 4 | yes | — |
-| `eng-005` | 005 | Survival to Stability | Education | `education` | `$243K–$473K` | 5 | yes | — |
-| `eng-006` | 006 | The Near-Future Lobby | Design | `digital` | `9.0 KB` | 6 | yes | — |
+| id | num | title | sector | accent | statValue | lanes | sort | plate | docs |
+|---|---|---|---|---|---|---|---|---|---|
+| `eng-001` | 001 | The Deployment Matrix | Housing policy | `policy` | `$106M` | 3 | 1 | yes | 5 |
+| `eng-002` | 002 | The Lloyd Commons | Civic infrastructure | `civic` | `$179.3M` | 3 | 2 | yes | 3 |
+| `eng-003` | 003 | Regulated Voice Architecture | Legal services | `legal` | `5 nodes` | 3 | 3 | yes | — |
+| `eng-004` | 004 | Retreat-First Transformation | Founder strategy | `founder` | `$868B` | 2 | 4 | yes | — |
+| `eng-005` | 005 | Survival to Stability | Education | `education` | `$243K–$473K` | 2 | 5 | yes | — |
+| `eng-006` | 006 | Real-Time 3D Web Environment | Design | `digital` | `22 routes` | 3 | 6 | yes | — |
 
 Log-entry counts run 4–8 (`eng-002` has 4, `eng-005` has 8). All six sectors are
 distinct, which is why the derived index copy reads "six sectors".
@@ -206,6 +206,36 @@ carried real meaning to the author (the client's own director used it) but the
 dossier's body copy never used it, and the noun was taken. The replacement,
 `Survival to Stability`, is lifted verbatim from lead 2 — *"no sequenced path
 from survival to stability"* — which is what grounding is supposed to produce.
+
+### `services` — which practice lanes the exhibit proves
+
+Required, non-empty, most central lane first. Valid ids are exactly the four
+`lanes[].id` values in `src/pages/services.astro`:
+
+| id | rendered chip |
+|---|---|
+| `strategic-intelligence` | Strategic Intelligence |
+| `brand-positioning` | Brand & Positioning |
+| `digital-production` | Digital Production |
+| `content-media` | Content & Media |
+
+The chips render in the plaque's `Practice` row and deep-link to
+`/services/#lane-<id>`. **Labels live in `[slug].astro`, not in the JSON** —
+renaming a lane should be one line, not a six-file migration.
+
+> **The trap, and it already bit.** The first implementation linked to
+> `/services/#<id>` while the page emits `id="lane-<id>"`. Nothing failed:
+> the navigation returned 200, the fragment matched nothing, and the reader
+> silently landed at the top of the page. A dead `#fragment` is not an HTTP
+> error, so no build, no type check and no existing test could see it. The
+> gate now reads the anchor prefix out of `services.astro`'s own template
+> and asserts the chip href against it, and `exhibits.spec.ts` verifies the
+> target element actually exists and is rendered. **Never hardcode the
+> prefix in a second place.**
+
+Why a closed enum rather than free text: the hall's entire argument is that
+every exhibit demonstrates a service someone can buy. An invented lane
+breaks that quietly — the chip renders and looks fine.
 
 ### `sector` — the taxonomy label
 Short (1–3 words), rendered uppercase with wide letter-spacing in the plaque,
@@ -557,10 +587,45 @@ node scripts/check-engagement-hero.mjs
 # Full build — the only thing that validates Zod + resolves heroImage
 npx astro build
 
-# All 9 postbuild steps — 8 `check-*` sentinels plus the CSP hash injector.
-# NOTE the distinction: `inject-csp-hashes` is a STEP, not a CHECK. eng-006
-# claims "Eight build sentinels" and check-self-claims counts `check-*` names
-# out of this very script, so conflating the two fails the build.
+### Non-defect: `POST /api/_internal/log` 404/405 in local preview
+
+`astro preview` is a **static file server with no Pages Functions runtime**, so
+every `POST /api/_internal/log` beacon 404s there (and 405s behind a proxy that
+rewrites the status). Two fire on every page load: they are the Web Vitals
+beacons (TTFB/FCP) sent via `navigator.sendBeacon`, which is why they surface
+with `resourceType: "ping"`.
+
+This is **not** a defect and needs no fix. Verified, not assumed:
+
+```
+# astro preview (no Functions runtime)
+POST /api/_internal/log -> 404  x2      2 failures
+
+# wrangler pages dev dist (real Functions runtime)
+POST /api/_internal/log -> 204          36 requests, 0 failures
+```
+
+`functions/api/_internal/log.js` correctly exports `onRequestPost` and
+`onRequestOptions`. A bare `GET` returns 404 by design: there is no GET
+handler and the beacon never sends one.
+
+**Rule: reproduce API-surface console errors under `npx wrangler pages dev dist`,
+never under `astro preview`.** Diagnosing Functions behaviour on a static server
+manufactures phantom defects.
+
+---
+
+# All 11 postbuild steps — 10 gating sentinels plus the CSP hash injector.
+# NOTE the distinction: `inject-csp-hashes` is a STEP, not a GATE. It rewrites
+# _headers; it never refuses a bad build. eng-006 claims "Ten build
+# sentinels" and check-self-claims derives that number from this very script,
+# so conflating the two fails the build.
+#
+# Sentinels are counted by ROLE, not by filename. `verify-sitemap.mjs` gates
+# like any other (exit 1 on a malformed sitemap) despite not being spelled
+# `check-*`; the old count matched /check-[a-z-]+\.mjs/ and silently missed it.
+# To add a gate: add it here, add it to `check:all`, and if it is not a
+# transform, expect the sentinel count to move.
 npm run postbuild
 
 # Types + lint + unit
@@ -653,6 +718,9 @@ benefit.
 | A counted claim that disagrees with its own list (`"ten-city … Houston, Helsinki, Glasgow, Bakersfield, Vienna"`) | `check-engagement-hero` |
 | A `N-document` claim with neither a `documents[]` catalogue nor an inline list | `check-engagement-hero` |
 | An eng-006 self-claim that drifts from the repo (bundle weight, route/function/sentinel/test/token counts, LOC) | `check-self-claims` |
+| Missing / invented / duplicated `services` id | `check-engagement-hero` |
+| Practice chips pointing at a `#fragment` the services page does not emit | `check-engagement-hero`, then `exhibits.spec.ts` |
+| `services.astro` `lanes[]` renamed so the lane parse silently matches nothing | `check-engagement-hero` (fail-closed) |
 | eng-006 prose thinned until it asserts almost nothing checkable | `check-self-claims` (coverage floor) |
 | three.js promoted into the landing critical path | `check-self-claims` |
 | Meta description outside 110–180 chars | `check-meta-descriptions` |
@@ -675,6 +743,8 @@ benefit.
 - [ ] `highlights`: 5–7 deliverables (4 min, 8 max); final one states delivery velocity with a period
 - [ ] Every counted claim (`N documents/modules/nodes/…`) either enumerates all N after the em dash, or hedges the list with `including`
 - [ ] Any links live in `highlights`, balanced, `href` present, `_blank` has `rel="noopener noreferrer"`
+- [ ] `services` names 1–3 practice lanes, most central first, from the closed
+      enum in `content.config.ts` (ids must equal `lanes[].id` in `services.astro`)
 - [ ] `heroImage` + `heroAlt` **both** present or **both** absent
 - [ ] Plate ≥1600px wide, composed 16:9, in `_images/`, referenced `./_images/…`
 - [ ] Plate verified **as rendered**: measure the `img`, not `.exh-plate` — the
