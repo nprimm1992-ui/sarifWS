@@ -1,5 +1,5 @@
 ---
-export type EngagementAccent = 'policy' | 'civic' | 'venture' | 'founder' | 'education' | 'digital';
+export type EngagementAccent = 'policy' | 'civic' | 'venture' | 'founder' | 'education' | 'digital' | 'legal';
 
 interface Props {
   classification: string;
@@ -160,6 +160,21 @@ const isDossier = highlights.length > 0 && leads.length > 0;
 
   .proof-entry[data-eng-accent='digital'] .proof-entry__accent {
     background: linear-gradient(to bottom, var(--cyan-bright), var(--cyan-core));
+  }
+
+  /*
+   * `legal` — regulated work. Gold reads as the constraint (statute, opinion,
+   * bar rule) resolving into cyan: the system that gets built inside it. The
+   * inverse of `venture`, which opens on gold ambition and cools toward
+   * execution. Distinct from `digital` so no two exhibits share a stripe.
+   */
+  .proof-entry[data-eng-accent='legal'] .proof-entry__accent {
+    background: linear-gradient(
+      to bottom,
+      rgba(221, 184, 61, 0.75) 0%,
+      rgba(0, 153, 187, 0.6) 50%,
+      var(--cyan-core) 100%
+    );
   }
 
   .proof-entry__open {

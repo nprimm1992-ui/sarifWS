@@ -3,8 +3,8 @@
   "classification": "Engagement 002 — The Lloyd Commons",
   "sector": "Civic infrastructure",
   "accent": "civic",
-  "statValue": "$184.5M",
-  "statLabel": "Base-case capital architecture",
+  "statValue": "$179.3M",
+  "statLabel": "Base-case project cost",
   "heroImage": "./_images/eng-002.webp",
   "heroAlt": "Architectural rendering of the proposed Lloyd Commons civic core — the retained mall interior reused as a year-round public market, with timber vendor stalls including a Stumptown Coffee kiosk and produce stands, tree planters and bench seating along a central promenade, and shoppers on three levels of open balcony walkways.",
   "leads": [
@@ -14,7 +14,7 @@
   ],
   "highlights": [
     "29-card hybrid document — civic proposal, legal brief, financial analysis and design argument in one navigable instrument",
-    "17-tab financial model: $184.5M base case, $166.5M verified-only, 73-assumption register, architectural-historian peer review absorbed across revision cycles",
+    "17-tab financial model, Workbook v1.3 canonical: $179.3M base-case project cost against $127.2M assembled capital and a $52.1M gap, 73-assumption register, architectural-historian peer review absorbed across revision cycles",
     "Bespoke project-management tooling built for the Lloyd Commons nonprofit — coalition operations infrastructure",
     "Full alternative-architecture rendering set: retained civic core as year-round public market, rooftop commons, district-scale buildout",
     "Counterparty ownership forensics drawn from SEC filings, reframed publicly — not a development vision, an exit strategy",

@@ -1,21 +1,25 @@
 {
   "num": "004",
-  "classification": "Engagement 004 — Business Transformation Architecture",
+  "classification": "Engagement 004 — Retreat-First Transformation",
   "sector": "Founder strategy",
   "accent": "founder",
-  "statValue": "$73.7B",
-  "statLabel": "Market entered with full architecture",
+  "statValue": "0.18%",
+  "statLabel": "Serviceable market needed at target",
+  "heroImage": "./_images/eng-004.webp",
+  "heroAlt": "Market convergence slide titled The Leadership Development & Wellness Convergence. Two figures sit side by side: $206B, labelled Leadership Coaching Market, captioned as the projected global market size by 2032 growing at 10.0% CAGR from $105.69B in 2025; and $868B, labelled Wellness Tourism Market, captioned as the current market size in 2023 per the Global Wellness Institute. A callout box below reads Market Convergence Opportunity — executive coaching delivers high impact but lacks immersion, wellness retreats provide immersion but limited post-retreat integration, and the practice occupies the intersection. At left, a 3D illustration of five figures in business attire holding yoga poses on blue mats in a curved white lounge, with a briefcase-and-lotus icon on the window behind them.",
   "leads": [
-    "A solo founder was entering a $73.7B market with conviction but no strategic infrastructure. Every decision was load-bearing and none of them were documented. We built an 8-document system where every artifact reinforces every other."
+    "A solo practitioner had the rarer half of the problem solved. She could run a retreat that changed people — and had no way to say what she was selling, to whom, or why it beat the alternatives a buyer would price her against.",
+    "The market gives that buyer two options and neither one works. Executive coaching delivers rigor without immersion; wellness retreats deliver immersion without integration. Roughly 123,000 coach practitioners compete on the first and thousands of interchangeable yoga retreats compete on the second. The intersection — coaching rigor, retreat immersion, sustained integration — was structurally unoccupied.",
+    "So we did not write a marketing plan. We built the category, then the business inside it: a document system where the pricing architecture, the ideal-client definition, the risk register and the sprint plan all resolve to the same thesis. Retreat-first, integration-backed, deliberately small."
   ],
   "highlights": [
-    "Strategic blueprint with 5 core design principles and a 3-tier pricing architecture",
-    "Comprehensive competitor and market landscape across 4 competitor categories",
-    "18-month tactical playbook with week-by-week execution specificity",
-    "3-year financial projection modeling conservative, base and aggressive scenarios ($228K to $1.18M revenue trajectory)",
-    "Metrics dashboard with 3-tier measurement system and pre-built scenario response protocols",
-    "Risk management framework covering 11 identified threats across 3 priority tiers",
-    "Every document cross-references every other document in a self-navigating strategic system."
+    "Nine-document strategic system — blueprint, competitor and market landscape, audience intelligence, tactical playbook, financial projections, product architecture, risk register, metrics dashboard, quick-start sprint",
+    "Category defined rather than entered: retreat-first transformation, positioned against a $206B leadership coaching market and an $868B wellness tourism market that each solve only half the buyer's problem",
+    "Convergence thesis stress-tested against the honest objection — that an unoccupied intersection may be unoccupied because nobody wants it — with the audience segmentation built to answer it",
+    "Deliberately small unit economics: eight retreats at $15K clears what a hundred coaching clients would, at a fraction of the delivery load — capacity, not volume, as the design constraint",
+    "Pricing architecture, ideal-client definition and sprint plan derived from one thesis, so a change to positioning propagates rather than orphaning the other documents",
+    "Risk register written against the founder-dependency problem a solo premium practice actually faces, not a generic threat list",
+    "Every document cross-references every other, so the system is navigable by the founder alone — the only operator it will have."
   ],
   "sort": 4
 }
