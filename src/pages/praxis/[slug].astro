@@ -39,12 +39,46 @@ const sameLens = allArticles
 
 const related = [...explicitRelated, ...sameLens].slice(0, 2);
 
-// Sequential Praxis number across published articles, sorted by publishDate asc.
+/* Praxis reference number.
+ *
+ * Three surfaces on this page show the article's number: the ref plate, the
+ * eyebrow (from `classification`) and the "End of file" footer. They were
+ * computed from two different sources and disagreed in production.
+ *
+ * The old derivation sorted `[...allArticles, entry]` by `publishDate`
+ * ascending and took the index. Two problems compounded:
+ *
+ *   1. `publishDate` is not a total order — No. 01 and No. 02 both carry
+ *      2026-04-12.
+ *   2. `allArticles` EXCLUDES `entry`, so the rendering article is always
+ *      appended last. `Array.prototype.sort` is stable, so on a date tie the
+ *      appended element keeps its trailing position. Every tied article sees
+ *      itself in the later slot and claims the higher number.
+ *
+ * Result: `/praxis/one-operator-one-intelligence-layer/` shipped a ref plate
+ * and footer reading "No. 02" while its own eyebrow read "Praxis No. 01 —
+ * Field Observation". One article, one page, two numbers.
+ *
+ * Adding an `id` tiebreak to that sort makes it deterministic but not
+ * correct — it would order by slug spelling, so the number an article
+ * displays would still depend on what its neighbours happen to be called.
+ *
+ * `classification` is the authored source of truth ("Praxis No. 03 —
+ * Methodology"); it is what the eyebrow already renders and what the hero
+ * card art is lettered with. So parse the number from it and let the
+ * positional computation serve only as the fallback for an article that
+ * omits `classification`. That fallback now sorts a set whose membership
+ * does not vary by request, and breaks date ties on `id`, so it is at least
+ * stable across the build. */
 const orderedIds = [...allArticles, entry]
-  .sort((a, b) => a.data.publishDate.getTime() - b.data.publishDate.getTime())
+  .sort(
+    (a, b) =>
+      a.data.publishDate.getTime() - b.data.publishDate.getTime() || a.id.localeCompare(b.id),
+  )
   .map((e) => e.id);
 const seqIndex = orderedIds.indexOf(entry.id) + 1;
-const praxisNumber = `No. ${String(seqIndex).padStart(2, '0')}`;
+const declaredNumber = data.classification?.match(/\bNo\.\s*(\d+)/i)?.[1];
+const praxisNumber = `No. ${(declaredNumber ?? String(seqIndex)).padStart(2, '0')}`;
 /** Ring path radius (user units) — midway between inner r=48 and outer r=63. */
 const SEAL_RING_R = 55.5;
 const SEAL_CX = 70;
