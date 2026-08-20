@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title">
+  <title id="title">The Conductor Is the Coherence Layer</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1016"/>
+      <stop offset="1" stop-color="#17242e"/>
+    </linearGradient>
+    <!-- Instruction travels outward at full strength and does not decay:
+         the conductor is present at every surface, not spent by distance.
+         Contrast with the No. 03 card, where the pipeline fades to nothing. -->
+    <linearGradient id="baton" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#d9bd77" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#bfa364" stop-opacity="0.62"/>
+    </linearGradient>
+    <linearGradient id="seam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00d4ff" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#00d4ff" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#00d4ff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="core">
+      <stop offset="0" stop-color="#bfa364" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#bfa364" stop-opacity="0"/>
+    </radialGradient>
+    <marker id="tipGold" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,1.5 L11,6 L0,10.5 z" fill="#d9bd77" fill-opacity="0.9"/>
+    </marker>
+    <marker id="tipCyan" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,1.5 L11,6 L0,10.5 z" fill="#00d4ff" fill-opacity="0.95"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+
+  <!-- THE COHERENCE ENVELOPE — two concentric arcs enclosing every surface.
+       The boundary is drawn from the conductor's centre, not around the
+       surfaces: the layer is a property of the mind holding them.
+
+       Radii pulled in from 330/300 to 296/268 and the sweep shortened so the
+       outer arc clears the CLASSIFIED chip the layout paints at top-right.
+       Caught on the rendered card, not in the markup — the chip is template
+       chrome and is invisible from inside this file. -->
+  <g fill="none" stroke="#00d4ff">
+    <path d="M1258.3,196.3 A296,296 0 0 1 1258.3,703.7" stroke-width="0.7" stroke-opacity="0.34"/>
+    <path d="M1274.4,239.1 A268,268 0 0 1 1274.4,660.9" stroke-width="0.7" stroke-opacity="0.44"/>
+  </g>
+
+  <!-- OUTBOUND INSTRUCTION — five spokes, one per surface, equal weight. -->
+  <!-- Endpoints stop ~30px short of each node centre so the arrowhead lands
+       just outside the r=19 circle instead of inside it. Start points sit
+       ~34px out from the conductor for the same reason at the origin end.
+       Both were found on the rendered card: at markup level the numbers look
+       like they meet the nodes exactly, which is precisely the problem. -->
+  <g stroke="url(#baton)" stroke-width="1.9">
+    <line x1="1173.0" y1="417.2" x2="1284.0" y2="258.7" marker-end="url(#tipGold)"/>
+    <line x1="1181.4" y1="430.5" x2="1361.6" y2="339.9" marker-end="url(#tipGold)"/>
+    <line x1="1184.0" y1="450.0" x2="1390.0" y2="450.0" marker-end="url(#tipGold)"/>
+    <line x1="1181.4" y1="469.5" x2="1361.6" y2="560.1" marker-end="url(#tipGold)"/>
+    <line x1="1173.0" y1="482.8" x2="1284.0" y2="641.3" marker-end="url(#tipGold)"/>
+  </g>
+
+  <!-- RETURN PATHS — every surface reports state back. Bowed consistently
+       clockwise so the whole figure reads as circulation, not a spider. -->
+  <g fill="none" stroke="#00d4ff" stroke-width="1.5" stroke-opacity="0.8">
+    <path d="M1291.1,254.7 Q1248,366 1183.3,431.8" marker-end="url(#tipCyan)"/>
+    <path d="M1371.4,334.6 Q1281,424 1189.9,442.2" marker-end="url(#tipCyan)"/>
+    <path d="M1401.0,452.8 Q1283,489 1191.0,455.9" marker-end="url(#tipCyan)"/>
+    <path d="M1371.4,565.4 Q1254,545 1189.9,457.8" marker-end="url(#tipCyan)"/>
+    <path d="M1291.1,645.3 Q1199,580 1183.3,468.2" marker-end="url(#tipCyan)"/>
+  </g>
+
+  <!-- THE SURFACES — five, identical, interchangeable. None is privileged. -->
+  <g fill="none" stroke="#00d4ff" stroke-width="1.1" stroke-opacity="0.78">
+    <circle cx="1304.9" cy="228.9" r="19"/>
+    <circle cx="1389.5" cy="325.3" r="19"/>
+    <circle cx="1420.0" cy="450.0" r="19"/>
+    <circle cx="1389.5" cy="574.7" r="19"/>
+    <circle cx="1304.9" cy="671.1" r="19"/>
+  </g>
+  <g fill="#00d4ff" opacity="0.55">
+    <circle cx="1304.9" cy="228.9" r="3.5"/>
+    <circle cx="1389.5" cy="325.3" r="3.5"/>
+    <circle cx="1420.0" cy="450.0" r="3.5"/>
+    <circle cx="1389.5" cy="574.7" r="3.5"/>
+    <circle cx="1304.9" cy="671.1" r="3.5"/>
+  </g>
+
+  <!-- THE CONDUCTOR — one node, gold, the only element of its kind on the
+       card. Larger than any surface and the sole origin of every path. -->
+  <circle cx="1150" cy="450" r="62" fill="url(#core)" opacity="0.5"/>
+  <g fill="none" stroke="#bfa364">
+    <circle cx="1150" cy="450" r="30" stroke-width="1.5" stroke-opacity="0.9"/>
+    <circle cx="1150" cy="450" r="41" stroke-width="0.6" stroke-opacity="0.4"/>
+  </g>
+  <circle cx="1150" cy="450" r="7" fill="#bfa364" fill-opacity="0.95"/>
+
+  <line x1="0" y1="286" x2="1600" y2="286" stroke="url(#seam)" stroke-width="1"/>
+  <line x1="0" y1="700" x2="1600" y2="700" stroke="url(#seam)" stroke-width="0.7"/>
+
+  <g transform="translate(120,398)" font-family="Orbitron,sans-serif" fill="#00d4ff" opacity="0.85">
+    <text font-size="14" letter-spacing="4">PRAXIS NO. 04</text>
+  </g>
+  <g transform="translate(120,458)" font-family="Orbitron,sans-serif" fill="#e4e6eb">
+    <text font-size="50" font-weight="700" letter-spacing="2">THE CONDUCTOR IS</text>
+    <text x="0" y="68" font-size="50" font-weight="700" letter-spacing="2">THE COHERENCE LAYER</text>
+  </g>
+  <g transform="translate(120,592)" font-family="Orbitron,sans-serif" fill="#bfa364" opacity="0.8">
+    <text font-size="20" letter-spacing="3">METHODOLOGY / MAY 2026</text>
+  </g>
+</svg>

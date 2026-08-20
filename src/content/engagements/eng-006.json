@@ -8,7 +8,7 @@
     "brand-positioning",
     "content-media"
   ],
-  "statValue": "23 routes",
+  "statValue": "24 routes",
   "statLabel": "Shipped with 19 edge functions",
   "heroImage": "./_images/eng-006.webp",
   "heroAlt": "The site's landing scene, captured live from the running build. A floating terraced island of hexagonal basalt columns rises out of a pale sand plane ruled with faint hexagonal gridlines, planted with moss, clipped topiary spheres and small red-leafed trees. A glowing gold wing emblem crowns the central column. Gold and blue wireframe polyhedra — icosahedra, tori, cones — drift through the surrounding space against a deep navy gradient. Over the scene sit the wordmark SARIF CONSULTING at upper left, a nav row reading About, Engagements, Services, Praxis, Lexicon, Contact, and a scrolling capability ticker. The headline SARIF CONSULTING is set large in yellow at centre, above a bordered call to action reading Augment Your Intelligence.",
@@ -24,8 +24,8 @@
     "Strict CSP with build-time hash injection: 12 sha256 tokens generated per deploy, with the three unavoidable relaxations documented against the exact rendering failure each one prevents",
     "Accessibility treated as a rendering constraint, not a checklist — 47 reduced-motion style blocks and 13 runtime motion guards, live regions, skip links, and a published WCAG 2.1 AA conformance statement naming its own limitations",
     "Serverless edge backend across 19 Workers functions — contact transmission, DSAR handling, scheduled data purge, CSP violation reporting and Web Vitals capture",
-    "Twelve build sentinels gating every deploy on HTML and bundle budgets, media integrity and reference resolution, CSS syntax, environment posture, bot-protection coherence and dossier truthfulness — including one that audits this dossier against the repository, because a countable claim has no excuse for being wrong",
-    "23 routes, 41 end-to-end tests, ~43,000 lines. First light in 48 working hours; the rest of the time went into the part nobody sees."
+    "Thirteen build sentinels gating every deploy on HTML and bundle budgets, media integrity and reference resolution, CSS syntax, machine-readable time semantics, environment posture, bot-protection coherence and dossier truthfulness — including one that audits this dossier against the repository, because a countable claim has no excuse for being wrong",
+    "24 routes, 41 end-to-end tests, ~43,000 lines. First light in 48 working hours; the rest of the time went into the part nobody sees."
   ],
   "sort": 6
 }
