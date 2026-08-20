@@ -1,19 +1,25 @@
 {
   "num": "003",
-  "classification": "Engagement 003 — Investor Materials",
-  "sector": "Venture capital",
-  "accent": "venture",
-  "statValue": "$4.2B",
-  "statLabel": "Combined addressable market framed",
+  "classification": "Engagement 003 — Regulated Voice Architecture",
+  "sector": "Legal services",
+  "accent": "legal",
+  "statValue": "$10K",
+  "statLabel": "First paid engagement, fixed fee",
+  "heroImage": "./_images/eng-003.webp",
+  "heroAlt": "Flow diagram of the intake architecture. Three outlined boxes on the left — Local Services Ads, Website Inquiries and After-Hours Calls — feed arrows into a solid navy box labelled Intake Intelligence Layer, subtitled One voice. One memory. One record. From there single arrows continue rightward to a Unified Intake Record box and then to a Morning Handoff to Intake Specialist box. Caption beneath reads: a first-responder system. Never advises. Always escalates when a person needs a person.",
   "leads": [
-    "A seed-stage venture needed to present to a 180-partner fund. The existing narrative undersold the competitive position and misstated the addressable market. We rebuilt the story from the data up."
+    "A B Corp personal injury firm was losing after-hours callers to whichever firm answered first. The obvious fix — a bot answering as the firm — collided with the brand: trauma-informed, human-first, bilingual. The wrong intake voice would cost more than the missed calls.",
+    "Legal intake is a regulated act. Oregon State Bar Formal Opinions 2026-208 and 2025-205 bound what an automated system may say, collect and promise — and no off-the-shelf intake product was built to that constraint set.",
+    "We designed the system around the constraint: a five-node architecture — Reception, Listening, Gathering, Discernment, Handoff — with constrained decoding, bilingual parity and a morning handoff that returns judgment to the attorneys. AI captures. Humans decide. The complete design architecture — voice, compliance, routing, escalation — was delivered as a fixed-fee first phase, with build scoped as a separate decision."
   ],
   "highlights": [
-    "Competitive landscape mapped against six named platforms including a $7.2B incumbent",
-    "$2.5M use of proceeds modeled across five allocation categories with 18-month milestone projections",
-    "Market sizing reframed from generic TAM to a $4.2B combined addressable market with sector-specific entry wedges",
-    "7 rounds of forensic audit against canonical data sources",
-    "Submitted through institutional portal. Zero factual errors in the final version."
+    "Five-node intake architecture — Reception, Listening, Gathering, Discernment, Handoff — under constrained decoding",
+    "Compliance architecture mapped to OSB Formal Opinions 2026-208 (chatbots and AI agent communications) and 2025-205 (AI tools); UPL boundaries designed in, not bolted on",
+    "Bilingual Spanish parity with explicit consent design; trauma-informed voice architecture throughout",
+    "Platform-agnostic technical landscape — ElevenLabs Conversational AI, Vapi, Twilio SIP, Zola CRM — recommendation driven by constraint, not vendor",
+    "Escalation protocols and morning handoff format — the firm's existing stack extended, not replaced",
+    "Design review structured for client governance: 17-slide architecture deck, stakeholder input window, executive brief",
+    "Phase 1 delivered complete under fixed fee: architecture, regulatory analysis, bilingual consent design, routing integration, governance-ready review materials."
   ],
   "sort": 3
 }

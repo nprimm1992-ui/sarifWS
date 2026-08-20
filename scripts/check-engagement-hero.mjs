@@ -45,24 +45,117 @@ const MARKUP_RE = /<\/?(a|strong|em|b|i|span|code|abbr|br)\b[^>]*>/i;
 /* Raster/vector formats Astro's image() pipeline accepts. */
 const IMAGE_EXT = new Set(['.svg', '.png', '.jpg', '.jpeg', '.webp', '.avif', '.gif']);
 
+/*
+ * `classification` format. The tail after the em dash is load-bearing:
+ * src/pages/engagements/[slug].astro splits on U+2014 and uses everything
+ * after the first one as the <h1>, the <title> and both walk-card labels.
+ * A hyphen instead of an em dash, or a num that disagrees with `num`, both
+ * degrade silently — the page still renders, just with the wrong heading.
+ */
+const CLASSIFICATION_RE = /^Engagement (\d{3}) \u2014 (.+)$/;
+
+/*
+ * Function words carry no identifying signal, so they are excluded before
+ * comparing a title against its sector and its prose.
+ */
+const STOP_WORDS = new Set([
+  'the', 'a', 'an', 'and', 'or', 'of', 'for', 'in', 'to', 'as', 'at',
+  'on', 'by', 'with', 'not', 'is', 'was', 'from',
+]);
+
+/* Light stem so "services"/"service" and "commons"/"Commons" collide. */
+const stemWord = (w) => w.replace(/ies$/, 'y').replace(/e?s$/, '');
+
+const contentWords = (s) =>
+  s
+    .toLowerCase()
+    .replace(/&/g, ' ')
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .split(/[\s-]+/)
+    .filter(Boolean)
+    .filter((w) => !STOP_WORDS.has(w))
+    .map(stemWord);
+
+/* Title budget — the sticky plaque wraps to three lines past ~45 chars. */
+const TITLE_MAX_CHARS = 45;
+
 const findings = [];
 
+/*
+ * Fail-closed on a missing collection.
+ *
+ * This used to `SKIP` and exit 0. But the engagements collection is not
+ * optional decoration — it is the exhibition hall, and six routes plus the
+ * hall index are generated from it. If the directory is absent, something is
+ * badly wrong (wrong cwd, a bad move, a deleted path), and reporting success
+ * is the worst available response: the gate would go green on a site that no
+ * longer has any exhibits. Same fail-open species as the "scanned 0 pages,
+ * exit 0" defect closed in check-meta-descriptions.
+ */
 if (!existsSync(DIR)) {
-  console.log(`${TAG} SKIP — no engagements collection at src/content/engagements`);
-  process.exit(0);
+  console.error(
+    `${TAG} FAIL — no engagements collection at src/content/engagements. ` +
+      `The hall is generated from this directory; its absence is a ` +
+      `structural error, not an empty-state to pass over.`,
+  );
+  process.exit(1);
 }
 
 const files = readdirSync(DIR).filter((f) => f.endsWith('.json')).sort();
 
 if (files.length === 0) {
-  console.log(`${TAG} SKIP — engagements collection is empty`);
-  process.exit(0);
+  console.error(
+    `${TAG} FAIL — engagements collection is empty. The hall index and every ` +
+      `dossier route derive from it; zero exhibits is a build error, not a pass.`,
+  );
+  process.exit(1);
 }
 
 const seenNums = new Map();
 const seenSorts = new Map();
+const seenAccents = new Map();
+const seenTitles = new Map();
+const seenHeadNouns = new Map();
+
+/*
+ * Corpus-wide word frequency, computed up front because the distinctness
+ * test below is inherently cross-file: a word is only distinguishing if it
+ * does NOT appear in most of the other dossiers.
+ *
+ * This is what separates a *name* from a *label*. "Business Transformation
+ * Architecture" is fully grounded in eng-004's prose — every word of it
+ * appears there — yet it identifies nothing, because "architecture" appears
+ * in all six dossiers and "transformation" is the generic verb of the whole
+ * practice. Grounding alone cannot see that; frequency can.
+ */
+const corpusDocFreq = new Map();
+const perFileWords = new Map();
+
 let heroCount = 0;
 let docCount = 0;
+
+/* Pre-pass: build the corpus frequency table. Parse failures are ignored
+   here and reported properly by the main loop below. */
+for (const file of files) {
+  try {
+    const d = JSON.parse(readFileSync(join(DIR, file), 'utf8'));
+    const bag = new Set(
+      contentWords([...(d.leads ?? []), ...(d.highlights ?? [])].join(' ')),
+    );
+    perFileWords.set(file, bag);
+    for (const w of bag) {
+      corpusDocFreq.set(w, (corpusDocFreq.get(w) ?? 0) + 1);
+    }
+  } catch {
+    /* reported in the main loop */
+  }
+}
+
+/*
+ * A word appearing in more than half the dossiers is practice vocabulary,
+ * not an identifier. At six exhibits the threshold is 3.
+ */
+const UBIQUITY_LIMIT = Math.max(2, Math.floor(files.length / 2));
 
 for (const file of files) {
   const abs = join(DIR, file);
@@ -242,19 +335,51 @@ for (const file of files) {
       }
     });
 
-    /* Prose/inventory agreement. If a highlight or lead asserts a written
-       count of documents, the array must match it — this is exactly the
-       drift that turns a proof surface into a liability. */
-    const WORD_TO_N = {
-      one: 1, two: 2, three: 3, four: 4, five: 5,
-      six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
-    };
-    const prose = [...(data.leads ?? []), ...(data.highlights ?? [])].join(' ');
-    const claim = prose.match(
-      /\b(one|two|three|four|five|six|seven|eight|nine|ten)[-\s]document\b/i,
-    );
-    if (claim) {
-      const claimed = WORD_TO_N[claim[1].toLowerCase()];
+    docCount += data.documents.length;
+  }
+
+  /* --- 5b. prose document-count agreement ----------------------------- */
+  /*
+   * If a highlight or lead asserts a written count of documents, that count
+   * must be corroborated somewhere. This is exactly the drift that turns a
+   * proof surface into a liability: prose is written once and edited often,
+   * inventories are edited independently, and nobody recounts by hand.
+   *
+   * Two corroborating sources, in priority order:
+   *
+   *   1. `documents[]` — the published catalogue. Authoritative when present,
+   *      because those are the artefacts a visitor can actually open.
+   *   2. The claim's own inline enumeration — the comma-separated list after
+   *      the em dash ("Nine-document system — a, b, c, ..."). A claim that
+   *      names its members can be checked against itself.
+   *
+   * This block sits OUTSIDE the `documents[]` guard deliberately. It used to
+   * be nested inside it, which meant an engagement with no published
+   * catalogue had its count claims exempted entirely — a false "Eleven-
+   * document" on a vitrine-less exhibit passed silently. A check that
+   * inspects nothing must never report success; that is the same fail-open
+   * species closed in check-meta-descriptions.
+   *
+   * Range runs to twenty, not ten. The original ceiling at `ten` silently
+   * exempted every larger claim — a guard with an arbitrary ceiling fails
+   * exactly where the counts get hard to eyeball.
+   */
+  const WORD_TO_N = {
+    one: 1, two: 2, three: 3, four: 4, five: 5,
+    six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+    eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
+    sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
+  };
+  const countRe = new RegExp(
+    `\\b(${Object.keys(WORD_TO_N).join('|')})[-\\s]document\\b`,
+    'i',
+  );
+  for (const claimText of [...(data.leads ?? []), ...(data.highlights ?? [])]) {
+    const claim = claimText.match(countRe);
+    if (!claim) continue;
+    const claimed = WORD_TO_N[claim[1].toLowerCase()];
+
+    if (Array.isArray(data.documents) && data.documents.length > 0) {
       if (claimed !== data.documents.length) {
         findings.push(
           `${file} — prose claims a "${claim[1]}-document" suite but ` +
@@ -263,8 +388,33 @@ for (const file of files) {
             }. The catalogue must match the claim.`,
         );
       }
+      continue;
     }
-    docCount += data.documents.length;
+
+    /*
+     * No catalogue to check against, so fall back to the claim's own
+     * enumeration. Only meaningful when the claim actually lists members:
+     * a bare "Nine-document system" with no list is unverifiable here and
+     * is reported as such rather than passed over in silence.
+     */
+    const tail = claimText.split('—')[1];
+    const named = tail
+      ? tail.split(',').map((s) => s.trim()).filter(Boolean).length
+      : 0;
+    if (named < 2) {
+      findings.push(
+        `${file} — prose claims a "${claim[1]}-document" suite but there is ` +
+          `no documents[] catalogue and the claim does not enumerate its ` +
+          `members, so the count cannot be corroborated. Either publish the ` +
+          `documents or name them inline after an em dash.`,
+      );
+    } else if (named !== claimed) {
+      findings.push(
+        `${file} — prose claims a "${claim[1]}-document" suite (${claimed}) ` +
+          `but enumerates ${named} item(s) after the em dash. The count and ` +
+          `the list must agree.`,
+      );
+    }
   }
 
   /* --- 6. registry collisions ---------------------------------------- */
@@ -290,6 +440,218 @@ for (const file of files) {
       seenSorts.set(data.sort, file);
     }
   }
+
+  /* --- 6b. classification is a specimen NAME, not a taxonomy bin ------ */
+  /*
+   * The taxonomy field is `sector`. `classification` is the exhibit's name:
+   * [slug].astro splits it on the em dash and uses the tail as the <h1>, the
+   * <title> and both walk-card labels. Everything enforced here follows from
+   * that one fact.
+   *
+   * The house rule, in one line: NAME THE ARTEFACT, NOT THE CATEGORY.
+   *
+   * A title that restates `sector` spends the most valuable line on the page
+   * saying nothing new — the plaque already shows the sector one row below.
+   * This was caught by hand twice: eng-003's draft "Legal Intake
+   * Architecture" against sector "Legal services", and the retired eng-004
+   * "Business Transformation Architecture", which named a category so
+   * generic it would fit any of the six. Judgement applied twice is a rule
+   * not yet written down, so it is written down here.
+   *
+   * Deliberately NOT enforced: a single naming *genre*. Proper nouns ("The
+   * Lloyd Commons"), coined categories ("Retreat-First Transformation") and
+   * capability names ("Regulated Voice Architecture") are all legitimate,
+   * because they answer the same question — what was this specific
+   * engagement? — and the honest answer differs by engagement. Forcing one
+   * grammar across the hall would mean renaming The Lloyd Commons, which is
+   * what the client, the coalition and the press actually call it. Uniformity
+   * of *grammar* is not the goal; uniformity of *informativeness* is.
+   */
+  if (typeof data.classification === 'string') {
+    const m = data.classification.match(CLASSIFICATION_RE);
+    if (!m) {
+      findings.push(
+        `${file} — classification ${JSON.stringify(data.classification)} does ` +
+          `not match "Engagement NNN \u2014 Title". The renderer splits on the ` +
+          `em dash (U+2014, not a hyphen) and uses the tail as the <h1>, the ` +
+          `<title> and both walk-card labels.`,
+      );
+    } else {
+      const [, declaredNum, title] = m;
+
+      if (declaredNum !== data.num) {
+        findings.push(
+          `${file} — classification says "Engagement ${declaredNum}" but num ` +
+            `is "${data.num}". The plaque would contradict the registry.`,
+        );
+      }
+
+      if (title.length > TITLE_MAX_CHARS) {
+        findings.push(
+          `${file} — title ${JSON.stringify(title)} is ${title.length} chars; ` +
+            `over ${TITLE_MAX_CHARS} it wraps to three lines in the sticky ` +
+            `plaque. 3\u20135 words is the sweet spot.`,
+        );
+      }
+
+      /*
+       * Title must not restate the sector. Overlap on a content word means
+       * the <h1> and the Sector row are saying the same thing.
+       */
+      const sectorWords = new Set(contentWords(data.sector ?? ''));
+      const echoed = [...new Set(contentWords(title))].filter((w) =>
+        sectorWords.has(w),
+      );
+      if (echoed.length > 0) {
+        findings.push(
+          `${file} — title ${JSON.stringify(title)} restates sector ` +
+            `${JSON.stringify(data.sector)} (shared: ${echoed.join(', ')}). ` +
+            `The plaque already shows the sector; name the artefact, not the ` +
+            `category.`,
+        );
+      }
+
+      /*
+       * h1 uniqueness, checked FIRST.
+       *
+       * Ordering matters. A canary that duplicated eng-002's title onto
+       * eng-004 was originally caught by the grounding rule instead — the
+       * gate failed, but for the wrong reason, reporting "not grounded"
+       * where the real defect was a collision. A guard that fails with a
+       * misleading diagnosis sends the next author to fix the wrong thing,
+       * so the most specific rule runs before the more general ones.
+       */
+      const key = title.toLowerCase();
+      const duplicate = seenTitles.has(key);
+      if (duplicate) {
+        findings.push(
+          `${file} — title ${JSON.stringify(title)} duplicates ` +
+            `${seenTitles.get(key)}. Two exhibits would share an <h1>, a ` +
+            `<title> and a walk-card label.`,
+        );
+      } else {
+        seenTitles.set(key, file);
+      }
+
+      const prose = perFileWords.get(file) ?? new Set();
+      const titleWords = [...new Set(contentWords(title))];
+
+      /*
+       * Title must be grounded in the dossier's own prose. A name whose
+       * vocabulary appears nowhere in the leads or highlights is either
+       * aspirational branding or a leftover from a previous version — exactly
+       * how the retired eng-004 title survived a full rewrite of the body
+       * copy beneath it. At least half the content words must appear.
+       *
+       * Skipped when the title is a duplicate: the collision is already
+       * reported and grounding would only add noise about another exhibit's
+       * words being absent from this one.
+       */
+      if (!duplicate && titleWords.length > 0) {
+        const grounded = titleWords.filter((w) => prose.has(w));
+        if (grounded.length * 2 < titleWords.length) {
+          const missing = titleWords.filter((w) => !prose.has(w));
+          findings.push(
+            `${file} — title ${JSON.stringify(title)} is not grounded in the ` +
+              `dossier: ${grounded.length}/${titleWords.length} content words ` +
+              `appear in leads/highlights (missing: ${missing.join(', ')}). A ` +
+              `name the body copy never earns is branding, or a leftover from ` +
+              `a previous version.`,
+          );
+        }
+
+        /*
+         * Grounded is not the same as distinguishing.
+         *
+         * "Business Transformation Architecture" — the title this engagement
+         * shipped with before the rewrite — is 3/3 grounded in eng-004's own
+         * prose and still identifies nothing, because "architecture" occurs
+         * in all six dossiers and "transformation" is the generic verb of the
+         * practice. It would fit any exhibit in the hall, which is precisely
+         * what disqualifies it as a name.
+         *
+         * So a title must carry at least one word that is both present in
+         * its own dossier and absent from most others. That is the formal
+         * version of "name the artefact, not the category".
+         *
+         * KNOWN LIMIT, measured rather than assumed. This test does NOT by
+         * itself reject "Business Transformation Architecture": "business"
+         * and "transformation" each occur in only 1 of 6 dossiers, so they
+         * read as distinctive by frequency alone. What actually catches that
+         * title is the head-noun rule below ("architecture", df 6/6, already
+         * heading eng-003). The two rules are complementary and neither is
+         * sufficient — corpus frequency cannot tell a rare word from a
+         * meaningful one, and at six exhibits the sample is far too small to
+         * try. Genericness remains a judgement call; these rules narrow where
+         * that judgement has to be exercised, and no more.
+         */
+        const distinctive = titleWords.filter(
+          (w) => prose.has(w) && (corpusDocFreq.get(w) ?? 0) <= UBIQUITY_LIMIT,
+        );
+        if (distinctive.length === 0) {
+          const freqs = titleWords
+            .map((w) => `${w}=${corpusDocFreq.get(w) ?? 0}/${files.length}`)
+            .join(', ');
+          findings.push(
+            `${file} — title ${JSON.stringify(title)} has no distinguishing ` +
+              `word: every term is either absent from this dossier or common ` +
+              `to more than ${UBIQUITY_LIMIT} of ${files.length} exhibits ` +
+              `(${freqs}). A title that would fit any exhibit names the ` +
+              `category, not the artefact.`,
+          );
+        }
+      }
+
+      /*
+       * Head-noun spread.
+       *
+       * Two exhibits ending in the same noun read as a series rather than as
+       * distinct specimens, and the drift is invisible one file at a time. I
+       * introduced exactly this while fixing the other findings: renaming
+       * eng-005 to "Enrollment Recovery Architecture" made "Architecture"
+       * the head of two of six titles, and the original eng-003 draft would
+       * have made it three. Each rename looked fine in isolation.
+       */
+      const headNoun = title
+        .split(/\s+/)
+        .pop()
+        .replace(/[^A-Za-z]/g, '')
+        .toLowerCase();
+      if (headNoun) {
+        if (seenHeadNouns.has(headNoun)) {
+          findings.push(
+            `${file} — title ${JSON.stringify(title)} ends in ` +
+              `"${headNoun}", already the head noun of ` +
+              `${seenHeadNouns.get(headNoun)}. Two exhibits sharing a head ` +
+              `noun read as a series instead of distinct specimens; vary the ` +
+              `noun (matrix / commons / lobby / recovery).`,
+          );
+        } else {
+          seenHeadNouns.set(headNoun, file);
+        }
+      }
+    }
+  }
+
+  /*
+   * `accent` is a palette index, not a category label. Each exhibit owns one
+   * stripe so the hall reads as a set of distinct specimens; two engagements
+   * sharing a gradient makes them look like variants of one another. The Zod
+   * enum guarantees the value is *known* but cannot see across files, so
+   * uniqueness is enforced here.
+   */
+  if (typeof data.accent === 'string') {
+    if (seenAccents.has(data.accent)) {
+      findings.push(
+        `${file} — accent "${data.accent}" duplicates ` +
+          `${seenAccents.get(data.accent)}. Accents are a per-exhibit palette ` +
+          `index; add a new accent to ENGAGEMENT_ACCENTS and give it a ` +
+          `gradient in ProofEntry.astro rather than reusing one.`,
+      );
+    } else {
+      seenAccents.set(data.accent, file);
+    }
+  }
 }
 
 if (findings.length > 0) {
@@ -301,5 +663,6 @@ if (findings.length > 0) {
 console.log(
   `${TAG} OK — ${files.length} engagement(s); ${heroCount} with specimen plate; ` +
     `${docCount} document(s) of record; leads/highlights markup consistent; ` +
-    `registry unique`,
+    `titles name artefacts not categories; registry unique (num, sort, ` +
+    `accent, title)`,
 );

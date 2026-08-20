@@ -29,14 +29,14 @@ One file drives both. There is no separate card copy.
 
 ### Current hall (6 exhibits)
 
-| id | num | sector | accent | statValue | statLabel | sort |
-|---|---|---|---|---|---|---|
-| `eng-001` | 001 | Civic policy | `policy` | `$106M` | Deployment matrix scope | 1 |
-| `eng-002` | 002 | Land use | `civic` | `87` | Pages forensically analyzed | 2 |
-| `eng-003` | 003 | Venture capital | `venture` | `$4.2B` | Combined addressable market framed | 3 |
-| `eng-004` | 004 | Founder strategy | `founder` | `$73.7B` | Market entered with full architecture | 4 |
-| `eng-005` | 005 | Education | `education` | `$243K–$473K` | Annual hidden costs quantified | 5 |
-| `eng-006` | 006 | Design | `digital` | `48hrs` | Concept to production deployment | 6 |
+| id | num | title | sector | accent | statValue | sort | plate | docs |
+|---|---|---|---|---|---|---|---|---|
+| `eng-001` | 001 | The Deployment Matrix | Housing policy | `policy` | `$106M` | 1 | yes | 5 |
+| `eng-002` | 002 | The Lloyd Commons | Civic infrastructure | `civic` | `$179.3M` | 2 | yes | 3 |
+| `eng-003` | 003 | Regulated Voice Architecture | Legal services | `legal` | `$10K` | 3 | yes | — |
+| `eng-004` | 004 | Retreat-First Transformation | Founder strategy | `founder` | `0.18%` | 4 | yes | — |
+| `eng-005` | 005 | Enrollment Recovery | Education | `education` | `$243K–$473K` | 5 | — | — |
+| `eng-006` | 006 | The Near-Future Lobby | Design | `digital` | `48hrs` | 6 | — | — |
 
 Log-entry counts run 4–8 (`eng-002` has 4, `eng-005` has 8). All six sectors are
 distinct, which is why the derived index copy reads "six sectors".
@@ -124,11 +124,20 @@ locator (`Specimen 006/006`), the telemetry `Ref` cell (`ENG-006`), the plaque
 identity — keep it aligned with the filename (`eng-006.json` → `"006"`).
 Duplicate `num` values are rejected by `scripts/check-engagement-hero.mjs`.
 
-### `classification` — the formal title
-Format: `Engagement NNN — Title Case Subject`.
+### `classification` — the specimen's NAME
+Format: `Engagement NNN — Title Case Name`.
 
-The em-dash matters. `src/pages/engagements/[slug].astro` splits on `—` and uses
-**everything after the first em-dash** as the `<h1>` and the walk-card titles:
+**`classification` is not a taxonomy field. `sector` is.** This is the single
+most important thing to understand about it, and getting it backwards produces
+titles that say nothing. The tail after the em-dash becomes:
+
+| surface | value |
+|---|---|
+| `<h1>` on the dossier | tail only |
+| `<title>` | `${tail} — Engagement ${num} — Sarif Consulting` |
+| both walk-card labels | tail only |
+| search-index entry | **full** string |
+| plaque `Classification` row | **full** string |
 
 ```ts
 function displayTitle(classification: string): string {
@@ -137,14 +146,57 @@ function displayTitle(classification: string): string {
 }
 ```
 
-- `"Engagement 006 — Digital Platform & Spatial Design"` → h1 = **"Digital Platform & Spatial Design"**
-- `"Digital Platform"` (no dash) → h1 = **"Digital Platform"** (whole string; works but loses the registry framing)
-- Use a real em-dash `—` (U+2014), **not** a hyphen `-`.
+- Use a real em-dash `—` (U+2014), **not** a hyphen `-`. A hyphen means the
+  whole string becomes the `<h1>`, registry prefix included.
+- The `NNN` in the string must equal `num`, or the plaque contradicts itself.
+- The URL comes from the **filename**, not from here — so renaming a title
+  never breaks a link. Renames are cheap; do them when the name is wrong.
 
-`<h1>` renders uppercase with letter-spacing. Titles over ~45 characters wrap to
-three lines in the sticky plaque; 3–5 words is the sweet spot.
+#### The house rule: name the artefact, not the category
 
-**h1 uniqueness is enforced by E2E** — two engagements cannot share a title.
+> A visitor reading the `<h1>` already sees the sector one row below it on the
+> same plaque. A title that restates the sector spends the most valuable line
+> on the page saying nothing new.
+
+Enforced by `scripts/check-engagement-hero.mjs`:
+
+| rule | why |
+|---|---|
+| Title shares no content word with `sector` | The plaque already shows the sector |
+| ≥ half the title's words appear in `leads`/`highlights` | A name the body copy never earns is branding, or a leftover from a rewrite |
+| ≥ 1 word appears in this dossier but ≤ half the others | A title that would fit any exhibit names the category |
+| No two exhibits share a **head noun** | Shared head nouns read as a series, not as distinct specimens |
+| ≤ 45 chars | Wraps to three lines in the sticky plaque; 3–5 words is the sweet spot |
+| Titles unique | Two exhibits would share an `<h1>`, `<title>` and walk-card label |
+
+**What is deliberately NOT enforced: a single naming genre.** All three of
+these are legitimate, because each answers *what was this specific
+engagement?*:
+
+- **Proper noun** — `The Lloyd Commons`. Use when the thing has a real name
+  that the client, coalition or press already uses.
+- **Coined category** — `Retreat-First Transformation`. Use when the
+  engagement's product *was* the category.
+- **Named capability** — `Regulated Voice Architecture`. Use when the artefact
+  is a system.
+
+Uniformity of *grammar* is not the goal; uniformity of *informativeness* is.
+Forcing one grammar across the hall would mean renaming The Lloyd Commons,
+which is what everyone involved actually calls it.
+
+**Known limit.** Corpus frequency cannot distinguish a rare word from a
+meaningful one — at six exhibits the sample is far too small to try. The rules
+narrow where judgement must be exercised; they do not replace it. If a title
+passes every check and still reads like consultancy filler, it is still wrong.
+
+Failed examples, all real:
+
+| rejected | why |
+|---|---|
+| `Legal Intake Architecture` (eng-003 draft) | restates sector `Legal services` |
+| `Business Transformation Architecture` (eng-004, retired) | fully grounded, yet would fit any exhibit; caught on head noun |
+| `Enrollment Recovery Architecture` (eng-005, my own rename) | made `Architecture` the head of 2 of 6 titles |
+| `Digital Platform & Spatial Design` (eng-006, retired) | restates sector `Design` |
 
 ### `sector` — the taxonomy label
 Short (1–3 words), rendered uppercase with wide letter-spacing in the plaque,

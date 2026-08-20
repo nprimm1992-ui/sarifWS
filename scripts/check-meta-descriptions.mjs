@@ -109,6 +109,28 @@ for (const abs of htmlFiles) {
   }
 }
 
+/*
+ * Fail-open guard.
+ *
+ * Every finding in this script is derived from pages it actually found. If
+ * `dist/` is empty — a failed or skipped build, a wrong working directory —
+ * there are no pages to fault, so the script would print "scanned 0" and exit
+ * 0, reporting success for work it never inspected. That is the most dangerous
+ * possible outcome for a gate: silence indistinguishable from a pass.
+ *
+ * The floor is deliberately a constant rather than a computed count: the point
+ * is to detect "the site did not build", not to track the page total.
+ */
+const MIN_EXPECTED_PAGES = 5;
+if (results.length < MIN_EXPECTED_PAGES) {
+  console.error(
+    `[check-meta-descriptions] FAIL — scanned only ${results.length} indexable ` +
+      `page(s), expected at least ${MIN_EXPECTED_PAGES}. dist/ is empty or ` +
+      `incomplete, so this check inspected nothing. Run \`astro build\` first.`,
+  );
+  process.exit(1);
+}
+
 results.sort((a, b) => a.len - b.len);
 console.log(
   `[check-meta-descriptions] scanned ${results.length} indexable page(s). Length range: ${

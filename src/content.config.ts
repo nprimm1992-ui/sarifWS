@@ -97,6 +97,7 @@ const ENGAGEMENT_ACCENTS = [
   'founder',
   'education',
   'digital',
+  'legal',
 ] as const;
 
 const engagements = defineCollection({
