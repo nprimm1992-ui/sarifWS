@@ -1,13 +1,30 @@
 ---
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import Base from '../layouts/Base.astro';
 import ServiceCard from '../components/ServiceCard.astro';
 import AboutDossierCard from '../components/AboutDossierCard.astro';
 import UcimBriefCard from '../components/UcimBriefCard.astro';
 
-const publicDir = fileURLToPath(new URL('../../public', import.meta.url));
+/**
+ * Absolute path to the project's `public/` directory, resolved at BUILD time.
+ *
+ * ── Do NOT derive this from `import.meta.url` ────────────────────────────────
+ *
+ * This module is compiled and executed from inside the build output, so during
+ * `astro build` `import.meta.url` points at the emitted chunk, not at
+ * `src/pages/about.astro`. Walking `../../public` from there resolved to
+ * `<root>/dist/public`, which does not exist. Every `existsSync()` below
+ * returned false, `pickAboutVideoPair()` hit its `return {}` fallback, and both
+ * dossier videos were silently omitted from the built page — no error, no
+ * warning, just a missing feature. (Confirmed by instrumenting the build:
+ * `publicDir = /home/user/webapp/dist/public`, `mp4 exists = false`.)
+ *
+ * `process.cwd()` is the project root for both `astro dev` and `astro build`,
+ * which is what we actually want. `Astro.config`-relative resolution would be
+ * equivalent; cwd keeps this file dependency-free.
+ */
+const publicDir = join(process.cwd(), 'public');
 
 /* Videos: Cursor/agent file search often omits large `public/*.mp4`; that does not mean they
  * are absent on disk. `existsSync` here is authoritative at build time. Prefer on-disk root
