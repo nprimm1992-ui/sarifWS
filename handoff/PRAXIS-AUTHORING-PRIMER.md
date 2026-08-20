@@ -14,20 +14,27 @@ brief for the specific article(s) you want written.
 |---|---|---|
 | `what-the-matrix-metabolizes` | **published** | ~1,410 words — real |
 | `one-operator-one-intelligence-layer` | **published** | ~1,150 words — real |
-| `signal-without-noise` | draft | ~118 words — partial |
+| `pipelines-move-forward-systems-circulate` | **published** | ~1,240 words — real |
+| `the-conductor-is-the-coherence-layer` | **published** | ~1,270 words — real |
 | `coherence-decay-in-teams` | draft | 73 words — **placeholder** |
 | `forensic-depth-in-policy-work` | draft | 73 words — **placeholder** |
 | `intelligence-substrate-economics` | draft | 73 words — **placeholder** |
 | `jensen-as-operational-memory` | draft | 73 words — **placeholder** |
 | `metabolic-knowledge-graphs` | draft | 73 words — **placeholder** |
 | `production-grade-strategic-material` | draft | 73 words — **placeholder** |
-| `the-briefing-as-interface` | draft | 73 words — **placeholder** |
 | `trace-as-audit-infrastructure` | draft | 73 words — **placeholder** |
 | `ucim-field-notes` | draft | 73 words — **placeholder** |
 
-**Critical:** those nine "placeholder" files have a **byte-identical body**
-(same MD5). They were scaffold-generated to trip a 12-article threshold that no
-longer exists — the Ask Praxis feature that needed it has been removed. So:
+Four articles are now real. `signal-without-noise` was replaced by
+`pipelines-move-forward-systems-circulate` (No. 03) and
+`the-briefing-as-interface` by `the-conductor-is-the-coherence-layer` (No. 04);
+both placeholders were deleted rather than left as dead slugs.
+
+**Critical:** the remaining eight "placeholder" files were scaffold-generated
+with an identical body to trip a 12-article threshold that no longer exists —
+the Ask Praxis feature that needed it has been removed. They are no longer
+strictly byte-identical (frontmatter differs per slug), but the bodies are
+still interchangeable filler. So:
 
 - There is **no reason to keep all nine.** Delete the ones you won't write.
 - Only `draft: false` articles appear on `/praxis/`. Today that's **2**.
@@ -133,7 +140,14 @@ Coherence is not a quality-control outcome. It is an architectural property.
 Body text. `kind` is ONLY: "note" | "warning" | "classified"
 </Callout>
 
-<FieldLog timestamp="2026-04-12T09:30Z" source="Engagement 001">
+<!-- House form: `timestamp` is a HUMAN LABEL, not a date. -->
+<FieldLog timestamp="Engagement 004 retro" source="Field observation">
+Observation text.
+</FieldLog>
+
+<!-- Only if the entry has a REAL calendar date, add `datetime` as well.
+     `timestamp` stays human; `datetime` is the machine-readable form. -->
+<FieldLog timestamp="June 14, 2026" datetime="2026-06-14" source="Field observation">
 Observation text.
 </FieldLog>
 
@@ -153,7 +167,7 @@ Observation text.
 | `Pullquote` | *(children)* | `attribution`, `classification`, `class` |
 | `Stat` | `value` | `label`, `class` |
 | `Callout` | *(children)* | `kind` (`note`\|`warning`\|`classified`), `title`, `class` |
-| `FieldLog` | `timestamp` | `source`, `class` |
+| `FieldLog` | `timestamp` (human label) | `datetime` (**machine date only**), `source`, `class` |
 | `Figure` | `src` (ImageMetadata), `alt` | `classification`, `caption`, `widths`, `sizes`, `fetchpriority`, `loading`, `class` |
 | `Sidenote` | *(children)* | `class` |
 | `LexiconTermLink` | `term` | — |
@@ -228,9 +242,9 @@ you can't attach evidence to.
 ### Escaping
 
 Literal `<`, `>`, `&` in prose must be `&lt;` `&gt;` `&amp;` — MDX will
-otherwise read them as markup. One existing file
-(`the-briefing-as-interface.mdx`) carries a **UTF-8 BOM**; strip it if you edit
-that file.
+otherwise read them as markup. (The one file that used to carry a **UTF-8 BOM**,
+`the-briefing-as-interface.mdx`, has since been deleted; no current file has
+one. Check anyway if you paste from an external editor.)
 
 ---
 
@@ -252,10 +266,43 @@ command palette. Leave it alone.
 ## 8. Verify before you hand back
 
 ```bash
-npm run build          # Zod schema + 7 postbuild sentinels
+npm run build          # Zod schema + 13 postbuild sentinels (12 gating, 1 warns)
 npm run check:types    # expect 0 errors 0 warnings
 npx playwright test    # expect 0 failures
 ```
 
 A green `npm run build` is the real gate — summary length, hero image
 resolution, layout contract and meta-description range are all enforced there.
+
+---
+
+## 8. `FieldLog` timestamps — why there are two props
+
+`timestamp` is what the reader sees. `datetime` is what a machine reads.
+They are separate props because the house voice labels field entries by
+engagement, not by clock:
+
+```
+timestamp="Engagement 004 retro"     <- correct, no datetime
+timestamp="June 14, 2026" datetime="2026-06-14"   <- correct, dated
+timestamp="2026-02-18T00:00Z"        <- wrong shape for the house voice
+```
+
+The component used to copy `timestamp` straight into the rendered
+`datetime` attribute. Because the convention is a label, two published
+articles shipped `<time datetime="Engagement 004 retro">`, which is not a
+parseable date and therefore an invalid machine-readable promise. `astro
+build` and `astro check` both exited 0 on it; no sentinel looked at
+`datetime` at all.
+
+Now:
+
+* supply `datetime` → renders `<time datetime="...">`, validated at build
+  time against the HTML date grammar (bad value = hard build failure);
+* omit `datetime` → renders a `<span>` with identical styling, because an
+  entry with no real date should not claim to be a `<time>`.
+
+Visual output is the same either way. `scripts/check-field-log-datetime.mjs`
+re-checks every `<time>` in the built HTML so this cannot regress from any
+component, with a graduated coverage floor so a markup rename fails loudly
+instead of silently measuring nothing.

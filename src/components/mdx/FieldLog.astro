@@ -2,24 +2,77 @@
 /**
  * MDX FieldLog — dossier-style timestamped entry for in-article notes.
  *
- * Usage:
- *   <FieldLog timestamp="2024-10-12 14:02 EDT" source="Field team dispatch">
- *     Content describing the observation goes here.
- *   </FieldLog>
+ * Usage (dated — emits a machine-readable <time>):
+ *   <FieldLog timestamp="June 14, 2026" datetime="2026-06-14" source="Field observation">
+ *
+ * Usage (undated label — emits a plain <span>):
+ *   <FieldLog timestamp="Engagement 004 retro" source="Field observation">
+ *
+ * WHY THE SPLIT — production defect, fixed here.
+ * -----------------------------------------------------------------------
+ * This component previously did `datetime={timestamp}`, piping the human
+ * label directly into the attribute. The house authoring convention for
+ * `timestamp` is a label, not a date ("Engagement 004 retro"), so two
+ * shipped articles were rendering:
+ *
+ *   <time datetime="Engagement 004 retro">   <!-- invalid -->
+ *   <time datetime="Engagement 005 retro">   <!-- invalid -->
+ *
+ * The HTML spec requires `datetime` to parse as a date/time/duration.
+ * An unparseable value makes the element's machine-readable contract a
+ * lie: assistive tech and crawlers that read `datetime` get garbage, and
+ * the human label was already carrying the real meaning in the text node.
+ *
+ * The fix is not to invent dates for the existing labels. It is to stop
+ * claiming to be a <time> when we do not have a date. `datetime` is now
+ * an explicit, separate, optional prop:
+ *
+ *   - datetime supplied  -> <time datetime="..."> (validated below)
+ *   - datetime omitted   -> <span> with identical styling
+ *
+ * Visual output is byte-identical either way; only the semantics change.
+ * Gated by scripts/check-field-log-datetime.mjs so a bad value cannot
+ * reach production again.
  */
 interface Props {
   timestamp: string;
+  /** Machine-readable date for the `datetime` attribute (e.g. "2026-06-14").
+   *  Omit when `timestamp` is a non-date label — a <span> is emitted instead. */
+  datetime?: string;
   source?: string;
   class?: string;
 }
 
-const { timestamp, source, class: className } = Astro.props;
-const dateTime = timestamp.replace(/\s+/g, ' ').trim();
+const { timestamp, datetime, source, class: className } = Astro.props;
+
+/* Accept the HTML date/time forms we actually author: YYYY-MM-DD,
+   YYYY-MM, YYYY-MM-DDThh:mm(:ss)(Z|±hh:mm). Anything else is an
+   authoring error and fails the build loudly rather than shipping an
+   invalid attribute — the exact failure mode this prop exists to close. */
+const DATETIME_RE =
+  /^\d{4}(-\d{2}(-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:?\d{2})?)?)?)?$/;
+
+const machineDate = datetime?.trim();
+if (machineDate && !DATETIME_RE.test(machineDate)) {
+  throw new Error(
+    `[FieldLog] datetime="${machineDate}" is not a valid HTML datetime value.\n` +
+      `  Expected YYYY-MM-DD (or YYYY-MM / full ISO instant).\n` +
+      `  The visible label belongs in \`timestamp\`; \`datetime\` is the\n` +
+      `  machine-readable form only. If this entry has no real date, omit\n` +
+      `  \`datetime\` entirely and a <span> will be rendered instead.`,
+  );
+}
 ---
 
 <article class:list={['mdx-field-log', className]} aria-label={source ? `Field log — ${source}` : 'Field log'}>
   <header class="mdx-field-log__meta">
-    <time class="mdx-field-log__time" datetime={dateTime}>{timestamp}</time>
+    {
+      machineDate ? (
+        <time class="mdx-field-log__time" datetime={machineDate}>{timestamp}</time>
+      ) : (
+        <span class="mdx-field-log__time">{timestamp}</span>
+      )
+    }
     {source && <span class="mdx-field-log__source">{source}</span>}
   </header>
   <div class="mdx-field-log__body">
