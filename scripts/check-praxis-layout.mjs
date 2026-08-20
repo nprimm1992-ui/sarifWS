@@ -22,6 +22,24 @@
  *   1. `.praxis-outro` exists inside `.praxis-case` (never as a sibling).
  *   2. Body precedes outro precedes footer (the outro is the terminal
  *      content section but the footer is the dossier's formal closer).
+ *   3. Reference-number coherence: the three surfaces that display the
+ *      article's number — the ref plate, the eyebrow (`classification`) and
+ *      the "End of file" footer — must all state the SAME number, and no two
+ *      published articles may claim the same one.
+ *
+ *      Invariant 3 exists because it was violated in production. The template
+ *      derived the plate/footer number positionally by sorting articles on
+ *      `publishDate`, while the eyebrow printed the authored `classification`
+ *      string. `publishDate` is not a total order (No. 01 and No. 02 share
+ *      2026-04-12) and the sorted array was built as `[...others, entry]`,
+ *      so the rendering article was always appended last and won every tie.
+ *      `/praxis/one-operator-one-intelligence-layer/` therefore shipped a
+ *      plate and footer reading "No. 02" above prose whose own eyebrow read
+ *      "Praxis No. 01". Nothing failed; the page simply contradicted itself.
+ *
+ *      This is a numbering-collision detector as much as a display check: the
+ *      uniqueness half catches the case where two articles both render the
+ *      same number self-consistently, which no per-page assertion can see.
  *
  * Fails the build if any praxis page violates the contract. Skipped when
  * dist/ or dist/praxis/ is absent (mirrors check-meta-descriptions.mjs).
@@ -108,8 +126,49 @@ function checkArticle(html) {
   return { ok: true };
 }
 
+/* Number-bearing surfaces, in the markup shapes the template emits.
+ *
+ * `data-astro-cid-*` hashes change whenever the component's styles change, so
+ * these patterns deliberately match on the class name and then skip forward
+ * to the text node rather than pinning the attribute order. A pattern that
+ * stops matching would make this check fail-open, so each one is required to
+ * hit at least once per article (see `missing` below) — a silent no-match is
+ * reported as a failure, not treated as a pass. */
+const NUMBER_SURFACES = [
+  {
+    label: 'ref plate',
+    re: /class="praxis-case__ref-num"[^>]*>\s*(\d+)\s*</,
+  },
+  {
+    label: 'eyebrow (classification)',
+    re: /class="praxis-case__eyebrow[^"]*"[^>]*>[^<]*?\bNo\.\s*(\d+)/i,
+  },
+  {
+    label: 'footer ("End of file")',
+    re: /End of file[^<]*?\bNo\.\s*(\d+)/i,
+  },
+];
+
+/**
+ * Extract the number each surface claims for one article.
+ * @param {string} html
+ * @returns {{ numbers: Map<string, string>, missing: string[] }}
+ */
+function readNumbers(html) {
+  const numbers = new Map();
+  const missing = [];
+  for (const surface of NUMBER_SURFACES) {
+    const m = html.match(surface.re);
+    if (m) numbers.set(surface.label, String(Number(m[1])).padStart(2, '0'));
+    else missing.push(surface.label);
+  }
+  return { numbers, missing };
+}
+
 const pages = collectIndexHtml(praxisDir);
 const failures = [];
+/** @type {Map<string, string[]>} number → article paths claiming it */
+const claimedNumbers = new Map();
 let checked = 0;
 
 for (const file of pages) {
@@ -117,8 +176,54 @@ for (const file of pages) {
   const result = checkArticle(html);
   if (result === null) continue;
   checked += 1;
+  const rel = relative(repoRoot, file);
   if (!result.ok) {
-    failures.push({ file: relative(repoRoot, file), reason: result.reason });
+    failures.push({ file: rel, reason: result.reason });
+  }
+
+  /* Invariant 3a — the surfaces must agree with each other. */
+  const { numbers, missing } = readNumbers(html);
+  if (missing.length > 0) {
+    failures.push({
+      file: rel,
+      reason:
+        `could not read the Praxis number from: ${missing.join(', ')}. ` +
+        'Either the surface was removed or its markup changed — if the latter, ' +
+        'update NUMBER_SURFACES in this script, because an unmatched pattern ' +
+        'would otherwise let a numbering contradiction through unnoticed.',
+    });
+  }
+  const distinct = new Set(numbers.values());
+  if (distinct.size > 1) {
+    const detail = [...numbers.entries()].map(([k, v]) => `${k} = No. ${v}`).join('; ');
+    failures.push({
+      file: rel,
+      reason:
+        `the page states more than one Praxis number (${detail}). ` +
+        'All three surfaces read from `classification` in the frontmatter; a ' +
+        'disagreement means the template has drifted back to deriving the ' +
+        'number positionally.',
+    });
+  }
+  /* Invariant 3b — no two published articles may claim the same number.
+     Recorded from the eyebrow, which is the authored value. */
+  const authored = numbers.get('eyebrow (classification)');
+  if (authored) {
+    if (!claimedNumbers.has(authored)) claimedNumbers.set(authored, []);
+    claimedNumbers.get(authored).push(rel);
+  }
+}
+
+for (const [num, holders] of claimedNumbers) {
+  if (holders.length > 1) {
+    failures.push({
+      file: holders.join(' + '),
+      reason:
+        `${holders.length} published articles both claim Praxis No. ${num}. ` +
+        'Praxis numbers are citation handles; two articles sharing one makes ' +
+        'every reference to that number ambiguous. Renumber in the ' +
+        '`classification` frontmatter of whichever article should move.',
+    });
   }
 }
 
@@ -132,12 +237,12 @@ for (const file of pages) {
  * `checked` lands on 0, no failure is recorded, and the script cheerfully
  * prints "OK — 0 Praxis articles match the dossier layout contract."
  *
- * Two of the twelve Praxis entries are published today (the other ten are
- * `draft: true` and correctly produce no route), so the floor is 2. It is a
- * real number rather than `> 0` so that losing one of two published articles
- * is also caught, not just losing both.
+ * Three of the twelve Praxis entries are published today (the other nine are
+ * `draft: true` and correctly produce no route), so the floor is 3. It is a
+ * real number rather than `> 0` so that losing one published article is also
+ * caught, not just losing all of them. Raise it as articles are published.
  */
-const MIN_PRAXIS_ARTICLES = 2;
+const MIN_PRAXIS_ARTICLES = 3;
 if (checked < MIN_PRAXIS_ARTICLES) {
   console.error(
     `[check-praxis-layout] FAIL — inspected ${pages.length} page(s) under dist/praxis/ ` +
@@ -164,9 +269,14 @@ if (failures.length > 0) {
   console.error(
     'Expected order inside .praxis-case: header → title-plate → hero → body → outro → footer.',
   );
+  console.error(
+    'Praxis numbers come from the `classification` frontmatter ("Praxis No. 03 — Methodology").',
+  );
   process.exit(1);
 }
 
+const numberList = [...claimedNumbers.keys()].sort().join(', ');
 console.log(
-  `[check-praxis-layout] OK — ${checked} Praxis article${checked === 1 ? '' : 's'} match the dossier layout contract.`,
+  `[check-praxis-layout] OK — ${checked} Praxis article${checked === 1 ? '' : 's'} match the dossier layout contract; ` +
+    `reference numbers coherent across 3 surfaces and unique (No. ${numberList}).`,
 );

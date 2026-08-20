@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title">
+  <title id="title">Pipelines Move Forward. Systems Circulate.</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1016"/>
+      <stop offset="1" stop-color="#17242e"/>
+    </linearGradient>
+    <!-- The pipeline fades to nothing at its right edge: forward-only
+         transport losing substance at every handoff. The loop does not fade. -->
+    <linearGradient id="spend" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#bfa364" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#bfa364" stop-opacity="0.03"/>
+    </linearGradient>
+    <linearGradient id="seam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00d4ff" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#00d4ff" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#00d4ff" stop-opacity="0"/>
+    </linearGradient>
+    <marker id="tip" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto">
+      <path d="M0,1.5 L11,6 L0,10.5 z" fill="#00d4ff" fill-opacity="0.85"/>
+    </marker>
+    <marker id="tipGold" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto">
+      <path d="M0,1.5 L11,6 L0,10.5 z" fill="#bfa364" fill-opacity="0.18"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+
+  <!-- CIRCULATION — the dominant motif. Two long arcs closing a loop between
+       two surfaces, plus concentric rings marking successive passes. Drawn at
+       the same scale as the ring motif on the Praxis No. 02 card. -->
+  <g stroke="#00d4ff" fill="none" opacity="0.5">
+    <ellipse cx="1210" cy="450" rx="310" ry="215" stroke-width="0.5" stroke-opacity="0.28"/>
+    <ellipse cx="1210" cy="450" rx="232" ry="161" stroke-width="0.5" stroke-opacity="0.4"/>
+  </g>
+  <g stroke="#00d4ff" fill="none">
+    <path d="M960,430 C1080,272 1340,272 1460,430" stroke-width="1.5" stroke-opacity="0.75" marker-end="url(#tip)"/>
+    <path d="M1460,470 C1340,628 1080,628 960,470" stroke-width="1.5" stroke-opacity="0.75" marker-end="url(#tip)"/>
+    <circle cx="960" cy="450" r="24" stroke-width="1.2" stroke-opacity="0.8"/>
+    <circle cx="1460" cy="450" r="24" stroke-width="1.2" stroke-opacity="0.8"/>
+  </g>
+  <g fill="#00d4ff" opacity="0.6">
+    <circle cx="960" cy="450" r="4"/>
+    <circle cx="1460" cy="450" r="4"/>
+  </g>
+
+  <!-- PIPELINE — same footprint, upper register, stated once and spent.
+       Three stages, forward arrow only, amplitude decaying left to right. -->
+  <g>
+    <line x1="960" y1="130" x2="1460" y2="130" stroke="url(#spend)" stroke-width="1.4" marker-end="url(#tipGold)"/>
+    <g fill="none" stroke="#bfa364" stroke-width="1.1">
+      <circle cx="960" cy="130" r="17" stroke-opacity="0.5"/>
+      <circle cx="1170" cy="130" r="17" stroke-opacity="0.3"/>
+      <circle cx="1380" cy="130" r="17" stroke-opacity="0.13"/>
+    </g>
+  </g>
+
+  <line x1="0" y1="286" x2="1600" y2="286" stroke="url(#seam)" stroke-width="1"/>
+  <line x1="0" y1="700" x2="1600" y2="700" stroke="url(#seam)" stroke-width="0.7"/>
+
+  <g transform="translate(120,398)" font-family="Orbitron,sans-serif" fill="#00d4ff" opacity="0.85">
+    <text font-size="14" letter-spacing="4">PRAXIS NO. 03</text>
+  </g>
+  <g transform="translate(120,458)" font-family="Orbitron,sans-serif" fill="#e4e6eb">
+    <text font-size="50" font-weight="700" letter-spacing="2">PIPELINES MOVE FORWARD.</text>
+    <text x="0" y="68" font-size="50" font-weight="700" letter-spacing="2">SYSTEMS CIRCULATE.</text>
+  </g>
+  <g transform="translate(120,592)" font-family="Orbitron,sans-serif" fill="#bfa364" opacity="0.8">
+    <text font-size="20" letter-spacing="3">METHODOLOGY / MAY 2026</text>
+  </g>
+</svg>

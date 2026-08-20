@@ -37,7 +37,7 @@ One file drives both. There is no separate card copy.
 | `eng-003` | 003 | Regulated Voice Architecture | Legal services | `legal` | `5 nodes` | 3 | 3 | yes | — |
 | `eng-004` | 004 | Retreat-First Transformation | Founder strategy | `founder` | `$868B` | 2 | 4 | yes | — |
 | `eng-005` | 005 | Survival to Stability | Education | `education` | `$243K–$473K` | 2 | 5 | yes | — |
-| `eng-006` | 006 | Real-Time 3D Web Environment | Design | `digital` | `22 routes` | 3 | 6 | yes | — |
+| `eng-006` | 006 | Real-Time 3D Web Environment | Design | `digital` | `23 routes` | 3 | 6 | yes | — |
 
 Log-entry counts run 4–8 (`eng-002` has 4, `eng-005` has 8). All six sectors are
 distinct, which is why the derived index copy reads "six sectors".
