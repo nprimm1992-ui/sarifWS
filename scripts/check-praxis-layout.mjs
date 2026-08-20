@@ -122,6 +122,36 @@ for (const file of pages) {
   }
 }
 
+/*
+ * Coverage floor.
+ *
+ * `checkArticle()` returns null for any page without `.praxis-case`, and a
+ * null is skipped without incrementing `checked`. That makes the whole gate
+ * fail-open against exactly the regression it exists to catch: rename or
+ * restructure `.praxis-case` in the template and EVERY article returns null,
+ * `checked` lands on 0, no failure is recorded, and the script cheerfully
+ * prints "OK — 0 Praxis articles match the dossier layout contract."
+ *
+ * Two of the twelve Praxis entries are published today (the other ten are
+ * `draft: true` and correctly produce no route), so the floor is 2. It is a
+ * real number rather than `> 0` so that losing one of two published articles
+ * is also caught, not just losing both.
+ */
+const MIN_PRAXIS_ARTICLES = 2;
+if (checked < MIN_PRAXIS_ARTICLES) {
+  console.error(
+    `[check-praxis-layout] FAIL — inspected ${pages.length} page(s) under dist/praxis/ ` +
+      `but only ${checked} contained a \`.praxis-case\` root; expected at least ` +
+      `${MIN_PRAXIS_ARTICLES}.\n` +
+      '  This is the fail-open case: pages without .praxis-case are skipped, so a\n' +
+      '  renamed or restructured root would make every article invisible to this\n' +
+      '  check and it would report success over an empty set.\n' +
+      '  If an article was intentionally unpublished (draft: true), lower\n' +
+      '  MIN_PRAXIS_ARTICLES deliberately so the floor keeps its meaning.',
+  );
+  process.exit(1);
+}
+
 if (failures.length > 0) {
   console.error('[check-praxis-layout] FAIL — Praxis layout contract violated:');
   for (const f of failures) {

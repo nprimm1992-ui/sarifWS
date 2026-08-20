@@ -471,3 +471,55 @@ test('lexicon atlas: inspector shows term provenance that navigates to the sourc
   const heading = await page.evaluate(() => document.querySelectorAll('h1').length);
   expect(heading, 'cited document renders').toBe(1);
 });
+
+/*
+ * Practice-lane chips must land on a real section, not just a real page.
+ *
+ * The first implementation linked every chip to `/services/#<id>` while the
+ * page emits `#lane-<id>`. Nothing failed: the navigation returned 200, the
+ * fragment matched nothing, and the reader quietly landed at the top of the
+ * page. A build gate now catches the template mismatch; this test catches
+ * the outcome, because the two can drift apart in ways a source-level check
+ * cannot see (a renamed section, a lane deleted from the page).
+ */
+test('practice chips resolve to a real, scrolled-to services section', async ({ page }) => {
+  test.setTimeout(90_000);
+  const slugs = await discoverExhibitSlugs(page);
+  expect(slugs.length, 'hall is non-empty').toBeGreaterThan(0);
+
+  const seen = new Set<string>();
+
+  for (const slug of slugs) {
+    await page.goto(`/engagements/${slug}/`, { waitUntil: 'domcontentloaded' });
+    const chips = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-testid="exhibit-services"] a')].map((a) => ({
+        href: a.getAttribute('href') ?? '',
+        label: (a.textContent ?? '').trim(),
+      })),
+    );
+
+    expect(chips.length, `${slug} names at least one practice lane`).toBeGreaterThan(0);
+
+    for (const chip of chips) {
+      expect(chip.label, `${slug} chip has a visible label`).not.toBe('');
+      expect(chip.href, `${slug} chip targets a services fragment`).toMatch(
+        /^\/services\/#[a-z0-9-]+$/,
+      );
+      seen.add(chip.href);
+    }
+  }
+
+  /* Each distinct target must exist on the services page AND be scrollable to. */
+  for (const href of seen) {
+    const frag = href.split('#')[1];
+    await page.goto(href, { waitUntil: 'load' });
+    const found = await page.evaluate((id) => {
+      const el = document.getElementById(id);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { visible: r.width > 0 && r.height > 0, text: (el.textContent ?? '').trim().slice(0, 40) };
+    }, frag);
+    expect(found, `#${frag} exists on /services (dead anchor otherwise)`).not.toBeNull();
+    expect(found!.visible, `#${frag} is a rendered section`).toBe(true);
+  }
+});

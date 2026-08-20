@@ -61,6 +61,18 @@ const DURATION_TOLERANCE_S = 0.05;
  *  frames (VFR sources, trailing partial GOP). Beyond that it signals loss. */
 const PACKET_TOLERANCE_FRAMES = 3;
 
+/**
+ * Coverage floor for the asset scan.
+ *
+ * Deliberately graduated rather than a `> 0` check: nobody deletes every
+ * video, they lose a subdirectory in a refactor. Six assets ship today, so a
+ * floor of 6 catches the realistic regression (one directory of encodes
+ * silently stops being walked) instead of only the theatrical one (all media
+ * vanishes). Raise it when assets are added; lower it deliberately, in a
+ * commit that says why.
+ */
+const MIN_VIDEO_ASSETS = 6;
+
 function haveFfprobe() {
   try {
     execFileSync('ffprobe', ['-version'], { stdio: 'ignore' });
@@ -138,16 +150,81 @@ function isExactPowerOfTwo(n) {
   return n >= 1024 && (n & (n - 1)) === 0;
 }
 
+/**
+ * Is this a machine where a skipped media check is a genuine outcome?
+ *
+ * On a contributor's laptop without ffmpeg installed there is nothing useful
+ * this script can do, and hard-failing would make the repo unclonable. In CI
+ * — or anywhere the operator has asserted the toolchain should exist — a
+ * missing ffprobe is itself the defect: it means the media gate silently
+ * stopped running and truncated video could ship unnoticed.
+ *
+ * `CI` is set by GitHub Actions, Cloudflare Pages and essentially every other
+ * runner. `REQUIRE_MEDIA_TOOLS=1` is the manual override for local release
+ * rehearsals.
+ */
+function toolchainIsMandatory() {
+  return Boolean(process.env.CI) || process.env.REQUIRE_MEDIA_TOOLS === '1';
+}
+
 function main() {
+  /*
+   * FAIL-OPEN FIX (was: `SKIP` + bare `return`, exit 0).
+   *
+   * The old form was the textbook instance of the species: on any machine
+   * without ffprobe this check printed SKIP, returned, exited 0, and the
+   * build went green having verified nothing. Every video asset could have
+   * been truncated. Now the absence of the toolchain is only tolerated where
+   * it is genuinely ambiguous — an interactive dev box — and is a hard
+   * failure anywhere the build output is going to be published.
+   */
   if (!haveFfprobe()) {
-    console.log('[check-media-integrity] SKIP — ffprobe not available on this machine.');
+    if (toolchainIsMandatory()) {
+      console.error(
+        '[check-media-integrity] FAIL — ffprobe not found, but this is a CI or ' +
+          'release build (CI / REQUIRE_MEDIA_TOOLS is set).\n' +
+          '    Skipping here would ship unverified media: a truncated MP4 still\n' +
+          '    passes existsSync() and still builds, and only a real browser\n' +
+          '    reveals the stall. Install ffmpeg/ffprobe in the build image.',
+      );
+      process.exit(1);
+    }
+    console.warn(
+      '[check-media-integrity] WARN — ffprobe not available on this machine, so ' +
+        'media integrity was NOT verified.\n' +
+        '    This is tolerated for local development only. Set REQUIRE_MEDIA_TOOLS=1 ' +
+        'to make it fatal,\n    and note that CI treats a missing ffprobe as a failure.',
+    );
     return;
   }
 
   const files = walk(PUBLIC_DIR).sort();
+  /*
+   * Zero-asset floor. `public/` currently holds 6 video assets. Finding none
+   * means the directory moved, an extension was added to VIDEO_EXT's blind
+   * spot, or walk() swallowed an error — not that the site became text-only.
+   * A check that reports OK over an empty set is indistinguishable from a
+   * check that works, which is exactly how this class of bug survives.
+   */
   if (files.length === 0) {
-    console.log('[check-media-integrity] OK — no video assets under public/.');
-    return;
+    console.error(
+      '[check-media-integrity] FAIL — scanned public/ and found zero video assets.\n' +
+        `    Expected at least ${MIN_VIDEO_ASSETS}. Either the assets moved, the\n` +
+        '    extension allowlist no longer matches them, or the directory walk\n' +
+        '    failed silently. Reporting OK over an empty set would make this gate\n' +
+        '    indistinguishable from a working one.',
+    );
+    process.exit(1);
+  }
+  if (files.length < MIN_VIDEO_ASSETS) {
+    console.error(
+      `[check-media-integrity] FAIL — only ${files.length} video asset(s) found, ` +
+        `expected at least ${MIN_VIDEO_ASSETS}.\n` +
+        '    Assets are not normally deleted wholesale; they are lost by a bad\n' +
+        '    move or a rename. If this reduction is intentional, lower\n' +
+        '    MIN_VIDEO_ASSETS in this file so the floor stays meaningful.',
+    );
+    process.exit(1);
   }
 
   const failures = [];

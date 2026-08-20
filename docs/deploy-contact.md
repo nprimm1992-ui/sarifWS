@@ -40,13 +40,62 @@ In **Pages → Settings → Environment variables** (production and preview as n
 | `CONTACT_FROM_EMAIL` | Envelope/from address (default: `contact@sarifconsulting.ai`) |
 | `CONTACT_FROM_NAME` | From display name (optional) |
 | `MAILCHANNELS_API_KEY` | If your MailChannels plan requires it (optional; sent as `X-Api-Key` — confirm header name in current MailChannels API docs) |
-| `PUBLIC_TURNSTILE_SITE_KEY` | Turnstile site key (emitted to the browser — public). When empty, Turnstile is disabled and the form falls back to honeypot + rate-limit only (P7b). |
+| `PUBLIC_TURNSTILE_SITE_KEY` | Turnstile site key (emitted to the browser — public). **Also required in the shell that runs the build — see §4a.** When empty in both places, Turnstile is disabled and the form falls back to honeypot + rate-limit only (P7b). |
 | `TURNSTILE_SECRET_KEY` | Turnstile secret key (server-only). When empty, siteverify is skipped — intended for local/preview bring-up. When set, `/api/transmit` refuses submissions that fail the challenge or when siteverify is unreachable. |
 
 Secrets should be **Encrypted** in the dashboard. The Turnstile site and
 secret keys are provisioned in **Zero Trust → Turnstile** with widget mode
 set to **Managed** (Cloudflare picks between invisible and interactive based
 on the request risk signal) and domain scoped to `sarifconsulting.ai`.
+
+### 4a. `PUBLIC_TURNSTILE_SITE_KEY` is read TWICE — build and runtime
+
+This is the single most dangerous configuration detail on the site. Setting the
+site key **only** in the Pages dashboard produces a **silent, total contact-form
+outage** behind a green deploy.
+
+The same variable name is consumed at two different moments by two different
+pieces of code:
+
+| Where | When | What it decides |
+| ----- | ---- | --------------- |
+| `src/pages/contact.astro` (`import.meta.env`) | **Build** — from the shell running `astro build` | Whether the Turnstile widget markup is emitted into `dist/` **at all** |
+| `functions/api/transmit.js` (`env`) | **Runtime** — from the Pages dashboard | Whether a Turnstile token is **mandatory** for a submission to be accepted |
+
+`npm run deploy` builds **locally**, so the build never sees the dashboard.
+Setting the key in the dashboard alone therefore yields:
+
+1. Build has no key → contact page ships with **no widget**.
+2. Runtime has the key → `/api/transmit` **requires** a token.
+3. No widget exists to mint a token → **every** submission returns
+   `verification_missing` (HTTP 400). The only inbound channel on the site is
+   dead, and nothing in the build log says so.
+
+**Deploy with Turnstile ON** — export both keys so the widget is baked in and
+matches the dashboard:
+
+```bash
+export PUBLIC_TURNSTILE_SITE_KEY=0x...   # same value as the dashboard
+export TURNSTILE_SECRET_KEY=0x...        # server-only; harmless at build time
+npm run deploy
+```
+
+**Deploy with Turnstile OFF** — declare the intent, and clear the key in the
+dashboard as well, so build and runtime agree that verification is disabled:
+
+```bash
+TURNSTILE_POSTURE=disabled npm run deploy
+```
+
+Either path is enforced by `scripts/check-turnstile-posture.mjs`, which runs in
+`postbuild`. It compares the build environment against the emitted HTML and
+**fails a release build** (`npm run deploy` sets `SARIF_RELEASE=1`) that would
+ship a keyless contact page without an explicit `TURNSTILE_POSTURE=disabled`.
+Silence is not consent: "I forgot to export the key" and "I intend to ship
+without bot protection" must not look identical to the toolchain.
+
+Rotating the key means updating **both** the dashboard and the deploying shell,
+then redeploying — a dashboard-only rotation reintroduces the outage.
 
 ## 5. Local testing of the API
 

@@ -3,6 +3,11 @@
   "classification": "Engagement 001 — The Deployment Matrix",
   "sector": "Housing policy",
   "accent": "policy",
+  "services": [
+    "strategic-intelligence",
+    "brand-positioning",
+    "content-media"
+  ],
   "statValue": "$106M",
   "statLabel": "Uncommitted funds mapped",
   "heroImage": "./_images/eng-001.webp",
@@ -10,7 +15,7 @@
   "leads": [
     "$106 million in Portland housing funds sat uncommitted with no architecture connecting them to validated interventions — while the shelter system exited 17 percent of people to permanent housing against its own 41 percent goal, and more than 18,000 people went unhoused.",
     "No commission preceded the work. The engagement was a deliberate live test of the Sarif methodology: whether one analyst with an AI-augmented production stack could produce civic intelligence at the standard a council floor demands, delivered cold to the officials who would have to act on it.",
-    "Within days of delivery, council committed approximately $56 million through the Keep Portland Housed ordinance — the quantum the deployment matrix had identified as deployable. Two sitting councilors and the executive director of a regional housing coalition responded directly. The suite was then revised twice inside the live budget window to protect implementation."
+    "Council passed the Keep Portland Housed ordinance days later, committing approximately $56 million — close to the figure the matrix had marked as deployable. We claim the sequence and the analysis, not the causation: two sitting councilors and the executive director of a regional housing coalition responded directly, and the suite was revised twice inside the live budget window to keep pace with implementation."
   ],
   "highlights": [
     "Ten-chapter strategic playbook grounded in a ten-city global evidence corpus — including Houston, Helsinki, Glasgow, Bakersfield and Vienna",

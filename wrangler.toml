@@ -43,8 +43,19 @@ CF_ACCESS_AUD = ""
 # Secrets (NOT committed — set in Cloudflare Pages → Settings → Environment
 # variables, or via `wrangler pages secret put <NAME>`). Reference only:
 #
-#   JENSEN_PICKUP_TOKEN   — 64-char hex; bearer for GET/POST /api/pickup/*
+#   JENSEN_PICKUP_READ_TOKEN  — 64-char hex; bearer for GET /api/pickup
+#   JENSEN_PICKUP_WRITE_TOKEN — 64-char hex; bearer for POST /api/pickup/:id/*
+#       Prefer these two. A read token alone deliberately does NOT grant write,
+#       so a polling credential leak cannot mutate transmissions.
+#   JENSEN_PICKUP_TOKEN   — LEGACY; grants BOTH scopes. Retained only for
+#       rollout compatibility. Do not provision on new deploys; remove once
+#       operators have rotated to the split pair above.
 #   ADMIN_PURGE_TOKEN     — 64-char hex; bearer for POST /api/admin/purge
+#       Distinct from the pickup tokens, so a Jensen-side leak never grants
+#       deletion rights. Also consumed by the sarif-cron-purge Worker
+#       (workers/cron-purge) — rotating it means updating BOTH the Pages
+#       environment and that Worker's secret, or the nightly purge starts
+#       failing 401 and retention silently stops.
 #   GOOGLE_SCRIPT_URL     — existing; mail relay endpoint
 #   GOOGLE_SCRIPT_SECRET  — existing; relay shared secret
 #   PUBLIC_CF_BEACON_TOKEN — existing; Cloudflare Web Analytics (optional)

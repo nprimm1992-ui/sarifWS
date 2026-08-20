@@ -3,6 +3,10 @@
   "classification": "Engagement 005 — Survival to Stability",
   "sector": "Education",
   "accent": "education",
+  "services": [
+    "strategic-intelligence",
+    "brand-positioning"
+  ],
   "statValue": "$243K–$473K",
   "statLabel": "Annual hidden costs quantified",
   "heroImage": "./_images/eng-005.webp",

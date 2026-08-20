@@ -730,15 +730,150 @@ for (const file of files) {
   }
 }
 
+/*
+ * ── Practice-lane integrity ───────────────────────────────────────────
+ *
+ * Every dossier chip deep-links to `/services/#<id>`. A wrong id does NOT
+ * produce an HTTP error — the page loads and the fragment silently fails
+ * to match, so the reader clicks a link that goes nowhere in particular
+ * and nothing anywhere reports a problem. That is the definition of a
+ * defect this pipeline exists to catch, so the ids are asserted against
+ * the services page itself rather than trusted to stay in sync.
+ *
+ * Fail-closed: if services.astro cannot be read or yields no lanes, that
+ * is an error, not a skip. A silently-skipped cross-file assertion is the
+ * fail-open species that has already been found seven times in this repo.
+ */
+const SERVICES_PAGE = resolve(HERE, '..', 'src', 'pages', 'services.astro');
+let pageLanes;
+if (!existsSync(SERVICES_PAGE)) {
+  console.error(
+    `${TAG} FAIL — ${SERVICES_PAGE} not found. Dossier practice chips link ` +
+      `into this page; without it every chip is a dead anchor.`,
+  );
+  process.exit(1);
+}
+/*
+ * The DOM id is not the lane id. services.astro renders
+ * `id={`lane-${lane.id}`}`, so the anchor a chip must target is
+ * `#lane-<id>`. Linking to `#<id>` produces a 200 page and a fragment
+ * that matches nothing — caught here only because the prefix is read out
+ * of the template instead of being assumed. Anything that changes that
+ * template must change this, and the parse is fail-closed so a renamed
+ * pattern is an error rather than a silent pass.
+ */
+let anchorPrefix;
+{
+  const src = readFileSync(SERVICES_PAGE, 'utf8');
+  pageLanes = [...src.matchAll(/^\s*id:\s*'([a-z0-9-]+)',/gm)].map((m) => m[1]);
+  if (pageLanes.length === 0) {
+    console.error(
+      `${TAG} FAIL — parsed 0 lane ids out of services.astro. The lanes[] ` +
+        `shape changed, so this assertion silently stopped checking anything. ` +
+        `Fix the parser, do not delete the check.`,
+    );
+    process.exit(1);
+  }
+  const tpl = src.match(/id=\{`([a-z0-9-]*)\$\{lane\.id\}`\}/);
+  if (!tpl) {
+    console.error(
+      `${TAG} FAIL — could not find the section id template in ` +
+        `services.astro. Dossier practice chips derive their #fragment from ` +
+        `it; without it this gate cannot tell a live anchor from a dead one.`,
+    );
+    process.exit(1);
+  }
+  anchorPrefix = tpl[1];
+}
+const laneSet = new Set(pageLanes);
+
+/*
+ * And assert the renderer actually uses that prefix. This is the check that
+ * would have caught the real bug: the ids were all valid, the JSON was
+ * clean, the build was green — and every chip pointed at `#<id>` while the
+ * page emitted `#lane-<id>`.
+ */
+{
+  const SLUG_PAGE = resolve(HERE, '..', 'src', 'pages', 'engagements', '[slug].astro');
+  if (!existsSync(SLUG_PAGE)) {
+    console.error(`${TAG} FAIL — ${SLUG_PAGE} not found.`);
+    process.exit(1);
+  }
+  const src = readFileSync(SLUG_PAGE, 'utf8');
+  const href = src.match(/href=\{`\/services\/#([a-z0-9-]*)\$\{s\.id\}`\}/);
+  if (!href) {
+    console.error(
+      `${TAG} FAIL — could not find the practice-chip href template in ` +
+        `[slug].astro. Either the chips stopped rendering or the template ` +
+        `changed shape; both need eyes, neither is a pass.`,
+    );
+    process.exit(1);
+  }
+  if (href[1] !== anchorPrefix) {
+    console.error(
+      `${TAG} FAIL — practice chips link to "/services/#${href[1]}<id>" but ` +
+        `services.astro emits ids as "${anchorPrefix}<id>". Every chip is a ` +
+        `dead anchor: the page returns 200 and the fragment matches nothing, ` +
+        `so nothing else in this pipeline would report it.`,
+    );
+    process.exit(1);
+  }
+}
+const lanesUsed = new Set();
+
+for (const file of files) {
+  const data = JSON.parse(readFileSync(join(DIR, file), 'utf8'));
+  const svc = data.services;
+
+  if (!Array.isArray(svc) || svc.length === 0) {
+    findings.push(
+      `${file} — no \`services\`. Every exhibit must name at least one ` +
+        `practice lane it demonstrates; an exhibit that cannot is a story, ` +
+        `not a case. Valid ids: ${pageLanes.join(', ')}`,
+    );
+    continue;
+  }
+  for (const id of svc) {
+    if (!laneSet.has(id)) {
+      findings.push(
+        `${file} — service ${JSON.stringify(id)} is not a lane on ` +
+          `/services (${pageLanes.join(', ')}). The chip would render and ` +
+          `its #fragment would silently match nothing.`,
+      );
+    } else {
+      lanesUsed.add(id);
+    }
+  }
+  if (new Set(svc).size !== svc.length) {
+    findings.push(`${file} — duplicate id in \`services\`: ${svc.join(', ')}`);
+  }
+}
+
+/*
+ * Coverage, stated as a finding rather than a hard rule: a lane advertised
+ * on /services with no exhibit behind it is a claim with no evidence. It is
+ * reported, not fatal, because a genuinely new lane legitimately has no case
+ * study on the day it is added.
+ */
+const orphanLanes = pageLanes.filter((l) => !lanesUsed.has(l));
+
 if (findings.length > 0) {
   console.error(`${TAG} FAIL — ${findings.length} finding(s):`);
   for (const f of findings) console.error(`  • ${f}`);
   process.exit(1);
 }
 
+if (orphanLanes.length > 0) {
+  console.warn(
+    `${TAG} note — ${orphanLanes.length} service lane(s) with no exhibit: ` +
+      `${orphanLanes.join(', ')}. Not fatal, but the hall is the evidence ` +
+      `for the services page.`,
+  );
+}
+
 console.log(
   `${TAG} OK — ${files.length} engagement(s); ${heroCount} with specimen plate; ` +
     `${docCount} document(s) of record; leads/highlights markup consistent; ` +
-    `titles name artefacts not categories; registry unique (num, sort, ` +
-    `accent, title)`,
+    `titles name artefacts not categories; ${lanesUsed.size}/${pageLanes.length} ` +
+    `service lane(s) evidenced; registry unique (num, sort, accent, title)`,
 );

@@ -35,6 +35,33 @@ function walk(dir) {
 }
 walk(distDir);
 
+/*
+ * Coverage floor.
+ *
+ * Without this the script was fail-open by omission: if `walk()` found no
+ * HTML at all — a moved output directory, an Astro `outDir` change, a build
+ * that emitted only assets — the loop below would iterate zero times, no
+ * failure would be recorded, and the gate would print an empty "top HTML
+ * pages" list and exit 0. A budget check that passes because it measured
+ * nothing is worse than no budget check, because it looks like one.
+ *
+ * Graduated, not `> 0`: the site ships 22 HTML routes. Nobody deletes all of
+ * them, but a routing or collection regression can quietly drop a whole
+ * directory of them. 20 leaves headroom to remove a page deliberately while
+ * still catching wholesale loss.
+ */
+const MIN_HTML_PAGES = 20;
+if (htmlFiles.length < MIN_HTML_PAGES) {
+  console.error(
+    `[check-html-budget] FAIL — only ${htmlFiles.length} HTML page(s) found under dist/, ` +
+      `expected at least ${MIN_HTML_PAGES}.\n` +
+      '  Either the build emitted almost nothing, outDir moved, or the walk is\n' +
+      '  looking in the wrong place. Measuring zero pages and reporting success is\n' +
+      '  the failure mode this floor exists to prevent.',
+  );
+  process.exit(1);
+}
+
 const results = [];
 const failures = [];
 

@@ -24,34 +24,64 @@ modes, the manual fallback, and the audit trail.
 
 ## ⚠️ Known gap — the purge is not currently running
 
-Three independent reasons, all outstanding as of Aug 2026:
+The privacy page promises a 90-day purge. Until the steps below are completed
+in the Cloudflare account, **that purge does not run** and personal data
+accumulates with no expiry mechanism. This was latent while D1 had no tables;
+the migrations were applied in Aug 2026, which made it real.
 
-1. **The cron Worker is not deployed.** `workers/cron-purge/` is a separate
-   Worker with its own `wrangler.toml`; nothing indicates it exists in the
-   account.
-2. **If deployed, it would be rejected.** It authenticates with
-   `Authorization: Bearer $ADMIN_PURGE_TOKEN` only. But
-   `functions/api/admin/_middleware.js` requires a valid **Cloudflare Access
-   JWT** *before* the handler's bearer check is reached, and the Worker never
-   sends one. It would receive 401 indefinitely — and its own
-   `cron_purge_unauthorized` branch logs and returns, so the failure is
-   silent.
-3. **Access is not configured.** `POST /api/admin/purge` currently returns
-   `500 {"error":"Admin access not configured."}` because
-   `CF_ACCESS_TEAM_DOMAIN` / `CF_ACCESS_AUD` are unset.
+### Resolved in code (Aug 2026)
 
-This was latent while D1 had no tables. The migrations were applied in
-Aug 2026, so personal data now accumulates with no expiry mechanism.
+The **architectural contradiction is fixed**. The Worker previously sent
+`Authorization: Bearer $ADMIN_PURGE_TOKEN` only, while
+`functions/api/admin/_middleware.js` requires a valid **Cloudflare Access JWT**
+*before* the handler's bearer check is reached — so it would have received 401
+indefinitely, and its own `cron_purge_unauthorized` branch logged once a day
+and returned, making the failure silent.
 
-Resolving (1) alone is insufficient — (2) is an architectural contradiction
-between machine-to-machine auth and human SSO on the same route prefix, and
-must be resolved deliberately. Two viable designs:
+`workers/cron-purge/` now uses the **Access service-token** design (the
+preferred option: one gate, no widening of the bearer's blast radius):
 
-- **Access service token** — issue one for the Worker and send
-  `CF-Access-Client-Id` / `CF-Access-Client-Secret`. Keeps one gate; preferred.
-- **Bearer carve-out** — allow the middleware to accept a valid
-  `ADMIN_PURGE_TOKEN` bearer *in place of* an Access JWT for this one route.
-  Simpler, but widens the surface protected by a single static secret.
+- It sends `CF-Access-Client-Id` / `CF-Access-Client-Secret`, so Access mints
+  the JWT at the edge and forwards the request. **No middleware change was
+  needed** — `verifyCfAccessJwt` validates signature, issuer, audience and
+  expiry and does not require an `email` claim, so a service-token JWT passes
+  exactly like a human one.
+- Missing service-token credentials now **fail loudly before the request**
+  (`cron_purge_access_service_token_missing`) instead of producing an anonymous
+  daily 401 that reads as "auth problem, someday" rather than "retention has
+  never run".
+- A non-JSON 2xx is now treated as a **failure**
+  (`cron_purge_access_login_interstitial`). Access serves an interactive login
+  page when it does not recognize the caller as a service token; a naive
+  `res.ok` check read that HTML 200 as success. That was the most dangerous
+  shape of this bug — a green log line for a purge that never ran.
+
+### Outstanding — operator actions in the Cloudflare account
+
+Code cannot complete these; they are account configuration.
+
+1. **Configure Access.** `CF_ACCESS_TEAM_DOMAIN` / `CF_ACCESS_AUD` are unset on
+   the Pages project, so `POST /api/admin/purge` currently returns
+   `500 {"error":"Admin access not configured."}`. This is deliberate
+   fail-closed behaviour, not a bug.
+2. **Create an Access service token** and add it to the Access application
+   policy (**Include → Service Auth → this token**). Without the policy entry,
+   Access rejects the token at the edge and the Pages Function is never
+   reached.
+3. **Deploy the cron Worker** with all three secrets set:
+   ```bash
+   cd workers/cron-purge
+   wrangler secret put ADMIN_PURGE_TOKEN
+   wrangler secret put CF_ACCESS_CLIENT_ID
+   wrangler secret put CF_ACCESS_CLIENT_SECRET
+   wrangler deploy
+   ```
+4. **Verify a real run** — see "Verifying a purge ran" below. Do not treat this
+   gap as closed until `cron_purge_ok` appears in Workers Logs with row counts.
+
+Note that rotating `ADMIN_PURGE_TOKEN` means updating **both** the Pages
+environment and this Worker's secret, or the nightly purge starts failing 401
+and retention silently stops.
 
 ## Primary path — scheduled Worker
 
@@ -122,12 +152,25 @@ Failure responses:
 ## Third-party cron as a second fallback
 
 If the Cloudflare Worker itself is unavailable (e.g. account suspension),
-any HTTPS-capable scheduler will do. Two known-good setups:
+any HTTPS-capable scheduler will do. Two known-good setups.
+
+> **All external callers need the Access service-token headers too.** The
+> snippets below show the bearer only for brevity; a bearer-only request is
+> rejected 401 by Cloudflare Access before the purge handler runs. Add both:
+>
+> ```
+> -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID"
+> -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET"
+> ```
+>
+> And watch for a non-JSON 2xx: that is the Access login page, meaning the
+> purge did **not** run.
 
 ### GitHub Actions (copy-paste ready)
 
 ```yaml
-# .github/workflows/retention-purge.yml  —  DO NOT commit as-is,
+# .github/workflows/retention-purge.yml  —  SECOND FALLBACK ONLY. The primary
+# scheduler is workers/cron-purge (above). DO NOT commit as-is,
 # copy into a private repo. Requires Actions secret ADMIN_PURGE_TOKEN.
 
 name: Retention purge (daily)

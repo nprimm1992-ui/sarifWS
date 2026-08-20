@@ -8,9 +8,19 @@ workers_dev = false
 [triggers]
 crons = ["0 3 * * *"]
 
-# Variables that identify the target Pages project. Set via `wrangler secret`
-# (never commit values):
-#   wrangler secret put ADMIN_PURGE_TOKEN --name sarif-cron-purge
+# Secrets. Set via `wrangler secret` (never commit values):
+#
+#   wrangler secret put ADMIN_PURGE_TOKEN     --name sarif-cron-purge
+#   wrangler secret put CF_ACCESS_CLIENT_ID   --name sarif-cron-purge
+#   wrangler secret put CF_ACCESS_CLIENT_SECRET --name sarif-cron-purge
+#
+# ALL THREE are required. /api/admin/* is gated twice: Cloudflare Access
+# (JWT) runs BEFORE the Pages Function, then purge.js checks the bearer.
+# A bearer-only request is rejected 401 by Access and the purge never runs,
+# so the Access service-token pair is not optional.
+#
+# The service token must also be added to the Access application policy
+# (Include → Service Auth → this token), or Access rejects it at the edge.
 #
 # PURGE_ORIGIN is committed as a vars entry below because it is not a secret.
 
