@@ -1,22 +1,26 @@
 {
   "num": "005",
-  "classification": "Engagement 005 — Enrollment Recovery",
+  "classification": "Engagement 005 — Survival to Stability",
   "sector": "Education",
   "accent": "education",
   "statValue": "$243K–$473K",
   "statLabel": "Annual hidden costs quantified",
+  "heroImage": "./_images/eng-005.webp",
+  "heroAlt": "The engagement's deliverables staged as a printed set on a wood conference table in a daylit room, against a living wall of ferns and trailing plants between timber columns. A teal leather folio stands closed at centre, gold-blocked with the Sarif wing emblem and lettered SARIF CONSULTING: EDUCATING TRANSFORMATION. Behind it, two panels carry section openers — A Critical Inflection Point at left, and at right Mission Strengths Does Not Guarantee Institutional Sustainability, whose three columns pair a diagnosis with a remedy (perception crisis to identity, revenue fragility to financial architecture, operational strain to systems capacity) above a banner reading The central constraint is not capital — it is capacity. A second folio lies open in the foreground: the left page heads III. The Transformation Framework, Module 1: Narrative Architecture, listing Indigenous Knowledge Integration, Place-Based Urban Learning, Civic Readiness, Investment & Timeline and Expected Returns beneath the pull quote This is not just a building; it's a living ecosystem for learning. The right page carries the title The Portland Civic Laboratory: Executive Summary: Strategic Transformation Framework 2026–2028 over an illustrated elevation of a tiered green-and-gold school building with arched colonnades, rooftop gardens and a footbridge over water.",
   "leads": [
-    "A K-8 institution was facing enrollment crisis. Geographic perception had calcified into a liability. Operational costs were bleeding in places no one had quantified. We rebuilt the strategic narrative and the financial architecture underneath it."
+    "A K-8 public charter school — small, place-based, built on an academic model with no local equivalent — was forced off its campus in the middle of an enrollment collapse: a 29 percent enrollment gap, roughly $630K of annual revenue gone, reserves measured in days. The mission was excellent. Excellence was not the problem.",
+    "Mission strength does not guarantee institutional sustainability. What the school lacked was not conviction but architecture: no revenue diversification, no enrollment engine, no operational systems, no sequenced path from survival to stability.",
+    "We built the architecture: seven modules across six interdependent domains — narrative, financial, enrollment, partnership, operational, implementation — sequenced across 36 months and costed against probability rather than hope. The seventh module is the one most consultancies omit: a register of thirty-five assumptions, each flagged for validation, delivered with the standing instruction to treat the plan as hypotheses to be tested rather than certainties to be executed."
   ],
   "highlights": [
-    "Narrative repositioning reframing a geographic liability into a strategic asset",
-    "Financial architecture with enrollment-linked revenue modeling",
-    "Three-channel recovery strategy with conversion funnel optimization",
-    "Strategic partnership framework for institutional alliances",
-    "Operational excellence analysis quantifying $243K–$473K in annual hidden costs with vendor-specific recommendations and 2.2x–4.8x projected ROI",
-    "Capacity-constrained implementation roadmap",
-    "Systematic information requirements audit across three priority tiers",
-    "7-module architecture. Every module designed to function independently and compound collectively."
+    "Seven modules across six interdependent domains — narrative, financial, enrollment, partnership, operational, implementation — with the assumption register as the seventh",
+    "Repositioning from crisis to category: the relocation liability reframed as the market advantage — the city's downtown civic laboratory",
+    "Financial architecture: state-funding dependency cut from 75–80% toward a balanced public-private blend; $712K–$1.29M capital plan across 36 months",
+    "Partnership portfolio engineered at 3.5–6.9x projected ROI — university academic pipeline, compensated Indigenous educator collaboration, corporate anchors, civic alliances",
+    "Enrollment recovery mechanics: stay conversations with every enrolled family, proximity-based acquisition, a 90–93% retention target",
+    "Annual hidden costs of $243K–$473K surfaced and itemized — staff time drag, lost enrollments, turnover, missed partnership value",
+    "The honesty layer: every assumption named and dated for validation, the plan handed over as hypotheses to test rather than certainties to execute",
+    "Complete framework delivered as one integrated package — executive summary through 36-month implementation roadmap."
   ],
   "sort": 5
 }

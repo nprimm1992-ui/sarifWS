@@ -7,7 +7,8 @@ language, the imagery and linking rules, and the exact commands that verify the
 work.
 
 **Repo:** `nprimm1992-ui/sarifWS` · **Content root:** `src/content/engagements/`
-**Last verified against:** build of 21 pages, 8 postbuild sentinels green, 0 type errors.
+**Last verified against:** build of 21 pages, 9 postbuild steps green (8 `check-*`
+sentinels + the CSP hash injector), 0 type errors, 46 E2E passed.
 
 ---
 
@@ -35,8 +36,8 @@ One file drives both. There is no separate card copy.
 | `eng-002` | 002 | The Lloyd Commons | Civic infrastructure | `civic` | `$179.3M` | 2 | yes | 3 |
 | `eng-003` | 003 | Regulated Voice Architecture | Legal services | `legal` | `$10K` | 3 | yes | — |
 | `eng-004` | 004 | Retreat-First Transformation | Founder strategy | `founder` | `0.18%` | 4 | yes | — |
-| `eng-005` | 005 | Enrollment Recovery | Education | `education` | `$243K–$473K` | 5 | — | — |
-| `eng-006` | 006 | The Near-Future Lobby | Design | `digital` | `48hrs` | 6 | — | — |
+| `eng-005` | 005 | Survival to Stability | Education | `education` | `$243K–$473K` | 5 | yes | — |
+| `eng-006` | 006 | The Near-Future Lobby | Design | `digital` | `9.0 KB` | 6 | yes | — |
 
 Log-entry counts run 4–8 (`eng-002` has 4, `eng-005` has 8). All six sectors are
 distinct, which is why the derived index copy reads "six sectors".
@@ -196,7 +197,15 @@ Failed examples, all real:
 | `Legal Intake Architecture` (eng-003 draft) | restates sector `Legal services` |
 | `Business Transformation Architecture` (eng-004, retired) | fully grounded, yet would fit any exhibit; caught on head noun |
 | `Enrollment Recovery Architecture` (eng-005, my own rename) | made `Architecture` the head of 2 of 6 titles |
+| `Resilience Architecture` (eng-005 draft) | `resilience` appears 0/6 in its own prose **and** `architecture` was already eng-003's head noun — rejected on both rules at once |
 | `Digital Platform & Spatial Design` (eng-006, retired) | restates sector `Design` |
+
+The `Resilience Architecture` rejection is worth noting as the first time these
+rules met a title they had never seen. Both findings were correct: the word
+carried real meaning to the author (the client's own director used it) but the
+dossier's body copy never used it, and the noun was taken. The replacement,
+`Survival to Stability`, is lifted verbatim from lead 2 — *"no sequenced path
+from survival to stability"* — which is what grounding is supposed to produce.
 
 ### `sector` — the taxonomy label
 Short (1–3 words), rendered uppercase with wide letter-spacing in the plaque,
@@ -448,8 +457,9 @@ an environment." Short declaratives. Concrete nouns. Numbers doing the
 persuading. No adjectives where a figure will do. Never "leveraged",
 "synergies", "best-in-class", or "passionate".
 
-**To deepen the hall feel** without touching code: give every exhibit a
-`heroImage` (an empty plate slot is the biggest gap right now); make `statValue`
+**To deepen the hall feel** without touching code: keep every exhibit's
+`heroImage` populated (all six carry a plate as of eng-006 — do not regress
+that: a hall with one empty frame reads as unfinished); make `statValue`
 genuinely specific; use `highlights` links to cross-reference Praxis articles so
 the hall connects to the reading room; keep the closing "delivered in N days"
 beat on every exhibit.
@@ -474,6 +484,48 @@ inside the sentinel's 110–180 window.
 description, hall locator totals, walk ring, directory chips, and E2E slug
 discovery all follow automatically. Number words are hardcoded up to twelve; past
 that the copy falls back to digits.
+
+### Counts *inside* your prose are gated too
+
+Derived copy solves the hall-level counts. The counts you write by hand inside
+`leads` and `highlights` are a separate, and much more common, failure: prose is
+written once and edited often, the thing it counts is edited independently, and
+nobody recounts by hand.
+
+`check-engagement-hero` therefore checks any claim of the form
+**`<number-word> <enumerable-noun>`** — `document`, `module`, `node`, `chapter`,
+`city`, `page`, `card`, `tab`, `domain`, `channel`, `tier`, `source`, `phase`,
+`section` (and plurals) — against whatever can corroborate it:
+
+| Corroborating source | When it applies |
+|---|---|
+| `documents[]` | Document claims, when a catalogue is published. Authoritative — those are the artefacts a visitor can actually open. |
+| The claim's own inline list | Anything enumerated after an em dash. A claim that names its members is checked against itself. |
+
+Two rules follow, and both have caught live defects:
+
+1. **If you enumerate, the list must be complete.** `"ten-city evidence corpus
+   — Houston, Helsinki, Glasgow, Bakersfield, Vienna"` shipped in eng-001 for
+   weeks: it promises ten and names five. The generalized guard found it on its
+   first run.
+2. **If the list is a sample, say so.** Hedge it — `including`, `such as`,
+   `among`, `e.g.` — and the count is not compared. This is the honest fix when
+   you can't or don't want to name all N. It has to be explicit, because
+   "complete list" versus "representative sample" is exactly the distinction a
+   reader is relying on, and only the author knows which one it is.
+
+**The list attaches to the nearest count, not the first.** In
+`"Seven-module framework spanning six domains — narrative, financial, enrollment,
+partnership, operational, implementation"` the six names are checked against
+**six domains**, not against seven modules. Write the counted noun immediately
+before the dash that introduces its list.
+
+> **Why the noun list is explicit rather than open-ended.** An earlier version
+> matched only `N-document`, which meant every other counted structure was
+> exempt — the arbitrary narrowing *was* the bug. But going fully open-ended
+> would have the guard doing arithmetic on prose like "two sitting
+> commissioners", which was never a structural claim. The allowlist is the
+> seam: extend it when you introduce a new counted structure.
 
 ---
 
@@ -505,7 +557,10 @@ node scripts/check-engagement-hero.mjs
 # Full build — the only thing that validates Zod + resolves heroImage
 npx astro build
 
-# All 8 postbuild sentinels, incl. meta-description length
+# All 9 postbuild steps — 8 `check-*` sentinels plus the CSP hash injector.
+# NOTE the distinction: `inject-csp-hashes` is a STEP, not a CHECK. eng-006
+# claims "Eight build sentinels" and check-self-claims counts `check-*` names
+# out of this very script, so conflating the two fails the build.
 npm run postbuild
 
 # Types + lint + unit
@@ -517,10 +572,52 @@ npx playwright test tests/e2e/exhibits.spec.ts
 
 **Expected clean output:**
 ```
-[check-engagement-hero] OK — 6 engagement(s); N with specimen plate; leads/highlights markup consistent; registry unique
-[check-meta-descriptions] scanned 17 indexable page(s). Length range: 138–174 chars.
+[check-engagement-hero] OK — 6 engagement(s); 6 with specimen plate; 8 document(s) of record; leads/highlights markup consistent; titles name artefacts not categories; registry unique (num, sort, accent, title)
+[check-self-claims]     OK — 12 self-referential claim(s) in eng-006 agree with the repository (landing 9.0 KB gz, 22 routes, 19 functions, 8 sentinels, 41,466 lines)
+[check-meta-descriptions] scanned 17 indexable page(s). Length range: 138–177 chars.
 [build] 21 page(s) built
 ```
+
+### `check-self-claims` — the gate that only eng-006 can trip
+
+eng-006 is the only dossier in the hall whose **subject is this repository**.
+That makes it the only one whose claims are mechanically checkable — and so the
+only one with no excuse for drifting. `scripts/check-self-claims.mjs` reads the
+numbers back **out of the prose** and compares each against the actual repo or
+the built artefact:
+
+| Claim in eng-006 | Verified against | Tolerance |
+|---|---|---|
+| landing HTML KB gzipped | gzip of `dist/index.html` (and `statValue`) | ±0.5 KB |
+| three.js absent from the critical path | no `<script src>` for it in `dist/index.html` | structural |
+| N Workers functions | recursive walk of `functions/**/*.js` | exact |
+| N routes | `dist/**/*.html` count | exact |
+| N build sentinels | unique `check-*.mjs` names in `package.json` `postbuild` | exact |
+| N Meshopt GLB scenes | `.glb` assets | exact |
+| N CSP sha256 tokens | **unique** tokens in `dist/_headers` | exact |
+| N reduced-motion blocks / runtime guards | `@media … prefers-reduced-motion` / `matchMedia` | exact |
+| ~N lines of code | source line count | ±1500 |
+| N end-to-end tests | top-level `test(` in `tests/**/*.spec.ts` | exact |
+
+**Three traps this gate exists to stop you re-deriving:**
+
+1. **Sentinels are `check-*` only.** `inject-csp-hashes` is a *step*, not a
+   check. The count is read from `postbuild`, not from a glob of `scripts/` —
+   a checker nothing invokes is not a gate. Writing "Nine" fails.
+2. **CSP tokens must be counted uniquely.** They are written to *both*
+   `script-src` and `script-src-elem`, so a raw grep returns exactly double.
+   The true number is 12; a naive count says 24.
+3. **Static `test()` calls ≠ runtime tests.** `exhibits.spec.ts` parameterises
+   over discovered slugs, so 40 authored tests expand to 46 executed. The
+   dossier claims the authored figure, because that is what the file contains.
+
+**The coverage floor.** The first version of this gate asked
+`checks.length === 0` — which could never fire, because two checks are pushed
+unconditionally from the built artefact. A dossier rewritten to "We built a
+website. It has some pages." passed **2/2 green**, having verified nothing the
+author wrote. It now counts *prose-derived* claims separately and requires at
+least **6**. Caught by canary, not by reading — which is the whole argument for
+canarying every gate you write.
 
 (Page and range figures move as you author. What matters is that nothing
 **FAIL**s and the range stays inside 110–180.)
@@ -552,6 +649,12 @@ benefit.
 | Markup in `leads` | `check-engagement-hero` |
 | Unbalanced tags / `<a>` without href / unsafe `_blank` in `highlights` | `check-engagement-hero` |
 | Duplicate `num` or `sort` | `check-engagement-hero` |
+| Title restating `sector`, ungrounded, generic, duplicated, or sharing a head noun | `check-engagement-hero` |
+| A counted claim that disagrees with its own list (`"ten-city … Houston, Helsinki, Glasgow, Bakersfield, Vienna"`) | `check-engagement-hero` |
+| A `N-document` claim with neither a `documents[]` catalogue nor an inline list | `check-engagement-hero` |
+| An eng-006 self-claim that drifts from the repo (bundle weight, route/function/sentinel/test/token counts, LOC) | `check-self-claims` |
+| eng-006 prose thinned until it asserts almost nothing checkable | `check-self-claims` (coverage floor) |
+| three.js promoted into the landing critical path | `check-self-claims` |
 | Meta description outside 110–180 chars | `check-meta-descriptions` |
 | Fewer than 4 log entries on eng-001 | `exhibits.spec.ts` |
 | Duplicate `<h1>` across exhibits | `exhibits.spec.ts` |
@@ -570,9 +673,15 @@ benefit.
 - [ ] `statValue` 2–7 chars (11 is the hard ceiling); `statLabel` 2–5 words
 - [ ] `leads`: 1–3 paragraphs, condition → gap → intervention, **no markup**
 - [ ] `highlights`: 5–7 deliverables (4 min, 8 max); final one states delivery velocity with a period
+- [ ] Every counted claim (`N documents/modules/nodes/…`) either enumerates all N after the em dash, or hedges the list with `including`
 - [ ] Any links live in `highlights`, balanced, `href` present, `_blank` has `rel="noopener noreferrer"`
 - [ ] `heroImage` + `heroAlt` **both** present or **both** absent
 - [ ] Plate ≥1600px wide, composed 16:9, in `_images/`, referenced `./_images/…`
+- [ ] Plate verified **as rendered**: measure the `img`, not `.exh-plate` — the
+      figure is the frame (padding + mount bar below), so its own box is
+      *legitimately* ~1.56, while the `img` must read 1.7778
+- [ ] If any claim can be checked by counting the repo, add it to
+      `scripts/check-self-claims.mjs` rather than trusting the prose
 - [ ] `sort` set only if custom order needed; no duplicate `sort`
 - [ ] Client figures cleared for public use
 - [ ] `node scripts/check-engagement-hero.mjs` → OK
