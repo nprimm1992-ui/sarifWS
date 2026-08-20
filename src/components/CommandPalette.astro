@@ -893,6 +893,17 @@
     }
   }
 
+  /* Restored wrapper. Commit 7a6ce4a deleted an adjacent `.visually-hidden`
+     rule and took this block's `@media (prefers-reduced-motion: reduce) {`
+     opening line with it, orphaning the rules below and leaving a stray `}`.
+     esbuild reported that as `Unexpected "}" <stdin>:680:2` on every build.
+
+     It was not cosmetic: with no media query wrapping them, `transition: none`
+     and `transform: none` applied unconditionally, so the palette's panel
+     slide-in and item enter animations were dead for EVERY user rather than
+     only for those requesting reduced motion. `.visually-hidden` itself was
+     correctly removed — it is defined globally in global.css. */
+  @media (prefers-reduced-motion: reduce) {
     .command-palette__backdrop,
     .command-palette__panel,
     .command-palette__item,

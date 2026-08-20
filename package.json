@@ -17,11 +17,11 @@
     "check:meta": "node scripts/check-meta-descriptions.mjs",
     "check:budgets": "node scripts/check-html-budget.mjs && node scripts/check-bundle-budget.mjs",
     "check:praxis-layout": "node scripts/check-praxis-layout.mjs",
-    "check:all": "npm run check:lexicon-version && npm run check:env-contract && npm run check:media && npm run check:engagement-hero && npm run check:praxis-layout && npm run check:turnstile && npm run check:meta && npm run check:budgets && npm run verify:sitemap && npm run lint && npm run check:types && npm run test:unit",
+    "check:all": "npm run check:lexicon-version && npm run check:env-contract && npm run check:media && npm run check:media-refs && npm run check:engagement-hero && npm run check:css-syntax && npm run check:praxis-layout && npm run check:turnstile && npm run check:meta && npm run check:budgets && npm run verify:sitemap && npm run lint && npm run check:types && npm run test:unit",
     "lint": "eslint \"src/**/*.{js,astro}\" \"functions/**/*.js\" \"workers/**/src/**/*.js\" \"scripts/**/*.mjs\" \"*.{js,mjs,cjs}\"",
     "prebuild": "npm run check:lexicon-version",
     "build": "npm run build:ucim && npm run sync:ucim && npm run build:assets && astro build",
-    "postbuild": "node scripts/inject-csp-hashes.mjs && node scripts/check-html-budget.mjs && node scripts/check-bundle-budget.mjs && node scripts/check-meta-descriptions.mjs && node scripts/check-praxis-layout.mjs && node scripts/check-env-contract.mjs && node scripts/check-media-integrity.mjs && node scripts/check-engagement-hero.mjs && node scripts/check-turnstile-posture.mjs && node scripts/check-self-claims.mjs && node scripts/verify-sitemap.mjs",
+    "postbuild": "node scripts/inject-csp-hashes.mjs && node scripts/check-html-budget.mjs && node scripts/check-bundle-budget.mjs && node scripts/check-meta-descriptions.mjs && node scripts/check-css-syntax.mjs && node scripts/check-praxis-layout.mjs && node scripts/check-env-contract.mjs && node scripts/check-media-integrity.mjs && node scripts/check-media-references.mjs && node scripts/check-engagement-hero.mjs && node scripts/check-turnstile-posture.mjs && node scripts/check-self-claims.mjs && node scripts/verify-sitemap.mjs",
     "deploy": "SARIF_RELEASE=1 npm run build && wrangler pages deploy dist --project-name sarif-consulting",
     "verify:sitemap": "node scripts/verify-sitemap.mjs",
     "optimize:favicon": "node scripts/optimize-favicon.mjs",
@@ -37,7 +37,9 @@
     "check:media": "node scripts/check-media-integrity.mjs",
     "check:engagement-hero": "node scripts/check-engagement-hero.mjs",
     "check:self-claims": "node scripts/check-self-claims.mjs",
-    "check:turnstile": "node scripts/check-turnstile-posture.mjs"
+    "check:turnstile": "node scripts/check-turnstile-posture.mjs",
+    "check:css-syntax": "node scripts/check-css-syntax.mjs",
+    "check:media-refs": "node scripts/check-media-references.mjs"
   },
   "dependencies": {
     "@astrojs/mdx": "^5.0.3",
