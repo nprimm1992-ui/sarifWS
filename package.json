@@ -21,7 +21,7 @@
     "lint": "eslint \"src/**/*.{js,astro}\" \"functions/**/*.js\" \"scripts/**/*.mjs\" \"*.{js,mjs,cjs}\"",
     "prebuild": "npm run check:lexicon-version",
     "build": "npm run build:ucim && npm run sync:ucim && npm run build:assets && astro build",
-    "postbuild": "node scripts/inject-csp-hashes.mjs && node scripts/check-html-budget.mjs && node scripts/check-bundle-budget.mjs && node scripts/check-meta-descriptions.mjs && node scripts/check-praxis-layout.mjs && node scripts/check-env-contract.mjs && node scripts/check-media-integrity.mjs && node scripts/check-engagement-hero.mjs",
+    "postbuild": "node scripts/inject-csp-hashes.mjs && node scripts/check-html-budget.mjs && node scripts/check-bundle-budget.mjs && node scripts/check-meta-descriptions.mjs && node scripts/check-praxis-layout.mjs && node scripts/check-env-contract.mjs && node scripts/check-media-integrity.mjs && node scripts/check-engagement-hero.mjs && node scripts/check-self-claims.mjs",
     "deploy": "npm run build && wrangler pages deploy dist --project-name sarif-consulting",
     "verify:sitemap": "node scripts/verify-sitemap.mjs",
     "optimize:favicon": "node scripts/optimize-favicon.mjs",

@@ -338,17 +338,17 @@ for (const file of files) {
     docCount += data.documents.length;
   }
 
-  /* --- 5b. prose document-count agreement ----------------------------- */
+  /* --- 5b. prose count agreement -------------------------------------- */
   /*
-   * If a highlight or lead asserts a written count of documents, that count
+   * If a highlight or lead asserts a written count of *things*, that count
    * must be corroborated somewhere. This is exactly the drift that turns a
    * proof surface into a liability: prose is written once and edited often,
    * inventories are edited independently, and nobody recounts by hand.
    *
    * Two corroborating sources, in priority order:
    *
-   *   1. `documents[]` — the published catalogue. Authoritative when present,
-   *      because those are the artefacts a visitor can actually open.
+   *   1. `documents[]` — the published catalogue. Authoritative for document
+   *      claims, because those are the artefacts a visitor can actually open.
    *   2. The claim's own inline enumeration — the comma-separated list after
    *      the em dash ("Nine-document system — a, b, c, ..."). A claim that
    *      names its members can be checked against itself.
@@ -363,6 +363,18 @@ for (const file of files) {
    * Range runs to twenty, not ten. The original ceiling at `ten` silently
    * exempted every larger claim — a guard with an arbitrary ceiling fails
    * exactly where the counts get hard to eyeball.
+   *
+   * The NOUN was the second arbitrary narrowing, and it hid a live defect.
+   * The rule originally matched only "N-document", so eng-005's draft
+   * "Seven-module framework spanning six domains — narrative, financial,
+   * enrollment, partnerships, operations, implementation" — seven against a
+   * list of six — was invisible to it, as was eng-001's "ten-city global
+   * evidence corpus — Houston, Helsinki, Glasgow, Bakersfield, Vienna",
+   * which promises ten and names five. Nothing about the failure mode is
+   * specific to documents; it is generic to any counted, enumerated
+   * structure. The noun allowlist below is deliberately explicit rather than
+   * open-ended, so the guard never tries to arithmetic-check prose like
+   * "two sitting commissioners" that was never a structural claim.
    */
   const WORD_TO_N = {
     one: 1, two: 2, three: 3, four: 4, five: 5,
@@ -370,50 +382,114 @@ for (const file of files) {
     eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
     sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
   };
-  const countRe = new RegExp(
-    `\\b(${Object.keys(WORD_TO_N).join('|')})[-\\s]document\\b`,
-    'i',
-  );
-  for (const claimText of [...(data.leads ?? []), ...(data.highlights ?? [])]) {
-    const claim = claimText.match(countRe);
-    if (!claim) continue;
-    const claimed = WORD_TO_N[claim[1].toLowerCase()];
 
-    if (Array.isArray(data.documents) && data.documents.length > 0) {
-      if (claimed !== data.documents.length) {
+  /* Structural nouns whose counts are enumerable deliverable parts. */
+  const ENUMERABLE_NOUN =
+    'documents?|modules?|nodes?|chapters?|cities|city|pages?|cards?|tabs?|' +
+    'domains?|channels?|tiers?|sources?|phases?|sections?';
+
+  /*
+   * A count word, then up to two intervening modifiers ("six interdependent
+   * domains"), then the noun. Global: the LAST match before the em dash is
+   * the one the list belongs to, which is what correctly attaches
+   * "narrative, financial, ..." to "six domains" and not to "seven modules"
+   * earlier in the same sentence.
+   */
+  const countRe = new RegExp(
+    `\\b(${Object.keys(WORD_TO_N).join('|')})[-\\s]` +
+      `(?:[A-Za-z]+[-\\s]){0,2}(${ENUMERABLE_NOUN})\\b`,
+    'gi',
+  );
+
+  /*
+   * Hedged lists are samples, not enumerations, and must not be counted.
+   * "ten cities — including Houston, Helsinki, ..." is an honest partial
+   * list; "ten cities — Houston, Helsinki, ..." promises a complete one.
+   * The distinction is the whole point, so it is the author's to make
+   * explicitly.
+   */
+  const HEDGE_RE = /\b(including|include|such as|among|e\.g\.|for example|others?)\b/i;
+
+  for (const claimText of [...(data.leads ?? []), ...(data.highlights ?? [])]) {
+    const segments = claimText.split('\u2014');
+
+    for (let i = 0; i < segments.length; i += 1) {
+      const matches = [...segments[i].matchAll(countRe)];
+      if (matches.length === 0) continue;
+
+      /* The claim nearest the dash owns the list that follows it. */
+      const claim = matches[matches.length - 1];
+      const claimed = WORD_TO_N[claim[1].toLowerCase()];
+      const noun = claim[2].toLowerCase();
+      const isDocument = noun.startsWith('document');
+
+      /* Published catalogue wins for document claims. */
+      if (isDocument && Array.isArray(data.documents) && data.documents.length > 0) {
+        if (claimed !== data.documents.length) {
+          findings.push(
+            `${file} — prose claims a "${claim[0]}" suite but documents[] has ` +
+              `${data.documents.length} entr${
+                data.documents.length === 1 ? 'y' : 'ies'
+              }. The catalogue must match the claim.`,
+          );
+        }
+        continue;
+      }
+
+      /*
+       * A bare document claim with neither catalogue nor list is
+       * unverifiable and is reported as such rather than passed over in
+       * silence. Other nouns are not held to that standard: "a six-page
+       * immersive platform" is a description, not a promise of an inventory.
+       *
+       * The `tail === undefined` branch is load-bearing and was briefly a
+       * fail-open of my own making: a claim with no em dash at all ("Seven-
+       * document transformation suite") has no following segment, and an
+       * early `continue` here skipped the unverifiable-claim report
+       * entirely — precisely the case the report exists for. Caught by
+       * canary, not by reading.
+       */
+      const tail = segments[i + 1];
+
+      if (tail === undefined) {
+        if (isDocument) {
+          findings.push(
+            `${file} — prose claims a "${claim[0]}" suite but there is no ` +
+              `documents[] catalogue and the claim does not enumerate its ` +
+              `members, so the count cannot be corroborated. Either publish ` +
+              `the documents or name them inline after an em dash.`,
+          );
+        }
+        continue;
+      }
+
+      if (HEDGE_RE.test(tail)) continue;
+
+      const named = tail
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean).length;
+
+      if (named < 2) {
+        if (isDocument) {
+          findings.push(
+            `${file} — prose claims a "${claim[0]}" suite but there is no ` +
+              `documents[] catalogue and the claim does not enumerate its ` +
+              `members, so the count cannot be corroborated. Either publish ` +
+              `the documents or name them inline after an em dash.`,
+          );
+        }
+        continue;
+      }
+
+      if (named !== claimed) {
         findings.push(
-          `${file} — prose claims a "${claim[1]}-document" suite but ` +
-            `documents[] has ${data.documents.length} entr${
-              data.documents.length === 1 ? 'y' : 'ies'
-            }. The catalogue must match the claim.`,
+          `${file} — prose claims "${claim[0]}" (${claimed}) but enumerates ` +
+            `${named} item(s) after the em dash. Either the count and the ` +
+            `list must agree, or the list must be hedged ("including ...") ` +
+            `to declare itself a sample.`,
         );
       }
-      continue;
-    }
-
-    /*
-     * No catalogue to check against, so fall back to the claim's own
-     * enumeration. Only meaningful when the claim actually lists members:
-     * a bare "Nine-document system" with no list is unverifiable here and
-     * is reported as such rather than passed over in silence.
-     */
-    const tail = claimText.split('—')[1];
-    const named = tail
-      ? tail.split(',').map((s) => s.trim()).filter(Boolean).length
-      : 0;
-    if (named < 2) {
-      findings.push(
-        `${file} — prose claims a "${claim[1]}-document" suite but there is ` +
-          `no documents[] catalogue and the claim does not enumerate its ` +
-          `members, so the count cannot be corroborated. Either publish the ` +
-          `documents or name them inline after an em dash.`,
-      );
-    } else if (named !== claimed) {
-      findings.push(
-        `${file} — prose claims a "${claim[1]}-document" suite (${claimed}) ` +
-          `but enumerates ${named} item(s) after the em dash. The count and ` +
-          `the list must agree.`,
-      );
     }
   }
 
