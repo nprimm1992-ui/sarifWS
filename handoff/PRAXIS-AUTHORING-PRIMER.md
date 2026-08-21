@@ -16,10 +16,20 @@ brief for the specific article(s) you want written.
 | `one-operator-one-intelligence-layer` | **published** | ~1,150 words — real |
 | `pipelines-move-forward-systems-circulate` | **published** | ~1,240 words — real |
 | `the-conductor-is-the-coherence-layer` | **published** | ~1,270 words — real |
-| `signal-without-noise` | **published** | ~1,190 words — real |
+| `signal-without-noise` | **published** | ~1,230 words — real |
+| `coherence-decay-in-distributed-teams` | **published** | ~1,410 words — real |
 
-**The corpus is now five real articles and nothing else.** Every placeholder
+**The corpus is now six real articles and nothing else.** Every placeholder
 has been retired.
+
+No. 06 is the first Praxis article to carry an **external citation** (Carter et
+al., *Prehospital Emergency Care* 2009, on trauma-handover information loss).
+The house pattern established there: attribute in prose, do **not** hyperlink —
+no Praxis article has ever carried an outbound link, and the citation reads as
+provenance rather than as a referral. It also fixed a fabricated `41%`
+"post-vote re-narration audit" figure that had shipped in No. 01 and was about
+to be inherited by No. 06; it is now the dossier-attested `$5.6M → $0`
+execution-gap catch. See §9.
 
 Three were retired by being *written over*, so the slug carried an article
 instead of becoming a dead link: `signal-without-noise` →
@@ -313,7 +323,7 @@ command palette. Leave it alone.
 ## 8. Verify before you hand back
 
 ```bash
-npm run build          # Zod schema + 15 postbuild steps (13 gating, 1 warns, 1 injector)
+npm run build          # Zod schema + 16 postbuild steps (14 gating, 1 warns, 1 injector)
 npm run check:types    # expect 0 errors 0 warnings
 npx playwright test    # expect 0 failures
 ```

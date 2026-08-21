@@ -62,6 +62,20 @@
  * to disable the gate. Money and compound-artifact counts were chosen because
  * they are almost never incidental.
  *
+ * THIS EXEMPTION HAS ALREADY COST US ONE DEFECT. Praxis No. 01 shipped
+ * `<Stat value="41%" label="... Engagement 001, post-vote audit" />` for
+ * fourteen weeks. No such audit exists: the only `41`s in the corpus are
+ * eng-001's Portland shelter-placement GOAL and eng-006's 41 e2e tests, and
+ * `post-vote` / `re-narrat` / `reconstruction` return zero dossier hits. It
+ * was caught by hand while drafting No. 06 — which cross-links No. 01 and had
+ * inherited the same figure. The exemption is still correct (a percentage
+ * regex cannot distinguish an engagement measurement from ordinary analytical
+ * prose without a false-positive rate that would get this gate switched off),
+ * so the mitigation is procedural, not automated: ANY percentage attributed to
+ * a named engagement must be grep-verified against that dossier by the author
+ * before publishing. Attribution is the tell — `41%` alone is prose, `41% —
+ * Engagement 001` is a claim, and only the latter needs checking.
+ *
  * FAIL-OPEN PATHS CLOSED EXPLICITLY
  * ---------------------------------
  * Every collection this script iterates could be empty, and an empty
@@ -88,7 +102,7 @@ const PRAXIS_DIR = join(ROOT, 'src/content/praxis');
 /* Graduated coverage floors. Raise these as the corpus grows; a floor of `> 0`
    would let a broken extractor pass on a single lucky match. */
 const MIN_DOSSIERS = 6;
-const MIN_ARTICLES = 5;
+const MIN_ARTICLES = 6;
 const MIN_UNITS = 5;
 
 /* PER-RULE floors, not one aggregate.
