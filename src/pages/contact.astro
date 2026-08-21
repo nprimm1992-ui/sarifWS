@@ -1,5 +1,11 @@
 ---
 import Base from '../layouts/Base.astro';
+import {
+  DELIVERABLES,
+  FEE_POSTURE,
+  COST_LABEL,
+  priceLabel,
+} from '../lib/service-catalogue';
 
 // Signal-first intake (Contact Transmission Rebuild, Phase A, scope B).
 // The public surface deliberately does not reference Jensen. Every field
@@ -79,6 +85,61 @@ const intakeChannelBrand = 'Sarif connected';
               aria-label="Security challenge"
             ></div>
           )}
+
+          <!--
+            Confirmed scope — the receiving half of the /services/ handoff.
+
+            A prospect who assembled a scope arrives here with `?scope=a|b`.
+            This block reflects that selection back so they can SEE what is
+            about to be transmitted before they write a word. Without it the
+            scope would ride invisibly inside the submitted signal, and a
+            prospect would be sending a list they were never shown.
+
+            Every catalogue row is rendered at build time and hidden; the
+            script unhides the selected ones. Two reasons that beats building
+            rows in the browser:
+
+              1. Astro scopes component CSS with a `data-astro-cid-*` attribute
+                 stamped onto compiled markup. `createElement` nodes don't carry
+                 it, so scoped rules silently don't match them — which is
+                 exactly how the services-page summary first rendered its title
+                 and price run together with no separation.
+              2. `decodeScope` drops unknown skus, but rendering from the
+                 catalogue means the page never echoes a query parameter at
+                 all. Untrusted input selects among fixed strings; it is never
+                 itself printed.
+
+            Hidden by default with `hidden` on the container, so a prospect
+            arriving with no scope sees no empty shell and there is no layout
+            shift once the script runs.
+          -->
+          <section
+            class="scope-confirm"
+            id="scope-confirm"
+            aria-labelledby="scope-confirm-heading"
+            hidden
+          >
+            <div class="scope-confirm__head">
+              <h2 id="scope-confirm-heading" class="scope-confirm__heading ui-eyebrow">Requested Scope</h2>
+              <a href="/services/" class="scope-confirm__edit" id="scope-confirm-edit">Edit scope</a>
+            </div>
+            <ul class="scope-confirm__list" id="scope-confirm-list">
+              {DELIVERABLES.map((d) => (
+                <li class="scope-confirm__item" data-scope-row={d.sku} hidden>
+                  <span class="scope-confirm__item-title">{d.title}</span>
+                  <span class="scope-confirm__item-price">{priceLabel(d)}</span>
+                </li>
+              ))}
+            </ul>
+            <p class="scope-confirm__figures">
+              <span class="scope-confirm__figure-label">{COST_LABEL}</span>
+              <span class="scope-confirm__figure-value" id="scope-confirm-floor">$0</span>
+              <span class="scope-confirm__figure-note" id="scope-confirm-note" hidden></span>
+            </p>
+            <p class="scope-confirm__caveat">
+              An estimate, not a quote — {FEE_POSTURE} This list is attached to your message automatically.
+            </p>
+          </section>
 
           <!-- Signal panel: the operator console. Dark-glass inset against
                the light page gives the signal textarea unmistakable visual
@@ -591,6 +652,174 @@ const intakeChannelBrand = 'Sarif connected';
 
     .signal-panel__header .channel-status {
       max-width: 100%;
+    }
+  }
+
+  /* ────────────────────────────────────────────────────────────────────
+     Confirmed scope — the receiving half of the /services/ handoff.
+
+     Deliberately quieter than the signal panel below it. This block is a
+     receipt of a decision the prospect already made; the signal panel is
+     where they are about to do something. Reversing that hierarchy would
+     make the page look like a checkout, which is precisely what this
+     surface is not: no cart, no total, no line-item arithmetic presented
+     as an invoice.
+     ──────────────────────────────────────────────────────────────────── */
+  .scope-confirm {
+    margin-bottom: 28px;
+    padding: 20px 22px;
+    border: 1px solid rgba(0, 212, 255, 0.24);
+    background: rgba(10, 22, 32, 0.04);
+  }
+
+  .scope-confirm__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+
+  .scope-confirm__heading {
+    margin: 0;
+    font-size: 0.62rem;
+    letter-spacing: 0.24em;
+  }
+
+  .scope-confirm__edit {
+    font-family: var(--font-heading);
+    font-size: 0.58rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--text-muted);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+    padding-bottom: 2px;
+    transition: color 0.2s ease-out, border-color 0.2s ease-out;
+  }
+
+  .scope-confirm__edit:hover,
+  .scope-confirm__edit:focus-visible {
+    color: var(--cyan-core);
+    border-color: var(--cyan-core);
+  }
+
+  .scope-confirm__list {
+    list-style: none;
+    margin: 0 0 16px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* `display: flex` on an element that also carries the `hidden` attribute
+     WINS: `hidden` is only a UA-stylesheet `display: none`, which any author
+     display declaration overrides. The first implementation hit exactly that
+     — the script correctly set `hidden` on 26 of 28 rows, the DOM reported
+     them hidden, and all 28 rendered anyway. Markup right, pixels wrong.
+     `:not([hidden])` makes the layout rule conditional so the attribute keeps
+     the meaning it is supposed to have. */
+  .scope-confirm__item:not([hidden]) {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(10, 22, 32, 0.08);
+  }
+
+  .scope-confirm__item-title {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+
+  .scope-confirm__item-price {
+    font-family: var(--font-heading);
+    font-size: 0.56rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .scope-confirm__figures {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 0 0 8px;
+  }
+
+  .scope-confirm__figure-label {
+    font-family: var(--font-heading);
+    font-size: 0.58rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--text-muted);
+  }
+
+  .scope-confirm__figure-value {
+    font-family: var(--font-body);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  /* The quote-only count sits beside the floor at equal reading weight —
+     a floor that hides its unpriced items is a number that lies by
+     omission. */
+  .scope-confirm__figure-note {
+    font-family: var(--font-heading);
+    font-size: 0.56rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+    color: var(--cyan-deep, #0099bb);
+  }
+
+  .scope-confirm__caveat {
+    font-family: var(--font-body);
+    font-size: var(--text-xs, 0.78rem);
+    color: var(--text-muted);
+    line-height: 1.65;
+    margin: 0;
+    max-width: 62ch;
+  }
+
+  @media (max-width: 480px) {
+    /* `:not([hidden])` again — a bare `.scope-confirm__item` selector here
+       would not set `display`, but it would still be the more specific match
+       for the flex properties, and any future edit that adds `display` to this
+       block would resurrect all 28 rows below 480px only. Keeping the guard on
+       every rule that targets these rows makes the pattern uniform rather than
+       something the next reader has to reason about per-rule. */
+    .scope-confirm__item:not([hidden]) {
+      flex-direction: column;
+      gap: 2px;
+    }
+  }
+
+  /* Belt and braces for the whole family: whatever any rule above says,
+     an element carrying `hidden` is not displayed. This is the guard that
+     turns "we remembered :not([hidden]) everywhere" into "it cannot matter
+     if someone forgets". */
+  .scope-confirm[hidden],
+  .scope-confirm__item[hidden],
+  .scope-confirm__figure-note[hidden] {
+    display: none !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scope-confirm__edit {
+      transition: none;
     }
   }
 
@@ -1662,6 +1891,15 @@ const intakeChannelBrand = 'Sarif connected';
     queueFailedSubmission,
   } from '../scripts/form-draft.js';
 
+  import {
+    SCOPE_PARAM,
+    decodeScopeFromParams,
+    scopeFloor,
+    formatScopeBrief,
+    maxScopeBriefLength,
+    usd,
+  } from '../lib/service-catalogue';
+
   const PUBLIC_CONTACT_EMAIL = 'info@sarifconsulting.ai';
   const CONTACT_DRAFT_KEY = 'sarif:contact-draft';
   const CONTACT_DRAFT_FIELDS = ['name', 'organization', 'signal'];
@@ -2093,12 +2331,22 @@ const intakeChannelBrand = 'Sarif connected';
     };
   }
 
-  function buildTransmitMailto(form) {
+  /**
+   * @param {HTMLFormElement} form
+   * @param {import('../lib/service-catalogue').Deliverable[]} [scopeItems]
+   */
+  function buildTransmitMailto(form, scopeItems) {
     const fd = new FormData(form);
     const name = String(fd.get('name') || '').trim();
     const email = String(fd.get('email') || '').trim();
     const org = String(fd.get('organization') || '').trim();
-    const signal = String(fd.get('signal') || '').trim();
+    /* The mailto fallback is the path a prospect takes when delivery failed.
+       It must carry the same composed signal the POST would have carried, or
+       the degraded path silently drops the scope they were shown. */
+    const signal = composeSignalWithScope(
+      String(fd.get('signal') || '').trim(),
+      scopeItems,
+    );
     const subject = `Transmission from ${name || 'Sarif site'}`.slice(0, 200);
     const body = [
       `Name: ${name}`,
@@ -2320,6 +2568,156 @@ const intakeChannelBrand = 'Sarif connected';
     update();
   }
 
+  /* ──────────────────────────────────────────────────────────────────────
+   * Requested-scope handoff from /services/
+   * ──────────────────────────────────────────────────────────────────────
+   *
+   * WHY THE SCOPE TRAVELS INSIDE `signal` AND NOT AS ITS OWN FIELD
+   *
+   * `functions/api/transmit.js` reads exactly four keys off the request body —
+   * `signal`, `name`, `email`, `organization` — and the `transmissions` table
+   * has no column for anything else. A `scope` field added to the payload
+   * would be accepted by the request, ignored by the handler, and stored and
+   * emailed nowhere. The prospect would watch their scope be confirmed on
+   * screen and it would arrive as nothing. That is a fail-open, so the scope
+   * is composed into the one field that is actually persisted and emailed.
+   *
+   * WHY COMPOSITION HAPPENS AT SUBMIT AND NOT ON LOAD
+   *
+   * `installFormDraft` restores a saved draft only `if (!el.value)`. Prefilling
+   * the textarea at load would therefore make a returning prospect's own saved
+   * words silently unrestorable — their draft would still be in
+   * sessionStorage, and they would never see it again. So the textarea stays
+   * exclusively theirs, and the scope block is prepended to the outgoing value
+   * at transmit time.
+   *
+   * WHY `maxlength` SHRINKS
+   *
+   * The server rejects a signal over LIMITS.SIGNAL_MAX (10,000). If a prospect
+   * filled the field to its limit and a ~1.5 KB scope block were then
+   * prepended, the composed value would exceed the cap and 400 on the honest
+   * path — the user having done nothing wrong. Rather than handle that after
+   * the fact, the budget is reserved up front: `maxlength` drops by the
+   * catalogue's worst-case brief length, so the composed value cannot exceed
+   * the cap by construction. The visible HUD maximum is updated to match, so
+   * the counter never promises room that isn't there.
+   */
+
+  const SCOPE_STORAGE_KEY = 'sarif:scope';
+
+  function readScopeStorage() {
+    try {
+      const raw = sessionStorage.getItem(SCOPE_STORAGE_KEY);
+      return typeof raw === 'string' && raw.length > 0 && raw.length <= 2048 ? raw : '';
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * Resolve the requested scope. URL first — it is authoritative and it is
+   * what a shared link carries; sessionStorage only as a same-tab fallback for
+   * a navigation that lost the query string. A stale selection resurrected
+   * from storage over an explicit link would silently contradict the user.
+   *
+   * @returns {import('../lib/service-catalogue').Deliverable[]}
+   */
+  function resolveRequestedScope() {
+    let params;
+    try {
+      params = new URL(window.location.href).searchParams;
+    } catch {
+      params = new URLSearchParams();
+    }
+    let items = decodeScopeFromParams(params);
+    if (items.length === 0) {
+      const stored = readScopeStorage();
+      if (stored) {
+        items = decodeScopeFromParams(new URLSearchParams([[SCOPE_PARAM, stored]]));
+      }
+    }
+    return items;
+  }
+
+  /**
+   * Reveal the confirmed-scope block and reserve the signal budget.
+   * Returns the resolved selection so the submit handler can compose it
+   * without re-reading the URL (which the user may have since changed).
+   */
+  function initRequestedScope(textarea) {
+    const items = resolveRequestedScope();
+    const section = document.getElementById('scope-confirm');
+    if (!(section instanceof HTMLElement)) return items;
+
+    if (items.length === 0) {
+      section.hidden = true;
+      return items;
+    }
+
+    const listEl = document.getElementById('scope-confirm-list');
+    const floorEl = document.getElementById('scope-confirm-floor');
+    const noteEl = document.getElementById('scope-confirm-note');
+    const editEl = document.getElementById('scope-confirm-edit');
+    const chosen = new Set(items.map((d) => d.sku));
+
+    if (listEl instanceof HTMLElement) {
+      listEl.querySelectorAll('[data-scope-row]').forEach((row) => {
+        if (row instanceof HTMLElement) row.hidden = !chosen.has(row.dataset.scopeRow);
+      });
+    }
+
+    const { floor, quoteCount } = scopeFloor(items);
+    if (floorEl instanceof HTMLElement) floorEl.textContent = usd(floor);
+    if (noteEl instanceof HTMLElement) {
+      if (quoteCount > 0) {
+        noteEl.hidden = false;
+        noteEl.textContent = `plus ${quoteCount} quoted on scope`;
+      } else {
+        noteEl.hidden = true;
+        noteEl.textContent = '';
+      }
+    }
+
+    /* "Edit scope" returns to /services/ carrying the current selection, so
+       the user lands on their own assembled scope rather than an empty page. */
+    if (editEl instanceof HTMLAnchorElement) {
+      try {
+        const back = new URL('/services/', window.location.href);
+        back.searchParams.set(SCOPE_PARAM, items.map((d) => d.sku).join('|'));
+        editEl.href = back.toString();
+      } catch {
+        /* Keep the plain /services/ href. */
+      }
+    }
+
+    /* Reserve the composition budget. `+ 2` covers the blank line joining the
+       scope block to the prospect's own text. */
+    if (textarea instanceof HTMLTextAreaElement) {
+      const reserve = maxScopeBriefLength() + 2;
+      const current = Number(textarea.getAttribute('maxlength')) || 10000;
+      const reduced = Math.max(200, current - reserve);
+      textarea.setAttribute('maxlength', String(reduced));
+      const hudMaxEl = document.querySelector('.signal-panel__hud-max');
+      if (hudMaxEl instanceof HTMLElement) {
+        hudMaxEl.textContent = reduced.toLocaleString('en-US');
+      }
+    }
+
+    section.hidden = false;
+    return items;
+  }
+
+  /**
+   * Compose the outgoing signal: scope block, blank line, then the prospect's
+   * own words. Scope first because it is the frame the message is read in.
+   */
+  function composeSignalWithScope(signalText, items) {
+    if (!items || items.length === 0) return signalText;
+    const brief = formatScopeBrief(items);
+    if (!brief) return signalText;
+    return `${brief}\n\n${signalText}`;
+  }
+
   function initContactForm() {
     const formRaw = document.getElementById('contact-form');
     /** @type {HTMLFormElement | null} */
@@ -2380,6 +2778,11 @@ const intakeChannelBrand = 'Sarif connected';
       storageKey: CONTACT_DRAFT_KEY,
       fields: CONTACT_DRAFT_FIELDS,
     });
+
+    /* Requested scope from /services/. Runs BEFORE initSignalCounter so the
+       counter reads the already-reduced maxlength and never advertises room
+       the composed signal will not have. */
+    const requestedScope = initRequestedScope(signalEl);
 
     initSignalCounter(signalEl, signalCountEl, signalLiveEl);
 
@@ -2482,12 +2885,21 @@ const intakeChannelBrand = 'Sarif connected';
       delete payload.website;
 
       if (mailtoEl) {
-        mailtoEl.setAttribute('href', buildTransmitMailto(form));
+        mailtoEl.setAttribute('href', buildTransmitMailto(form, requestedScope));
       }
 
       // Capture the signal text BEFORE form.reset() clears it — the
       // outgoing receipt bubble needs the original prospect text.
       const transmittedSignal = typeof payload.signal === 'string' ? payload.signal : '';
+
+      /* Attach the requested scope to the transmitted signal. The receipt
+         above deliberately shows the prospect's OWN words, not the composed
+         value: the scope is already confirmed in its own block on the page,
+         and echoing it back inside the receipt bubble would read as though
+         they had typed it. */
+      if (requestedScope.length > 0) {
+        payload.signal = composeSignalWithScope(transmittedSignal, requestedScope);
+      }
 
       submitDigitize?.setBusy(true);
       form.setAttribute('aria-busy', 'true');
