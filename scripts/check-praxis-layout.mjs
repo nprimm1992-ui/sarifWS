@@ -237,12 +237,13 @@ for (const [num, holders] of claimedNumbers) {
  * `checked` lands on 0, no failure is recorded, and the script cheerfully
  * prints "OK — 0 Praxis articles match the dossier layout contract."
  *
- * Three of the twelve Praxis entries are published today (the other nine are
- * `draft: true` and correctly produce no route), so the floor is 3. It is a
- * real number rather than `> 0` so that losing one published article is also
- * caught, not just losing all of them. Raise it as articles are published.
+ * All six Praxis entries are published today — the placeholder stubs that
+ * previously sat behind `draft: true` were retired, so the collection count
+ * and the published-route count are now the same number. The floor is a real
+ * integer rather than `> 0` so that losing ONE published article is caught,
+ * not just losing all of them. Raise it with every article published.
  */
-const MIN_PRAXIS_ARTICLES = 5;
+const MIN_PRAXIS_ARTICLES = 6;
 if (checked < MIN_PRAXIS_ARTICLES) {
   console.error(
     `[check-praxis-layout] FAIL — inspected ${pages.length} page(s) under dist/praxis/ ` +

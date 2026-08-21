@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title">
+  <title id="title">Coherence Decay in Distributed Teams</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1016"/>
+      <stop offset="1" stop-color="#17242e"/>
+    </linearGradient>
+    <linearGradient id="seam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00d4ff" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#00d4ff" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#00d4ff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+
+  <!-- ==================== THE CARD'S SINGLE CLAIM ====================
+       A deliverable is a graph. Under Coherence Decay the NODES survive and
+       the EDGES die. So this figure is built on two DELIBERATELY DIFFERENT
+       registers, and the distinction is load-bearing:
+
+         NODES  are countable and constant. Five per column, five columns,
+                every node drawn at identical radius, fill and opacity. If
+                you count them you get 5/5/5/5/5. That is the claim: the
+                claims themselves come through the handoff intact.
+
+         EDGES  are continuous, NOT countable. Every gap draws all five
+                lanes; what changes is dash density and opacity. This is
+                intentional and it is the fix for a defect that shipped on
+                the No. 05 card, where a countable figure (5+5+3=13) was
+                captioned as conserving 16 and so contradicted itself. An
+                integer lane count here would have had to equal 69.6% of
+                five, which is 3.48 — unrenderable, and any rounding would
+                put the figure at odds with its own percentages. Rendering
+                edge loss continuously lets the measured arithmetic below
+                carry the magnitude without the geometry disputing it.
+
+       Percentages are Carter et al., Prehospital Emergency Care 2009
+       (96 video-recorded trauma handovers; 473 elements transmitted, 329
+       received = 69.6% retained per handoff) compounded across four
+       layers: .696 / .484 / .337 / .234. These are the same four figures
+       used in the article body. If either is edited, edit both. -->
+
+  <!-- Column headers. SOURCE is the analytic layer; L1-L4 are the four
+       translation layers named in the article (analysis, summary, brief,
+       presentation). -->
+  <g font-family="Orbitron,sans-serif" font-size="11" letter-spacing="3" fill="#8fa3b0" opacity="0.72">
+    <text x="880" y="238" text-anchor="middle">SOURCE</text>
+    <text x="1040" y="238" text-anchor="middle">L1</text>
+    <text x="1200" y="238" text-anchor="middle">L2</text>
+    <text x="1360" y="238" text-anchor="middle">L3</text>
+    <text x="1520" y="238" text-anchor="middle">L4</text>
+  </g>
+
+  <!-- ==================== EDGES — the connective tissue ====================
+       Drawn BEFORE the nodes so the nodes sit on top: visually the claims
+       are what remains legible once the reasoning behind them has gone.
+       Gap 1 is already broken. There is no intact gap, because there is no
+       lossless handoff — that is the whole finding. -->
+  <g stroke="#bfa364" fill="none">
+    <!-- gap 1 -> 69.6% : hairline fractures, still legibly continuous -->
+    <g stroke-width="2.2" stroke-opacity="0.80" stroke-dasharray="24 6">
+      <line x1="892" y1="292" x2="1028" y2="292"/>
+      <line x1="892" y1="360" x2="1028" y2="360"/>
+      <line x1="892" y1="428" x2="1028" y2="428"/>
+      <line x1="892" y1="496" x2="1028" y2="496"/>
+      <line x1="892" y1="564" x2="1028" y2="564"/>
+    </g>
+    <!-- gap 2 -> 48.4% : more gap than line; direction still inferable -->
+    <g stroke-width="2" stroke-opacity="0.58" stroke-dasharray="13 13">
+      <line x1="1052" y1="292" x2="1188" y2="292"/>
+      <line x1="1052" y1="360" x2="1188" y2="360"/>
+      <line x1="1052" y1="428" x2="1188" y2="428"/>
+      <line x1="1052" y1="496" x2="1188" y2="496"/>
+      <line x1="1052" y1="564" x2="1188" y2="564"/>
+    </g>
+    <!-- gap 3 -> 33.7% : residue. A reader now infers rather than follows -->
+    <g stroke-width="1.8" stroke-opacity="0.42" stroke-dasharray="6 20">
+      <line x1="1212" y1="292" x2="1348" y2="292"/>
+      <line x1="1212" y1="360" x2="1348" y2="360"/>
+      <line x1="1212" y1="428" x2="1348" y2="428"/>
+      <line x1="1212" y1="496" x2="1348" y2="496"/>
+      <line x1="1212" y1="564" x2="1348" y2="564"/>
+    </g>
+    <!-- gap 4 -> 23.4% : all but gone, and NOT absent. An absent line would
+         read as "no relationship claimed"; the article's point is that the
+         relationship is still asserted, just no longer traceable. -->
+    <!-- v1 used `2.5 26` at opacity 0.26. In the render that read as EMPTY —
+         the 2.5px marks fell below the perceptual floor at card scale, so the
+         final gap asserted "no relationship" instead of "relationship no
+         longer traceable", inverting the point. Widened to 4px marks at 0.36.
+         Only findable in a render; the markup looked correct. -->
+    <g stroke-width="1.7" stroke-opacity="0.36" stroke-dasharray="4 20">
+      <line x1="1372" y1="292" x2="1508" y2="292"/>
+      <line x1="1372" y1="360" x2="1508" y2="360"/>
+      <line x1="1372" y1="428" x2="1508" y2="428"/>
+      <line x1="1372" y1="496" x2="1508" y2="496"/>
+      <line x1="1372" y1="564" x2="1508" y2="564"/>
+    </g>
+  </g>
+
+  <!-- ==================== NODES — the claims ====================
+       Twenty-five identical marks. No column is dimmer than any other, and
+       that uniformity is the uncomfortable part of the finding: the fourth
+       column looks exactly as authoritative as the first. Nothing on the
+       page tells a reader of L4 that 76.6% of the reasoning is gone. -->
+  <g fill="#00d4ff" fill-opacity="0.95">
+    <circle cx="880" cy="292" r="7"/><circle cx="880" cy="360" r="7"/><circle cx="880" cy="428" r="7"/><circle cx="880" cy="496" r="7"/><circle cx="880" cy="564" r="7"/>
+    <circle cx="1040" cy="292" r="7"/><circle cx="1040" cy="360" r="7"/><circle cx="1040" cy="428" r="7"/><circle cx="1040" cy="496" r="7"/><circle cx="1040" cy="564" r="7"/>
+    <circle cx="1200" cy="292" r="7"/><circle cx="1200" cy="360" r="7"/><circle cx="1200" cy="428" r="7"/><circle cx="1200" cy="496" r="7"/><circle cx="1200" cy="564" r="7"/>
+    <circle cx="1360" cy="292" r="7"/><circle cx="1360" cy="360" r="7"/><circle cx="1360" cy="428" r="7"/><circle cx="1360" cy="496" r="7"/><circle cx="1360" cy="564" r="7"/>
+    <circle cx="1520" cy="292" r="7"/><circle cx="1520" cy="360" r="7"/><circle cx="1520" cy="428" r="7"/><circle cx="1520" cy="496" r="7"/><circle cx="1520" cy="564" r="7"/>
+  </g>
+
+  <!-- ==================== THE MEASURED AXIS ====================
+       Placed under the gaps, not under the columns, because the loss is a
+       property of the transition rather than of any one layer. -->
+  <g font-family="Orbitron,sans-serif" font-size="15" letter-spacing="1.5" fill="#bfa364">
+    <text x="960" y="622" text-anchor="middle" opacity="0.88">69.6%</text>
+    <text x="1120" y="622" text-anchor="middle" opacity="0.72">48.4%</text>
+    <text x="1280" y="622" text-anchor="middle" opacity="0.56">33.7%</text>
+    <text x="1440" y="622" text-anchor="middle" opacity="0.42">23.4%</text>
+  </g>
+  <g font-family="Orbitron,sans-serif" font-size="10" letter-spacing="3" fill="#8fa3b0" opacity="0.6">
+    <text x="1200" y="652" text-anchor="middle">EDGE INTEGRITY REMAINING</text>
+  </g>
+
+  <!-- Legend. Two registers, named, so the card is self-explaining. -->
+  <g font-family="Orbitron,sans-serif" font-size="10" letter-spacing="2.5" opacity="0.7">
+    <circle cx="886" cy="686" r="5" fill="#00d4ff" fill-opacity="0.95"/>
+    <text x="900" y="690" fill="#8fa3b0">CLAIM — SURVIVES</text>
+    <line x1="1120" y1="686" x2="1160" y2="686" stroke="#bfa364" stroke-width="2" stroke-opacity="0.6" stroke-dasharray="6 6"/>
+    <text x="1170" y="690" fill="#8fa3b0">REASONING — DECAYS</text>
+  </g>
+
+  <line x1="0" y1="196" x2="1600" y2="196" stroke="url(#seam)" stroke-width="1"/>
+  <line x1="0" y1="716" x2="1600" y2="716" stroke="url(#seam)" stroke-width="0.7"/>
+
+  <g transform="translate(120,338)" font-family="Orbitron,sans-serif" fill="#00d4ff" opacity="0.85">
+    <text font-size="14" letter-spacing="4">PRAXIS NO. 06</text>
+  </g>
+  <g transform="translate(120,398)" font-family="Orbitron,sans-serif" fill="#e4e6eb">
+    <text font-size="50" font-weight="700" letter-spacing="2">COHERENCE</text>
+    <text x="0" y="68" font-size="50" font-weight="700" letter-spacing="2">DECAY IN</text>
+    <text x="0" y="136" font-size="50" font-weight="700" letter-spacing="2">DISTRIBUTED</text>
+    <text x="0" y="204" font-size="50" font-weight="700" letter-spacing="2">TEAMS</text>
+  </g>
+  <g transform="translate(120,672)" font-family="Orbitron,sans-serif" fill="#bfa364" opacity="0.8">
+    <text font-size="20" letter-spacing="3">FIELD OBSERVATION / AUGUST 2026</text>
+  </g>
+</svg>
