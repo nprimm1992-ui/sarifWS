@@ -216,10 +216,26 @@ function engagementsMetaDescription(): string {
     color: var(--cyan-core);
   }
 
-  .eng-directory__link[data-eng-accent='venture'] .eng-directory__num,
-  .eng-directory__link[data-eng-accent='education'] .eng-directory__num {
-    color: var(--gold-bright);
-  }
+  /*
+   * NO per-accent override here, deliberately.
+   *
+   * This used to paint the `venture` and `education` accents gold, which made
+   * exhibit 005 the single gold number in an otherwise cyan index — read as a
+   * defect rather than as a signal, because nothing about 005 is special in
+   * this list.
+   *
+   * The distinction being drawn was a real one in the WRONG place. On a
+   * dossier page the accent is the exhibit's identity: `[slug].astro` gives
+   * education and venture a gold `--exh-a1`, and that still stands. But here
+   * the number is an INDEX MARKER — its job is to be scannable and uniform so
+   * the eye can count down the list. Two colours in an index imply a
+   * taxonomy the index does not actually have.
+   *
+   * So the accent system is intact where it means something and absent where
+   * it did not. Deleting the rule rather than remapping `education` to cyan is
+   * the point: a per-accent rule whose every branch resolves to the same
+   * colour is a trap for the next person to edit it.
+   */
 
   .eng-directory__sector {
     font-family: var(--font-ticker);

@@ -1,4 +1,6 @@
 ---
+import { splitStatValue } from '../lib/stat-value';
+
 export type EngagementAccent = 'policy' | 'civic' | 'venture' | 'founder' | 'education' | 'digital' | 'legal';
 
 interface Props {
@@ -51,7 +53,22 @@ const isDossier = highlights.length > 0 && leads.length > 0;
         <h2 class="proof-entry__classification ui-eyebrow">{classification}</h2>
         {statValue && (
           <div class="proof-entry__stat" aria-hidden="true">
-            <span class="proof-entry__stat-value">{statValue}</span>
+            {/*
+              The magnitude suffix gets its own span so it can be tinted apart
+              from the digits. See src/lib/stat-value.ts for why this is a
+              render-time split and not a content or schema change: `statValue`
+              is parsed as a raw string by two build gates, so the JSON must
+              stay byte-identical. Segments always reconcatenate to the input.
+            */}
+            <span class="proof-entry__stat-value">
+              {splitStatValue(statValue).map((seg) =>
+                seg.kind === 'unit' ? (
+                  <span class="proof-entry__stat-unit">{seg.text}</span>
+                ) : (
+                  seg.text
+                ),
+              )}
+            </span>
             {statLabel && <span class="proof-entry__stat-label">{statLabel}</span>}
           </div>
         )}
@@ -268,6 +285,27 @@ const isDossier = highlights.length > 0 && leads.length > 0;
     color: var(--gold-bright);
     text-shadow: var(--gold-glow-soft);
     filter: brightness(1.08);
+  }
+
+  /*
+   * Magnitude suffix, tinted cyan against the gold digits.
+   *
+   * Not a decorative choice. Orbitron's `B` is metrically IDENTICAL to its
+   * `8` — measured: same 33px cap height, same 33px ink width, same 37px
+   * advance, same baseline — so `$868B` scans as a four-digit run ending in a
+   * malformed 8. There is no kerning error to fix; the glyph needs its own
+   * channel or it keeps reading as a digit. Colour separates them without
+   * touching the metrics, so the number stays on one optical baseline.
+   *
+   * `em` sizing keeps the suffix proportional to whatever the clamp() above
+   * resolves to, so this holds at every viewport rather than only at desktop.
+   */
+  .proof-entry__stat-unit {
+    color: var(--cyan-core);
+    font-size: 0.86em;
+    letter-spacing: 0.02em;
+    /* Cancels the parent's gold glow so the two inks stay distinct. */
+    text-shadow: 0 0 18px rgba(0, 212, 255, 0.4);
   }
 
   .proof-entry__stat-label {

@@ -2,6 +2,7 @@
 import { getCollection, getEntry } from 'astro:content';
 import { Picture } from 'astro:assets';
 import Base from '../../layouts/Base.astro';
+import { splitStatValue } from '../../lib/stat-value';
 
 export async function getStaticPaths() {
   const entries = await getCollection('engagements');
@@ -190,7 +191,21 @@ const hasDocs = docs.length > 0;
         <p class="exh-plaque__sector sarif-gold-cap-line">{data.sector}</p>
 
         <div class="exh-plaque__stat" data-testid="exhibit-stat">
-          <span class="exh-plaque__stat-value">{data.statValue}</span>
+          {/*
+            Magnitude suffix split into its own span — see
+            src/lib/stat-value.ts. Render-time only: `data.statValue` stays a
+            plain string because check-self-claims and check-praxis-claims both
+            regex-parse it, and the segments always reconcatenate to the input.
+          */}
+          <span class="exh-plaque__stat-value">
+            {splitStatValue(data.statValue).map((seg) =>
+              seg.kind === 'unit' ? (
+                <span class="exh-plaque__stat-unit">{seg.text}</span>
+              ) : (
+                seg.text
+              ),
+            )}
+          </span>
           <span class="exh-plaque__stat-label">{data.statLabel}</span>
         </div>
 
@@ -688,6 +703,26 @@ const hasDocs = docs.length > 0;
     line-height: 1.05;
     color: var(--exh-a1);
     text-shadow: 0 0 24px rgba(var(--exh-a1-rgb), 0.45);
+  }
+
+  /*
+   * Magnitude suffix, held at the accent's cooler partner tone.
+   *
+   * On this surface the stat is already `--exh-a1`, so the suffix takes
+   * `--exh-a2` — the accent's own second colour — rather than a hardcoded
+   * cyan. That keeps every dossier's palette self-consistent (eng-005 is
+   * gold-led and would clash with a fixed cyan) while still giving the unit
+   * a channel of its own.
+   *
+   * Needed because Orbitron's `B` is metrically identical to its `8` (same
+   * cap height, ink width and advance, measured), so `$868B` otherwise reads
+   * as a four-digit run ending in a broken 8.
+   */
+  .exh-plaque__stat-unit {
+    color: var(--exh-a2);
+    font-size: 0.86em;
+    letter-spacing: 0.02em;
+    text-shadow: none;
   }
 
   .exh-plaque__stat-label {
