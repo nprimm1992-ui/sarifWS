@@ -1,0 +1,29 @@
+# client-identity-denylist — strings that must never appear in a published surface.
+#
+# Read by scripts/check-client-identity.mjs. One term per line. `#` starts a
+# comment. Matching is case-insensitive and whole-word.
+#
+# WHAT BELONGS HERE
+# Identities of the clients behind the DESCRIBED engagements (eng-003, eng-004,
+# eng-005) that carry no organisational suffix and so cannot be caught by the
+# script's pattern rule: a principal's personal name, a product name, a town
+# small enough that naming it identifies the school.
+#
+# WHAT DOES NOT BELONG HERE
+# - Public civic subjects. eng-001 (Portland housing funds) and eng-002 (Lloyd
+#   Center) are public record and deliberately named.
+# - Sarif's own base of operations. "Portland" appears in about.astro,
+#   index.astro and privacy.astro describing the firm itself.
+# - Research inputs. eng-001's comparable-city corpus (Houston, Helsinki,
+#   Glasgow, Bakersfield, Vienna) is published methodology.
+# - Cited sources. "Glasgow Coma Scale" in Praxis No. 06 is a medical
+#   instrument from Carter et al. 2009, not the client city.
+#
+# Adding a term here is cheap and permanent. Prefer adding one over relying on
+# memory: the leak this file prevents is a confidentiality breach published to
+# a static site, cached and indexed.
+#
+# This file is intentionally empty of terms. The pattern rule in
+# check-client-identity.mjs covers the suffix-bearing cases, and no
+# suffix-free identity has needed listing yet. An empty denylist is a valid
+# state and does NOT disable the gate — rule 1 runs regardless.

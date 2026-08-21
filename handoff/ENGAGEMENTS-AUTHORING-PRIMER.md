@@ -7,7 +7,7 @@ language, the imagery and linking rules, and the exact commands that verify the
 work.
 
 **Repo:** `nprimm1992-ui/sarifWS` · **Content root:** `src/content/engagements/`
-**Last verified against:** build of 25 pages, 15 postbuild steps green (13 gating
+**Last verified against:** build of 25 pages, 16 postbuild steps green (14 gating
 sentinels + the CSP hash injector), 0 type errors, 47 E2E passed.
 
 ---
@@ -620,7 +620,7 @@ manufactures phantom defects.
 
 ---
 
-# All 15 postbuild steps — 13 gating sentinels, 1 warn-only, plus the CSP hash injector.
+# All 16 postbuild steps — 14 gating sentinels, 1 warn-only, plus the CSP hash injector.
 # NOTE the distinction: `inject-csp-hashes` is a STEP, not a GATE. It rewrites
 # _headers; it never refuses a bad build. eng-006 claims "Ten build
 # sentinels" and check-self-claims derives that number from this very script,
