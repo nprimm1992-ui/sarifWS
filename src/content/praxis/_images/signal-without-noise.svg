@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title">
+  <title id="title">Signal Without Noise</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1016"/>
+      <stop offset="1" stop-color="#17242e"/>
+    </linearGradient>
+
+    <!-- THE NOISE SIDE is deliberately NOT a gradient. Every mark left of the
+         gate is drawn at one identical opacity, because the defect this card
+         is about is not faintness — it is uniformity. Undifferentiated
+         confidence looks strong, not weak. Fading the left side would have
+         illustrated the wrong failure (weak evidence) instead of the right one
+         (evidence of unknown strength presented identically). -->
+
+    <!-- The gate is the governance pass. v1 drew it as a 1.8px line with a
+         transparent-ended gradient and a soft radial glow behind it: on the
+         rendered card that read as a lens-flare smudge, not a boundary — the
+         central metaphor of the piece failed silently. It is now a solid stem
+         with hard caps and an explicit aperture, so it reads as apparatus.
+         Invisible in markup; obvious in the render. -->
+    <!-- gradientUnits MUST be userSpaceOnUse here. The default,
+         objectBoundingBox, is degenerate on a vertical <line>: its bounding
+         box has zero width, so the gradient collapses and the stem renders
+         near-invisible while the solid-stroked end caps still paint. v2 hit
+         exactly this — caps and aperture visible, boundary itself missing.
+         Only findable in a render; the markup looks correct. -->
+    <linearGradient id="gate" gradientUnits="userSpaceOnUse"
+                    x1="1136" y1="232" x2="1136" y2="692">
+      <stop offset="0" stop-color="#bfa364" stop-opacity="0.45"/>
+      <stop offset="0.18" stop-color="#d9bd77" stop-opacity="1"/>
+      <stop offset="0.82" stop-color="#d9bd77" stop-opacity="1"/>
+      <stop offset="1" stop-color="#bfa364" stop-opacity="0.45"/>
+    </linearGradient>
+    <linearGradient id="seam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00d4ff" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#00d4ff" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#00d4ff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+
+  <!-- ================= LEFT OF THE GATE — UNDIFFERENTIATED =================
+       Sixteen claims. Identical length, identical stroke, identical opacity.
+       Nothing in the rendering tells you which of these would survive a
+       challenge. This is the single register of confident prose. -->
+  <g font-family="Orbitron,sans-serif" font-size="13" letter-spacing="3.5" fill="#8fa3b0" opacity="0.72">
+    <text x="856" y="222">AS WRITTEN</text>
+  </g>
+  <g stroke="#8fa3b0" stroke-width="2.2" stroke-opacity="0.46">
+    <line x1="856" y1="252" x2="1092" y2="252"/>
+    <line x1="856" y1="280" x2="1092" y2="280"/>
+    <line x1="856" y1="308" x2="1092" y2="308"/>
+    <line x1="856" y1="336" x2="1092" y2="336"/>
+    <line x1="856" y1="364" x2="1092" y2="364"/>
+    <line x1="856" y1="392" x2="1092" y2="392"/>
+    <line x1="856" y1="420" x2="1092" y2="420"/>
+    <line x1="856" y1="448" x2="1092" y2="448"/>
+    <line x1="856" y1="476" x2="1092" y2="476"/>
+    <line x1="856" y1="504" x2="1092" y2="504"/>
+    <line x1="856" y1="532" x2="1092" y2="532"/>
+    <line x1="856" y1="560" x2="1092" y2="560"/>
+    <line x1="856" y1="588" x2="1092" y2="588"/>
+    <line x1="856" y1="616" x2="1092" y2="616"/>
+    <line x1="856" y1="644" x2="1092" y2="644"/>
+    <line x1="856" y1="672" x2="1092" y2="672"/>
+  </g>
+
+  <!-- ================= THE GATE — the governance pass =================
+       Nothing ships across it untagged. It is a classification step, not a
+       filter: the same sixteen claims appear on both sides — 16 in, then
+       5 grounded + 6 inferred + 5 uncertain = 16 out. Count them.
+       Conservation is the point: tagging removes no claim, it only stops
+       them from impersonating each other. If you re-space these groups,
+       the three counts must still total 16 or the card asserts something
+       the article does not. (v2 shipped 5+5+3=13 against 16 in, with a
+       comment claiming conservation — the figure contradicted its own
+       caption.) -->
+  <line x1="1136" y1="232" x2="1136" y2="692" stroke="url(#gate)" stroke-width="2.6"/>
+  <g stroke="#d9bd77" stroke-width="2.6" stroke-opacity="0.95">
+    <line x1="1120" y1="232" x2="1152" y2="232"/>
+    <line x1="1120" y1="692" x2="1152" y2="692"/>
+  </g>
+  <!-- The aperture: the single point every claim passes through. -->
+  <g fill="none" stroke="#d9bd77" stroke-opacity="0.9">
+    <circle cx="1136" cy="462" r="13" stroke-width="2"/>
+  </g>
+  <circle cx="1136" cy="462" r="4" fill="#d9bd77" fill-opacity="0.95"/>
+  <g font-family="Orbitron,sans-serif" font-size="11" letter-spacing="3" fill="#d9bd77" opacity="0.85">
+    <text x="1136" y="716" text-anchor="middle">GOVERNANCE PASS</text>
+  </g>
+
+  <!-- ================= RIGHT OF THE GATE — THREE REGISTERS =================
+       Each group is tied back to the aperture, so the figure reads as one
+       flow being sorted, not three unrelated lists. -->
+  <g fill="none" stroke="#8fa3b0" stroke-width="1.1" stroke-opacity="0.34">
+    <path d="M1149,458 Q1188,454 1206,306"/>
+    <path d="M1152,462 H1206"/>
+    <path d="M1149,466 Q1188,470 1206,632"/>
+  </g>
+
+  <!-- GROUNDED · 5 — solid, full weight, each anchored to a named source.
+       The filled square at the origin is the source anchor; if it is pulled,
+       the claim falls with it. -->
+  <g font-family="Orbitron,sans-serif" font-size="13" letter-spacing="3.5" fill="#00d4ff" opacity="0.92">
+    <text x="1226" y="240">GROUNDED</text>
+  </g>
+  <g stroke="#00d4ff" stroke-width="2.4" stroke-opacity="0.95">
+    <line x1="1234" y1="262" x2="1512" y2="262"/>
+    <line x1="1234" y1="284" x2="1512" y2="284"/>
+    <line x1="1234" y1="306" x2="1512" y2="306"/>
+    <line x1="1234" y1="328" x2="1512" y2="328"/>
+    <line x1="1234" y1="350" x2="1512" y2="350"/>
+  </g>
+  <g fill="#00d4ff" fill-opacity="0.95">
+    <rect x="1220" y="257.5" width="9" height="9"/>
+    <rect x="1220" y="279.5" width="9" height="9"/>
+    <rect x="1220" y="301.5" width="9" height="9"/>
+    <rect x="1220" y="323.5" width="9" height="9"/>
+    <rect x="1220" y="345.5" width="9" height="9"/>
+  </g>
+
+  <!-- INFERRED · 6 — dashed. The gaps are the inference steps: visible, so a
+       reader who disagrees can locate exactly where the reasoning diverges. -->
+  <g font-family="Orbitron,sans-serif" font-size="13" letter-spacing="3.5" fill="#00d4ff" opacity="0.74">
+    <text x="1226" y="392">INFERRED</text>
+  </g>
+  <g stroke="#00d4ff" stroke-width="2" stroke-opacity="0.62" stroke-dasharray="15 9">
+    <line x1="1234" y1="414" x2="1470" y2="414"/>
+    <line x1="1234" y1="436" x2="1470" y2="436"/>
+    <line x1="1234" y1="458" x2="1470" y2="458"/>
+    <line x1="1234" y1="480" x2="1470" y2="480"/>
+    <line x1="1234" y1="502" x2="1470" y2="502"/>
+    <line x1="1234" y1="524" x2="1470" y2="524"/>
+  </g>
+
+  <!-- UNCERTAIN · 5 — dotted, and bracketed. The brackets are the bound: an
+       uncertain claim still carries a position, it just also carries the
+       condition under which the position would change. Not a hedge. -->
+  <g font-family="Orbitron,sans-serif" font-size="13" letter-spacing="3.5" fill="#bfa364" opacity="0.74">
+    <text x="1226" y="566">UNCERTAIN</text>
+  </g>
+  <g stroke="#bfa364" stroke-width="1.8" stroke-opacity="0.58" stroke-dasharray="2.5 8">
+    <line x1="1244" y1="588" x2="1418" y2="588"/>
+    <line x1="1244" y1="610" x2="1418" y2="610"/>
+    <line x1="1244" y1="632" x2="1418" y2="632"/>
+    <line x1="1244" y1="654" x2="1418" y2="654"/>
+    <line x1="1244" y1="676" x2="1418" y2="676"/>
+  </g>
+  <g fill="none" stroke="#bfa364" stroke-width="1.5" stroke-opacity="0.82">
+    <path d="M1240,580 h-8 v16 h8"/><path d="M1422,580 h8 v16 h-8"/>
+    <path d="M1240,602 h-8 v16 h8"/><path d="M1422,602 h8 v16 h-8"/>
+    <path d="M1240,624 h-8 v16 h8"/><path d="M1422,624 h8 v16 h-8"/>
+    <path d="M1240,646 h-8 v16 h8"/><path d="M1422,646 h8 v16 h-8"/>
+    <path d="M1240,668 h-8 v16 h8"/><path d="M1422,668 h8 v16 h-8"/>
+  </g>
+
+  <line x1="0" y1="286" x2="1600" y2="286" stroke="url(#seam)" stroke-width="1"/>
+  <line x1="0" y1="700" x2="1600" y2="700" stroke="url(#seam)" stroke-width="0.7"/>
+
+  <g transform="translate(120,398)" font-family="Orbitron,sans-serif" fill="#00d4ff" opacity="0.85">
+    <text font-size="14" letter-spacing="4">PRAXIS NO. 05</text>
+  </g>
+  <g transform="translate(120,458)" font-family="Orbitron,sans-serif" fill="#e4e6eb">
+    <text font-size="50" font-weight="700" letter-spacing="2">SIGNAL WITHOUT</text>
+    <text x="0" y="68" font-size="50" font-weight="700" letter-spacing="2">NOISE</text>
+  </g>
+  <g transform="translate(120,592)" font-family="Orbitron,sans-serif" fill="#bfa364" opacity="0.8">
+    <text font-size="20" letter-spacing="3">FIELD OBSERVATION / MAY 2026</text>
+  </g>
+</svg>

@@ -242,7 +242,7 @@ for (const [num, holders] of claimedNumbers) {
  * real number rather than `> 0` so that losing one published article is also
  * caught, not just losing all of them. Raise it as articles are published.
  */
-const MIN_PRAXIS_ARTICLES = 4;
+const MIN_PRAXIS_ARTICLES = 5;
 if (checked < MIN_PRAXIS_ARTICLES) {
   console.error(
     `[check-praxis-layout] FAIL — inspected ${pages.length} page(s) under dist/praxis/ ` +

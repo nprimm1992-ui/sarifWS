@@ -16,32 +16,47 @@ brief for the specific article(s) you want written.
 | `one-operator-one-intelligence-layer` | **published** | ~1,150 words — real |
 | `pipelines-move-forward-systems-circulate` | **published** | ~1,240 words — real |
 | `the-conductor-is-the-coherence-layer` | **published** | ~1,270 words — real |
-| `coherence-decay-in-teams` | draft | 73 words — **placeholder** |
-| `forensic-depth-in-policy-work` | draft | 73 words — **placeholder** |
-| `intelligence-substrate-economics` | draft | 73 words — **placeholder** |
-| `jensen-as-operational-memory` | draft | 73 words — **placeholder** |
-| `metabolic-knowledge-graphs` | draft | 73 words — **placeholder** |
-| `production-grade-strategic-material` | draft | 73 words — **placeholder** |
-| `trace-as-audit-infrastructure` | draft | 73 words — **placeholder** |
-| `ucim-field-notes` | draft | 73 words — **placeholder** |
+| `signal-without-noise` | **published** | ~1,190 words — real |
 
-Four articles are now real. `signal-without-noise` was replaced by
-`pipelines-move-forward-systems-circulate` (No. 03) and
-`the-briefing-as-interface` by `the-conductor-is-the-coherence-layer` (No. 04);
-both placeholders were deleted rather than left as dead slugs.
+**The corpus is now five real articles and nothing else.** Every placeholder
+has been retired.
 
-**Critical:** the remaining eight "placeholder" files were scaffold-generated
-with an identical body to trip a 12-article threshold that no longer exists —
-the Ask Praxis feature that needed it has been removed. They are no longer
-strictly byte-identical (frontmatter differs per slug), but the bodies are
-still interchangeable filler. So:
+Three were retired by being *written over*, so the slug carried an article
+instead of becoming a dead link: `signal-without-noise` →
+`pipelines-move-forward-systems-circulate` (No. 03), `the-briefing-as-interface`
+→ `the-conductor-is-the-coherence-layer` (No. 04), and `coherence-decay-in-teams`
+→ a genuine `signal-without-noise` (No. 05), reclaiming the original slug for
+the article it was always meant to carry.
 
-- There is **no reason to keep all nine.** Delete the ones you won't write.
-- Only `draft: false` articles appear on `/praxis/`. Today that's **2**.
-- `signal-without-noise` is genuinely started; treat it differently from the nine.
+The remaining **seven were deleted outright** — `forensic-depth-in-policy-work`,
+`intelligence-substrate-economics`, `jensen-as-operational-memory`,
+`metabolic-knowledge-graphs`, `production-grade-strategic-material`,
+`trace-as-audit-infrastructure`, `ucim-field-notes`. They were
+scaffold-generated with interchangeable 73-word bodies to trip a 12-article
+threshold that no longer exists (the Ask Praxis feature that needed it was
+removed). Keeping them would have meant shipping filler to satisfy a
+requirement that had already been deleted.
+
+### Writing a new article — there is no stub to fill
+
+Because every placeholder is gone, a new article is a **new file**, and you own
+three things the scaffold used to pre-fill:
+
+1. **The number.** Take the next unused one. `classification` is the authored
+   source of truth for the reference number rendered on three surfaces, and
+   `check-praxis-layout.mjs` enforces agreement and uniqueness — it does **not**
+   enforce contiguity, so a gap is legal but pointless.
+2. **The hero image.** `heroImage` is `image()` in the schema, so a missing or
+   misspelled path is a hard build failure, not a warning. Author a real card;
+   the five shipping ones are the fidelity bar.
+3. **`MIN_PRAXIS_ARTICLES` in `scripts/check-praxis-layout.mjs`** — raise it.
+   It is a graduated coverage floor: if it stays behind the true count, the
+   gate can pass while measuring fewer articles than exist.
 
 Recommended posture: **4–6 excellent articles, not 12 thin ones.** The firm's
-own thesis argues against padding.
+own thesis argues against padding, and a corpus that advertises "every claim
+carries its trace" cannot ship pages that carry nothing. At five, the corpus is
+inside that band; write No. 06 because it has something to say.
 
 ---
 
@@ -88,11 +103,34 @@ These are free-text in the schema, but `/praxis/` builds its filter UI from the
 distinct values present. **Inventing new ones fragments the filters**, so reuse
 unless you intend a new facet.
 
-- **`lens`** — `Methodology`, `Trace`, `Operational Rigor`
-  *(the nine placeholders also use `UCIM`, `Jensen`, `Briefing`,
-  `Coherence Decay`, `Epistemic Mode`, `Metabolic Knowledge` — those disappear
-  if you delete those files)*
-- **`horizon`** — `Near-term`, `Mid-term`, `Long-term`
+- **`lens`** — **effectively a closed vocabulary: the nine lexicon term names,
+  plus `Methodology`.** In use on published articles: `Methodology`, `Trace`,
+  `Epistemic Mode`. Placeholders also carry `UCIM`, `Jensen`,
+  `Coherence Decay`, `Metabolic Knowledge` — those disappear if you delete
+  those files.
+
+  > **`Operational Rigor` is NOT a valid lens.** This line previously listed it
+  > and a No. 05 draft was authored against it. It is not a lexicon term and no
+  > article has ever shipped with it. `lens` feeds the `/praxis/` facet bar
+  > directly (`praxis.astro:17`), so an off-vocabulary value paints a filter
+  > pill matching exactly one article. If the lens you want isn't a lexicon
+  > term, that is a signal the *lexicon* needs the entry first.
+
+- **`classification` suffix** — a closed **two**-value set: `Methodology` and
+  `Field Observation`. The pairing is mechanical, not editorial:
+
+  | `lens` | suffix |
+  |---|---|
+  | `Methodology` | `Methodology` |
+  | anything else | `Field Observation` |
+
+  So No. 01 (`lens: Trace`) and No. 05 (`lens: Epistemic Mode`) both take
+  `Field Observation`; No. 02–04 take `Methodology`. **Do not mirror a
+  non-Methodology lens into the suffix** — it renders in the article eyebrow
+  and would introduce a third category that nothing else shares.
+
+- **`horizon`** — `Near-term`, `Mid-term`, `Long-term` *(not faceted, so a new
+  value here is low-risk — unlike `lens` and `tags`, which are)*
 - **`phase`** — `Draft`, `Published` *(keep in sync with the `draft:` boolean —
   `phase: "Published"` + `draft: true` is contradictory)*
 - **`tags`** in use — `Methodology`, `Systems`, `UCIM`, `Field Observation`,
@@ -223,8 +261,17 @@ possible". Not "Introduction" / "Conclusion".
 **Rhythm:** long analytical paragraph, then a short flat sentence as a landing.
 > "That constraint broke."
 
-**Evidence:** cite concrete engagement figures — `$106M`, `41%`, `87-page`,
-`ten days`, `$73.7B`. Anchor to a specific engagement where possible
+**Evidence:** cite concrete engagement figures — `$106M`, `41%`, `ten days`,
+`73-assumption register`, `$52.1M`. Anchor to a specific engagement where possible
+
+> ⚠️ **Every figure must exist in a dossier.** This line previously offered
+> `87-page` and `$73.7B` as examples. Neither appears in any engagement JSON:
+> `87-page` described a "forensic regulatory teardown" that does not exist
+> (`eng-003` is the regulatory work — five nodes, two OSB opinions, a 17-slide
+> deck), and `eng-004` cites `$206B` and `$868B`, never `$73.7B`. Both were
+> published in Praxis No. 01, one was repeated in No. 03, and both were being
+> taught here. `scripts/check-praxis-claims.mjs` now gates this class of claim;
+> if you invent a figure to make a sentence land, the build will stop you
 ("Engagement 001, post-vote audit"). Surface the number in a `<Stat>`.
 
 **Stance:** structural, not promotional. Sarif describes architecture and
@@ -266,7 +313,7 @@ command palette. Leave it alone.
 ## 8. Verify before you hand back
 
 ```bash
-npm run build          # Zod schema + 13 postbuild sentinels (12 gating, 1 warns)
+npm run build          # Zod schema + 15 postbuild steps (13 gating, 1 warns, 1 injector)
 npm run check:types    # expect 0 errors 0 warnings
 npx playwright test    # expect 0 failures
 ```

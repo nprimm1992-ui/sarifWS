@@ -7,7 +7,7 @@ language, the imagery and linking rules, and the exact commands that verify the
 work.
 
 **Repo:** `nprimm1992-ui/sarifWS` · **Content root:** `src/content/engagements/`
-**Last verified against:** build of 21 pages, 13 postbuild steps green (12 gating
+**Last verified against:** build of 24 pages, 15 postbuild steps green (13 gating
 sentinels + the CSP hash injector), 0 type errors, 47 E2E passed.
 
 ---
@@ -37,13 +37,13 @@ One file drives both. There is no separate card copy.
 | `eng-003` | 003 | Regulated Voice Architecture | Legal services | `legal` | `5 nodes` | 3 | 3 | yes | — |
 | `eng-004` | 004 | Retreat-First Transformation | Founder strategy | `founder` | `$868B` | 2 | 4 | yes | — |
 | `eng-005` | 005 | Survival to Stability | Education | `education` | `$243K–$473K` | 2 | 5 | yes | — |
-| `eng-006` | 006 | Real-Time 3D Web Environment | Design | `digital` | `24 routes` | 3 | 6 | yes | — |
+| `eng-006` | 006 | Real-Time 3D Web Environment | Design | `digital` | `25 routes` | 3 | 6 | yes | — |
 
 Log-entry counts run 4–8 (`eng-002` has 4, `eng-005` has 8). All six sectors are
 distinct, which is why the derived index copy reads "six sectors".
 
 > ⚠️ **Client-data clearance.** `eng-001` cites `$106M` and "a major metropolitan
-> area faced a systemic crisis"; `eng-004` cites `$73.7B` and a named market size.
+> area faced a systemic crisis"; `eng-004` cites `$206B` and `$868B` market sizes.
 > If these describe real clients, confirm the figures and identifying details are
 > cleared for public use **before** amplifying them in a rewrite. Anonymising
 > upward ("a major metropolitan area") is safer than specifying downward.
@@ -265,7 +265,12 @@ the hall gives the walk visible rhythm. Avoid three consecutive gold entries.
 ### `statValue` / `statLabel` — the headline metric
 `statValue` renders at `clamp(2rem, 4vw, 2.8rem)` with an accent glow inside the
 sticky plaque (max 380px wide). Keep it **short** — 2–7 characters is the safe
-band (`$106M`, `48hrs`, `87`, `$73.7B`).
+band (`$106M`, `5 nodes`, `$179.3M`).
+
+> This line previously offered `87` and `$73.7B` as examples. Neither figure
+> exists in any dossier — they were length illustrations that read as real
+> engagement data, and both ended up published in Praxis No. 01 on that basis.
+> Use figures that actually ship.
 
 The longest value currently shipping is `eng-005`'s `$243K–$473K` (11 chars).
 It fits, but it is the practical ceiling: at ~12+ characters the value starts
@@ -615,7 +620,7 @@ manufactures phantom defects.
 
 ---
 
-# All 13 postbuild steps — 12 gating sentinels plus the CSP hash injector.
+# All 15 postbuild steps — 13 gating sentinels, 1 warn-only, plus the CSP hash injector.
 # NOTE the distinction: `inject-csp-hashes` is a STEP, not a GATE. It rewrites
 # _headers; it never refuses a bad build. eng-006 claims "Ten build
 # sentinels" and check-self-claims derives that number from this very script,
