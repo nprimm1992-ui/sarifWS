@@ -1,82 +1,50 @@
 ---
 import Base from '../layouts/Base.astro';
+import {
+  LANES,
+  DELIVERABLES,
+  FEE_POSTURE,
+  COST_LABEL,
+  SCOPE_PARAM,
+  deliverablesForLane,
+  priceLabel,
+  tierLabel,
+} from '../lib/service-catalogue';
 
-const lanes = [
-  {
-    id: 'strategic-intelligence',
-    title: 'Strategic Intelligence',
-    summary: 'Complete strategic architectures for organizations at every level.',
-    capabilities: [
-      'Strategic blueprints and transformation architectures',
-      'Market research and competitive landscape analysis',
-      'Financial modeling, projection and scenario analysis',
-      'Operational systems design and hidden-cost quantification',
-      'Implementation roadmaps with week-by-week execution specificity',
-      'Metrics dashboards with decision triggers and scenario protocols',
-      'Risk management frameworks',
-      'Policy playbooks and advocacy documents',
-      'Forensic document and regulatory analysis',
-      'Grant strategy and institutional development',
-      'Due diligence research packages',
-    ],
-    timeline: '7-21 days depending on scope',
-    starting: '$5,000',
-  },
-  {
-    id: 'digital-production',
-    title: 'Digital Production',
-    summary: 'Engineered digital environments and interactive experiences.',
-    capabilities: [
-      'Immersive web platforms and applications',
-      'Interactive dashboards and data visualization',
-      '3D modeling and spatial design',
-      'Personal and organizational digital twins',
-      'Product visualization and concept rendering',
-      'Interactive presentations and experiential design',
-      'WebGL and Three.js environments',
-      'Performance-optimized responsive architecture',
-    ],
-    timeline: '7-28 days depending on scope',
-    starting: '$5,000',
-  },
-  {
-    id: 'brand-positioning',
-    title: 'Brand & Positioning',
-    summary: 'Materials that reframe perception for the people who decide.',
-    capabilities: [
-      'Investor pitch decks and fundraising packages',
-      'Brand positioning and competitive framing',
-      'Campaign strategy and advocacy materials',
-      'Storyboarding and visual narrative development',
-      'Advertisement creative (digital, social, video)',
-      'One-pagers, executive briefs and leave-behinds',
-      'Competitive positioning packages',
-    ],
-    timeline: '3-10 days',
-    starting: '$2,500',
-  },
-  {
-    id: 'content-media',
-    title: 'Content & Media',
-    summary: 'Production-grade content built to compound.',
-    capabilities: [
-      'Long-form articles and thought leadership series',
-      'Podcast production (concept through distribution)',
-      'Technical documentation and white papers',
-      'Ghostwritten executive content',
-      'Media pitch packages and press materials',
-      'Video scripting and production direction',
-      'Social media content strategy and production',
-    ],
-    timeline: '3-14 days per deliverable',
-    starting: '$1,500',
-  },
-];
+/*
+ * The lane list and the priced deliverables both come from
+ * `src/lib/service-catalogue.ts`. They are deliberately NOT declared here.
+ *
+ * Two reasons, in order of severity:
+ *
+ * 1. `check-engagement-hero.mjs` (sentinel 11) asserts that every engagement
+ *    dossier's practice chip deep-links to a real `#lane-<id>` anchor on this
+ *    page. It used to learn the lane ids by regex-scanning THIS FILE for
+ *    `id: '...'`. Putting 28 priced deliverables in the same file would have
+ *    made that parser read every deliverable as a practice lane — the lane set
+ *    would have gone from 4 to 32 and the assertion would have kept passing
+ *    while measuring the wrong thing. Verified empirically before this page was
+ *    written, not assumed. The sentinel now imports the catalogue directly, so
+ *    there is exactly one definition of "the lanes" in the repository.
+ *
+ * 2. Prices appear on this page, in the scope summary, in the brief that
+ *    reaches the inbox, and in the contact page's confirmation block. Four
+ *    surfaces quoting one rate card must quote the same rate card.
+ *
+ * The `#lane-<id>` anchor template below is load-bearing. Sentinel 11 reads the
+ * prefix out of it rather than assuming it, because the original bug here was
+ * chips pointing at `#<id>` while the page emitted `#lane-<id>`: a 200 response,
+ * a fragment matching nothing, and nothing anywhere reporting a problem.
+ */
+const lanes = LANES.map((lane) => ({
+  ...lane,
+  deliverables: deliverablesForLane(lane.id),
+}));
 ---
 
 <Base
   title="Services — Sarif Consulting"
-  description="Four practice areas. One methodology. Strategic intelligence, digital production, brand positioning and content — produced through AI meta-orchestration."
+  description="Four practice areas, twenty-eight fixed-fee deliverables with published floors. Assemble a scope and send it in as a briefing request."
 >
   <!-- Page Header -->
   <section class="services-hero section" aria-labelledby="services-heading">
@@ -89,59 +57,501 @@ const lanes = [
         <span class="services-intro__lead sarif-gold-cap-line">Four practice areas. One methodology.</span>
         Every engagement is produced through the same AI meta-orchestration framework. The output type changes. The traceable depth does not.
       </p>
+      <p class="services-posture reveal-on-scroll">{FEE_POSTURE}</p>
     </div>
   </section>
 
-  <!-- Service Lanes -->
+  <!--
+    Service Lanes — a real GET form, not a JavaScript widget.
+
+    The whole selection surface is `<form method="get" action="/contact/">`
+    wrapping native `<input type="checkbox" name="scope">` controls. That is a
+    deliberate architectural choice, not a fallback:
+
+      - Checkbox semantics, keyboard operation, focus order and screen-reader
+        announcement come from the platform instead of from script that would
+        have to re-implement all four and would get one of them wrong.
+      - With scripting off the form still submits and still carries the whole
+        selection to /contact/ as `?scope=a&scope=b`. The page degrades to
+        *slower*, never to *broken*.
+      - `astro.config.mjs` is `output: 'static'`, so there is no server-side
+        session to hold a selection anyway. Putting it in the URL turns that
+        constraint into a feature: an assembled scope is a link, so it can be
+        shared with a colleague or returned to later.
+
+    Progressive enhancement rewrites the submitted value to the site's canonical
+    pipe shape (`?scope=a|b`, the same convention praxis.astro uses for
+    `?lens=a|b`) and mirrors it to sessionStorage. `decodeScopeFromParams`
+    accepts both shapes so the two paths cannot diverge.
+  -->
   <section class="lanes section" aria-label="Service details">
     <div class="container">
-      <div class="lanes-grid" data-reveal-group>
-        {lanes.map((lane) => (
-          <details
-            class="lane panel-frost-base panel-dossier panel-dossier--interactive"
-            data-reveal-item
-            id={`lane-${lane.id}`}
-            data-lobby-subpose="services-deep"
-          >
-            <summary class="lane-summary">
-              <div class="lane-header">
-                <h2 class="lane-title ui-eyebrow">{lane.title}</h2>
-                <p class="lane-desc">{lane.summary}</p>
-              </div>
-              <span class="lane-toggle" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <line x1="8" y1="2" x2="8" y2="14" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" class="lane-toggle-vert" />
-                  <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" />
-                </svg>
-              </span>
-            </summary>
-            <div class="lane-content">
-              <div class="lane-capabilities">
-                <h2 class="lane-section-title">Capabilities</h2>
-                <ul class="lane-list">
-                  {lane.capabilities.map((cap) => (
-                    <li class="lane-list-item sarif-gold-cap-line">{cap}</li>
-                  ))}
-                </ul>
-              </div>
-              <div class="lane-meta">
-                <div class="lane-meta-item">
-                  <span class="lane-meta-label">Typical Timeline</span>
-                  <span class="lane-meta-value">{lane.timeline}</span>
+      <form
+        class="scope-form"
+        id="scope-form"
+        method="get"
+        action="/contact/"
+        data-scope-param={SCOPE_PARAM}
+      >
+        <div class="lanes-grid" data-reveal-group>
+          {lanes.map((lane) => (
+            <details
+              class="lane panel-frost-base panel-dossier panel-dossier--interactive"
+              data-reveal-item
+              id={`lane-${lane.id}`}
+              data-lobby-subpose="services-deep"
+            >
+              <summary class="lane-summary">
+                <div class="lane-header">
+                  <h2 class="lane-title ui-eyebrow">{lane.title}</h2>
+                  <p class="lane-desc">{lane.summary}</p>
                 </div>
-                <div class="lane-meta-item">
-                  <span class="lane-meta-label">Starting At</span>
-                  <span class="lane-meta-value lane-meta-value--gold">{lane.starting}</span>
+                <span class="lane-summary__aside">
+                  <!-- Per-lane selected count. Hidden until non-zero so the
+                       resting page carries no zeroes, and aria-live keeps a
+                       screen-reader user informed when they select inside a
+                       lane and then collapse it. -->
+                  <span
+                    class="lane-count"
+                    data-lane-count={lane.id}
+                    hidden
+                    aria-live="polite"
+                  ></span>
+                  <span class="lane-toggle" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <line x1="8" y1="2" x2="8" y2="14" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" class="lane-toggle-vert" />
+                      <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" />
+                    </svg>
+                  </span>
+                </span>
+              </summary>
+              <div class="lane-content">
+                <fieldset class="lane-deliverables">
+                  <legend class="lane-section-title">Deliverables</legend>
+                  <ul class="deliverable-list">
+                    {lane.deliverables.map((d) => (
+                      <li class="deliverable">
+                        <!-- The label wraps the control, so the entire card is
+                             the hit target with no `for`/`id` pair to keep in
+                             sync and no click handler to intercept. -->
+                        <label class="deliverable__label">
+                          <input
+                            type="checkbox"
+                            class="deliverable__check"
+                            name={SCOPE_PARAM}
+                            value={d.sku}
+                            data-lane={d.lane}
+                            data-price={d.kind === 'quote' ? '0' : String(d.from)}
+                            data-kind={d.kind}
+                          />
+                          <span class="deliverable__box" aria-hidden="true">
+                            <svg viewBox="0 0 12 12" width="12" height="12" fill="none">
+                              <path d="M2.5 6.2 L4.8 8.5 L9.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" />
+                            </svg>
+                          </span>
+                          <span class="deliverable__body">
+                            <span class="deliverable__head">
+                              <span class="deliverable__title">{d.title}</span>
+                              <span
+                                class:list={[
+                                  'deliverable__price',
+                                  d.kind === 'quote' && 'deliverable__price--quote',
+                                ]}
+                              >{priceLabel(d)}</span>
+                            </span>
+                            <span class="deliverable__desc">{d.desc}</span>
+                            {tierLabel(d) && (
+                              <span class="deliverable__tiers">{tierLabel(d)}</span>
+                            )}
+                          </span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </fieldset>
+                <div class="lane-meta">
+                  <div class="lane-meta-item">
+                    <span class="lane-meta-label">Typical Timeline</span>
+                    <span class="lane-meta-value">{lane.timeline}</span>
+                  </div>
                 </div>
               </div>
-              <a href="/contact/" class="btn-primary cyan-gold-label btn-cta-hero-footprint"><span class="sarif-hover-sheen">Request Briefing</span></a>
+            </details>
+          ))}
+        </div>
+
+        <!--
+          Scope summary.
+
+          Presented as an ESTIMATE, never a total and never a cart. The prices
+          on the rate card are entry points for a defined scope; presenting a
+          sum as though it were an invoice would convert an estimate into a
+          promise the practice has not made. The quote-only count is surfaced
+          next to the number rather than folded into it, because an estimate
+          that silently omits two unpriced deliverables is a number that lies
+          by omission.
+
+          On wording: the reader sees "Estimated cost". The internal field is
+          still `floor`, because arithmetically that is what it is — the sum of
+          published entry prices. Reader copy optimises for being understood on
+          first read; identifiers optimise for being precise. Those are
+          different jobs and they are allowed to disagree.
+
+          Rendered server-side in its empty state with `data-scope-empty`, so
+          there is no flash of a populated summary and no layout shift.
+        -->
+        <aside
+          class="scope-summary panel-frost-base"
+          id="scope-summary"
+          data-scope-empty
+          aria-labelledby="scope-summary-heading"
+        >
+          <h2 id="scope-summary-heading" class="scope-summary__heading ui-eyebrow">Your Scope</h2>
+
+          <p class="scope-summary__empty" data-scope-empty-copy>
+            Select the deliverables you need. Nothing is billed here — you are assembling a scope for a briefing request.
+          </p>
+
+          <div class="scope-summary__body" data-scope-body hidden>
+            <!--
+              The summary rows are rendered here, at build time, one per
+              catalogue deliverable, and the script only toggles `hidden`.
+
+              WHY NOT createElement IN THE SCRIPT (the first implementation):
+              Astro scopes a component's style block by compiling every selector
+              against a `data-astro-cid-*` attribute it stamps onto the markup
+              it emits. Nodes built in the browser with `createElement` carry no
+              such attribute, so every scoped rule silently fails to match them.
+              The result rendered as `display: list-item` and `gap: normal`
+              instead of `flex` / `6px`, which ran the title and the price
+              together into "AI-Augmented Operations LayerContact for pricing".
+              Markup correct, CSS correct, render wrong — caught by looking at
+              the page, not by reading the source.
+
+              Rendering the rows server-side puts the scope attribute on them by
+              construction, so this failure mode cannot recur. It also means the
+              summary needs no client-side templating at all: the whole rate
+              card is already in the DOM, and selection is a visibility
+              question. 28 hidden rows cost about a kilobyte before gzip.
+            -->
+            <ul class="scope-summary__list" id="scope-summary-list">
+              {DELIVERABLES.map((d) => (
+                <li class="scope-summary__item" data-scope-row={d.sku} hidden>
+                  <span class="scope-summary__item-title">{d.title}</span>
+                  <span class="scope-summary__item-price">{priceLabel(d)}</span>
+                </li>
+              ))}
+            </ul>
+            <div class="scope-summary__figures">
+              <span class="scope-summary__figure-label">{COST_LABEL}</span>
+              <span class="scope-summary__figure-value lane-meta-value--gold" id="scope-floor">$0</span>
+              <span class="scope-summary__figure-note" id="scope-quote-note" hidden></span>
             </div>
-          </details>
-        ))}
-      </div>
+            <p class="scope-summary__caveat">
+              An estimate, not a quote. Final fee is fixed in writing once scope is defined.
+            </p>
+          </div>
+
+          <div class="scope-summary__actions">
+            <!--
+              A real submit button. With JS off this performs the native GET to
+              /contact/ carrying every checked box. With JS on the submit
+              handler rewrites the query to the canonical pipe shape first.
+            -->
+            <button type="submit" class="btn-primary cyan-gold-label btn-cta-hero-footprint scope-summary__submit">
+              <span class="sarif-hover-sheen" data-scope-cta-label>Request Briefing</span>
+            </button>
+            <button type="reset" class="scope-summary__clear" data-scope-clear hidden>
+              Clear scope
+            </button>
+          </div>
+
+          <p class="scope-summary__note">
+            Not sure what you need? Send the situation instead — the scope gets defined in the briefing.
+          </p>
+
+          <!-- Screen-reader channel for selection changes. The visible list is
+               not aria-live: announcing a re-rendered list on every keystroke
+               of navigation would be noise rather than information. -->
+          <div class="visually-hidden" aria-live="polite" data-scope-live></div>
+        </aside>
+      </form>
     </div>
   </section>
 </Base>
+
+<script>
+  import {
+    DELIVERABLES,
+    COST_LABEL,
+    SCOPE_PARAM,
+    encodeScope,
+    decodeScopeFromParams,
+    findDeliverable,
+    scopeFloor,
+    usd,
+  } from '../lib/service-catalogue';
+
+  /*
+   * Scope assembly — progressive enhancement over a working GET form.
+   *
+   * Everything here is an ENHANCEMENT. With this script absent the form still
+   * submits every checked box to /contact/ and the contact page still decodes
+   * it (`decodeScopeFromParams` accepts the native repeated-param shape). What
+   * the script adds:
+   *
+   *   1. A live summary — running floor, quote-only count, per-lane counts.
+   *   2. URL sync, so an assembled scope is a shareable link and a reload or a
+   *      back-navigation does not lose the selection.
+   *   3. Canonical pipe encoding on submit, matching praxis.astro's `?lens=a|b`.
+   *   4. sessionStorage mirroring, so a hop to another page and back survives.
+   *
+   * `sessionStorage` is a MIRROR, never the source of truth. The URL wins on
+   * every read. A stale selection resurrected from storage over an explicit
+   * link would silently contradict what the user asked for.
+   */
+
+  const STORAGE_KEY = 'sarif:scope';
+
+  function readStoredScope() {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      return typeof raw === 'string' && raw.length > 0 && raw.length <= 2048
+        ? raw
+        : '';
+    } catch {
+      /* Private browsing / quota / disabled storage. The URL still works. */
+      return '';
+    }
+  }
+
+  function writeStoredScope(value) {
+    try {
+      if (value) sessionStorage.setItem(STORAGE_KEY, value);
+      else sessionStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* Non-fatal: storage is a convenience, the URL is authoritative. */
+    }
+  }
+
+  function initScopeForm() {
+    const form = document.getElementById('scope-form');
+    if (!(form instanceof HTMLFormElement)) return;
+    /* ClientRouter can re-run this on soft-nav back onto a cached DOM whose
+       handlers are already bound. Re-binding would double every listener. */
+    if (form.dataset.scopeBound === '1') return;
+    form.dataset.scopeBound = '1';
+
+    /* Narrowed with a type predicate rather than a cast, for two reasons.
+     *
+     * First, correctness: an Astro component's `<script>` block is compiled as
+     * TypeScript, and TypeScript does not honour JSDoc `@type` casts — those
+     * apply only in `.js` files. A `/** @type {HTMLInputElement[]} *\/` here
+     * reads like a guarantee and is inert prose; `astro check` reported four
+     * `Property 'checked' does not exist on type 'Element'` errors against
+     * exactly the lines that trusted it.
+     *
+     * Second, honesty: `querySelectorAll<HTMLInputElement>(…)` would silence
+     * the checker just as well, but it is an unchecked assertion of the same
+     * kind — correct today only because the selector says `input`. The filter
+     * below is verified at runtime, so it stays true if the selector is ever
+     * widened. `boxes.length === 0` then covers both "no checkboxes rendered"
+     * and "nothing survived narrowing" with one early return. */
+    const boxes = [
+      ...form.querySelectorAll(`input[type="checkbox"][name="${SCOPE_PARAM}"]`),
+    ].filter((el): el is HTMLInputElement => el instanceof HTMLInputElement);
+    if (boxes.length === 0) return;
+
+    const summary = document.getElementById('scope-summary');
+    const listEl = document.getElementById('scope-summary-list');
+    const floorEl = document.getElementById('scope-floor');
+    const quoteNoteEl = document.getElementById('scope-quote-note');
+    const bodyEl = form.querySelector('[data-scope-body]');
+    const emptyCopyEl = form.querySelector('[data-scope-empty-copy]');
+    const clearBtn = form.querySelector('[data-scope-clear]');
+    const ctaLabelEl = form.querySelector('[data-scope-cta-label]');
+    const liveEl = form.querySelector('[data-scope-live]');
+
+    /** Currently checked skus, in catalogue order. */
+    function selectedSkus() {
+      const checked = new Set(boxes.filter((b) => b.checked).map((b) => b.value));
+      return DELIVERABLES.filter((d) => checked.has(d.sku)).map((d) => d.sku);
+    }
+
+    function renderLaneCounts(skus) {
+      const perLane = new Map();
+      for (const sku of skus) {
+        const d = findDeliverable(sku);
+        if (!d) continue;
+        perLane.set(d.lane, (perLane.get(d.lane) || 0) + 1);
+      }
+      form.querySelectorAll('[data-lane-count]').forEach((el) => {
+        if (!(el instanceof HTMLElement)) return;
+        const n = perLane.get(el.dataset.laneCount) || 0;
+        if (n === 0) {
+          el.hidden = true;
+          el.textContent = '';
+        } else {
+          el.hidden = false;
+          el.textContent = `${n} selected`;
+        }
+      });
+    }
+
+    function render() {
+      const skus = selectedSkus();
+      const items = skus.map(findDeliverable).filter(Boolean);
+      const { floor, quoteCount, count } = scopeFloor(items);
+
+      /* Empty vs populated is a single attribute so CSS owns the presentation
+         and this function owns only the data. */
+      if (summary instanceof HTMLElement) {
+        if (count === 0) summary.setAttribute('data-scope-empty', '');
+        else summary.removeAttribute('data-scope-empty');
+      }
+      if (bodyEl instanceof HTMLElement) bodyEl.hidden = count === 0;
+      if (emptyCopyEl instanceof HTMLElement) emptyCopyEl.hidden = count > 0;
+      if (clearBtn instanceof HTMLElement) clearBtn.hidden = count === 0;
+
+      /* Every catalogue row is already in the DOM, rendered at build time
+         with Astro's scope attribute on it. Selection is therefore a
+         visibility question, not a templating one — no createElement, no
+         innerHTML, and no way for a browser-built node to miss the scoped
+         CSS the way the first implementation did. */
+      if (listEl instanceof HTMLElement) {
+        const chosen = new Set(skus);
+        listEl.querySelectorAll('[data-scope-row]').forEach((row) => {
+          if (row instanceof HTMLElement) {
+            row.hidden = !chosen.has(row.dataset.scopeRow);
+          }
+        });
+      }
+
+      if (floorEl instanceof HTMLElement) floorEl.textContent = usd(floor);
+
+      if (quoteNoteEl instanceof HTMLElement) {
+        if (quoteCount > 0) {
+          quoteNoteEl.hidden = false;
+          quoteNoteEl.textContent =
+            `plus ${quoteCount} quoted on scope`;
+        } else {
+          quoteNoteEl.hidden = true;
+          quoteNoteEl.textContent = '';
+        }
+      }
+
+      if (ctaLabelEl instanceof HTMLElement) {
+        ctaLabelEl.textContent =
+          count === 0
+            ? 'Request Briefing'
+            : `Request Briefing · ${count} item${count === 1 ? '' : 's'}`;
+      }
+
+      renderLaneCounts(skus);
+
+      if (liveEl instanceof HTMLElement) {
+        liveEl.textContent =
+          count === 0
+            ? 'Scope cleared.'
+            : `${count} deliverable${count === 1 ? '' : 's'} selected. ` +
+              `${COST_LABEL} ${usd(floor)}` +
+              (quoteCount > 0 ? `, plus ${quoteCount} quoted on scope.` : '.');
+      }
+
+      syncUrl(skus);
+    }
+
+    /* Mirror the selection into the address bar with replaceState — the
+       selection is a refinement of the current view, not a new history entry.
+       pushState here would make Back step through every checkbox click. */
+    function syncUrl(skus) {
+      const encoded = encodeScope(skus);
+      writeStoredScope(encoded);
+      try {
+        const url = new URL(window.location.href);
+        if (encoded) url.searchParams.set(SCOPE_PARAM, encoded);
+        else url.searchParams.delete(SCOPE_PARAM);
+        window.history.replaceState(window.history.state, '', url);
+      } catch {
+        /* A failed URL sync must not break selection. */
+      }
+    }
+
+    /* ── Restore ────────────────────────────────────────────────────────
+       URL first (authoritative, and it is what a shared link carries),
+       sessionStorage only as a fallback for a same-tab hop that lost the
+       query. Opens any lane that contains a restored selection, so a
+       restored scope is visible rather than hidden behind a closed
+       <details> the user never opened. */
+    function restore() {
+      let params;
+      try {
+        params = new URL(window.location.href).searchParams;
+      } catch {
+        params = new URLSearchParams();
+      }
+      let items = decodeScopeFromParams(params);
+      if (items.length === 0) {
+        const stored = readStoredScope();
+        if (stored) {
+          items = decodeScopeFromParams(
+            new URLSearchParams([[SCOPE_PARAM, stored]]),
+          );
+        }
+      }
+      if (items.length === 0) return false;
+      const wanted = new Set(items.map((d) => d.sku));
+      for (const b of boxes) {
+        if (wanted.has(b.value)) b.checked = true;
+      }
+      for (const d of items) {
+        const lane = document.getElementById(`lane-${d.lane}`);
+        if (lane instanceof HTMLDetailsElement) lane.open = true;
+      }
+      return true;
+    }
+
+    /* ── Submit ─────────────────────────────────────────────────────────
+       Rewrite to the canonical pipe shape. Without this the browser sends
+       one `scope=` param per checked box, which the contact page decodes
+       correctly but which produces a long, ugly, un-shareable URL. We
+       navigate manually so the query is exactly what we intend. */
+    form.addEventListener('submit', (event) => {
+      const skus = selectedSkus();
+      event.preventDefault();
+      const encoded = encodeScope(skus);
+      writeStoredScope(encoded);
+      const target = new URL(form.getAttribute('action') || '/contact/', window.location.href);
+      if (encoded) target.searchParams.set(SCOPE_PARAM, encoded);
+      window.location.assign(target.toString());
+    });
+
+    /* `reset` fires BEFORE the control values are cleared, so the re-render
+       has to wait a tick or it would read the pre-reset state and paint a
+       summary that disagrees with the checkboxes. */
+    form.addEventListener('reset', () => {
+      window.setTimeout(() => {
+        writeStoredScope('');
+        render();
+      }, 0);
+    });
+
+    form.addEventListener('change', (event) => {
+      const t = event.target;
+      if (t instanceof HTMLInputElement && t.name === SCOPE_PARAM) render();
+    });
+
+    restore();
+    render();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initScopeForm, { once: true });
+  } else {
+    initScopeForm();
+  }
+  document.addEventListener('astro:page-load', initScopeForm);
+</script>
 
 <style>
   .services-hero {
@@ -172,9 +582,28 @@ const lanes = [
     margin-bottom: 0.5em;
   }
 
+  /* Fee posture — the commercial promise, stated once, quoted from
+     FEE_POSTURE so this page and the rate card cannot drift apart. */
+  .services-posture {
+    font-family: var(--font-heading);
+    font-size: 0.62rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    line-height: 1.9;
+    color: var(--text-muted);
+    max-width: 46ch;
+    margin-top: 20px;
+    text-align: center;
+  }
+
   /* Lanes */
   .lanes {
     padding-top: 0;
+  }
+
+  .scope-form {
+    display: block;
   }
 
   .lanes-grid {
@@ -185,12 +614,12 @@ const lanes = [
     margin-inline: auto;
   }
 
-  /* clip-path + paint chrome come from `.panel-dossier` in global.css
-     (same `--clip-card` octagon the other dossier surfaces use).
+  /* clip-path + paint chrome come from '.panel-dossier' in global.css
+     (same '--clip-card' octagon the other dossier surfaces use).
 
-     IMPORTANT: Do not set `transform` on `.lane` — it breaks
-     `backdrop-filter` on `.btn-primary` inside `.lane-content`.
-     Reveal is opacity-only; hover / open use border + shadow only. */
+     IMPORTANT: Do not set 'transform' on '.lane' — it breaks
+     'backdrop-filter' on '.btn-primary' inside the form. Reveal is
+     opacity-only; hover / open use border + shadow only. */
   .lane {
     opacity: 0;
     transform: none;
@@ -230,9 +659,9 @@ const lanes = [
     /* Defensive wrap: lane-header (title + description) is flex:1 so
        the non-wrapping row normally works, but on 320px widths the
        description can create an intrinsic min-width that exceeds the
-       available space and pushes the 16px toggle off the right edge.
-       `flex-wrap: wrap` + `min-width: 0` on the header lets the
-       description reflow; the toggle stays vertically centred via the
+       available space and pushes the toggle off the right edge.
+       'flex-wrap: wrap' + 'min-width: 0' on the header lets the
+       description reflow; the aside stays vertically centred via the
        flex default and moves to its own row only as a last resort. */
     flex-wrap: wrap;
     row-gap: 12px;
@@ -250,8 +679,29 @@ const lanes = [
     flex: 1 1 0;
     /* min-width: 0 lets the header shrink below its intrinsic content
        width when the summary row gets cramped, so the lane-desc can
-       wrap instead of pushing the 16px toggle off-row. */
+       wrap instead of pushing the toggle off-row. */
     min-width: 0;
+  }
+
+  .lane-summary__aside {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+
+  /* Per-lane selected count — reads as an instrument readout, not a badge. */
+  .lane-count {
+    font-family: var(--font-heading);
+    font-size: 0.55rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--cyan-core);
+    white-space: nowrap;
+    padding: 4px 9px;
+    border: 1px solid rgba(0, 212, 255, 0.32);
+    background: rgba(0, 212, 255, 0.07);
   }
 
   h2.lane-title {
@@ -292,7 +742,17 @@ const lanes = [
     padding-top: 32px;
   }
 
-  h2.lane-section-title {
+  /* A real <fieldset>/<legend> for grouping semantics. Both are reset to
+     zero chrome because the surrounding panel already carries the frame. */
+  .lane-deliverables {
+    border: 0;
+    padding: 0;
+    margin: 0 0 28px;
+    min-width: 0;
+  }
+
+  .lane-section-title,
+  legend.lane-section-title {
     font-family: var(--font-heading);
     font-size: 0.65rem;
     font-weight: 600;
@@ -300,38 +760,163 @@ const lanes = [
     letter-spacing: 0.25em;
     line-height: 1.3;
     margin: 0 0 16px;
+    padding: 0;
   }
 
-  .lane-list {
+  .deliverable-list {
     list-style: none;
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px 32px;
-    margin-bottom: 32px;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
   }
 
-  /* Lane bullets: marker + inset (gold ink via global .sarif-gold-cap-line) */
-  .lane-list-item {
-    padding-left: 16px;
-    position: relative;
+  .deliverable {
+    margin: 0;
   }
 
-  .lane-list-item::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0.55em;
-    width: 4px;
-    height: 4px;
-    background: var(--gold-bright);
-    box-shadow: 0 0 6px rgba(221, 184, 61, 0.45);
-    transform: rotate(45deg);
+  /* Label wraps the input, so the whole row is the target with no
+     for/id pairing to drift and no click handler to intercept. */
+  .deliverable__label {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid rgba(0, 212, 255, 0.12);
+    background: rgba(10, 22, 32, 0.16);
+    cursor: pointer;
+    transition: border-color 0.25s ease-out, background-color 0.25s ease-out;
+  }
+
+  .deliverable__label:hover {
+    border-color: rgba(0, 212, 255, 0.34);
+    background: rgba(10, 22, 32, 0.28);
+  }
+
+  /* The native control stays in the layout, the tab order and the
+     accessibility tree — only its painting is replaced. 'appearance: none'
+     plus zero box is the modern way to do that.
+
+     WHY NOT 'position: absolute; opacity: 0' (the first implementation):
+     an absolutely-positioned transparent input is still a hit-testable box
+     floating over its own row, and it won the pointer against the visual
+     proxy it sits on top of. Driving the page proved it: a click aimed at
+     '.deliverable__box' was reported as intercepted by the input itself.
+     Clicking still toggled the box — because the label wraps both, so the
+     event lands on the right control either way — but a transparent element
+     that steals pointer events from its own sibling is a trap waiting for the
+     next person who adds anything else to this row.
+
+     Collapsing the control to a zero-size, non-painting box removes the
+     overlay entirely. The label supplies the hit area, '.deliverable__box'
+     supplies the picture, and ':checked +' / ':focus-visible +' still drive
+     it from the real control's real state — so checked state, focus ring and
+     screen-reader announcement all remain the platform's. */
+  .deliverable__check {
+    appearance: none;
+    -webkit-appearance: none;
+    position: static;
+    width: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    flex: 0 0 0;
+    /* The label already owns the gesture; taking the input out of hit
+       testing guarantees it can never intercept for its neighbours. */
+    pointer-events: none;
+  }
+
+  .deliverable__box {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    margin-top: 1px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(0, 212, 255, 0.45);
+    background: rgba(4, 12, 20, 0.5);
+    color: transparent;
+    transition: border-color 0.2s ease-out, background-color 0.2s ease-out,
+                color 0.2s ease-out;
+  }
+
+  .deliverable__check:checked + .deliverable__box {
+    border-color: var(--cyan-core);
+    background: rgba(0, 212, 255, 0.16);
+    color: var(--cyan-core);
+  }
+
+  /* Focus ring lands on the visible proxy, since the real input is
+     transparent. :focus-visible keeps it off pointer interactions. */
+  .deliverable__check:focus-visible + .deliverable__box {
+    outline: 2px solid var(--cyan-core);
+    outline-offset: 2px;
+  }
+
+  .deliverable__body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .deliverable__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .deliverable__title {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+  }
+
+  .deliverable__price {
+    font-family: var(--font-heading);
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--gold-bright);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Quote-only deliverables are visually distinct from priced ones —
+     a reader must not mistake "Contact for pricing" for a number. */
+  .deliverable__price--quote {
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+
+  .deliverable__desc {
+    font-family: var(--font-body);
+    font-size: var(--text-xs, 0.78rem);
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .deliverable__tiers {
+    font-family: var(--font-heading);
+    font-size: 0.55rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--text-muted);
   }
 
   .lane-meta {
     display: flex;
     gap: 48px;
-    margin-bottom: 32px;
     flex-wrap: wrap;
   }
 
@@ -356,7 +941,168 @@ const lanes = [
     color: var(--text-primary);
   }
 
-  /* Starting-at price: cyan sheen in global.css (.lanes .lane-meta-value--gold) */
+  /* ── Scope summary ────────────────────────────────────────────────────
+     DELIBERATELY NOT STICKY. The first implementation pinned this panel to
+     the bottom of the viewport so the running floor stayed visible while the
+     reader worked down four lanes. Two problems, found by driving the real
+     page rather than by reading the CSS:
+
+       1. It intercepted pointer events. A deliverable scrolled to the lower
+          part of the viewport sat underneath the panel and could not be
+          clicked at all — caught when an automated click on
+          'input[value="strategic-diagnostic"]' timed out with the summary's
+          submit button named as the element swallowing the event.
+       2. Worse, and not fixable by re-stacking: the panel GROWS with the
+          selection, because it lists every chosen deliverable. So the more
+          the user selected, the more of the page it covered. A floating
+          element that expands to eat the viewport, on a page whose whole
+          purpose is clicking twenty-eight checkboxes, is hostile.
+
+     In-place feedback comes from the per-lane counts in each lane header and
+     the item count on the submit button, neither of which occludes anything.
+     The panel itself sits where a form summary belongs: at the end of the
+     form, next to the button that submits it. */
+  .scope-summary {
+    max-width: 900px;
+    margin: 24px auto 0;
+    padding: 28px 32px;
+    border: 1px solid rgba(0, 212, 255, 0.24);
+  }
+
+  .scope-summary__heading {
+    margin: 0 0 14px;
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+  }
+
+  .scope-summary__empty {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin: 0 0 20px;
+    max-width: 62ch;
+  }
+
+  .scope-summary__list {
+    list-style: none;
+    margin: 0 0 18px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* ':not([hidden])' is load-bearing, not defensive tidiness. 'hidden' is
+     only a UA-stylesheet 'display: none', so a bare 'display: flex' here
+     overrides it and every unselected row renders anyway — which is exactly
+     what happened on the first pass of the contact page's twin of this list:
+     the script set 'hidden' correctly, the DOM agreed, and all 28 rows were
+     on screen. Keep the layout rule conditional. */
+  .scope-summary__item:not([hidden]) {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.09);
+  }
+
+  .scope-summary__item-title {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+
+  .scope-summary__item-price {
+    font-family: var(--font-heading);
+    font-size: 0.58rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .scope-summary__figures {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  .scope-summary__figure-label {
+    font-family: var(--font-heading);
+    font-size: 0.6rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--text-muted);
+  }
+
+  .scope-summary__figure-value {
+    font-family: var(--font-body);
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  /* The quote-only count sits beside the floor at equal reading weight.
+     Tucking it away smaller would be the omission the copy warns about. */
+  .scope-summary__figure-note {
+    font-family: var(--font-heading);
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--cyan-core);
+  }
+
+  .scope-summary__caveat,
+  .scope-summary__note {
+    font-family: var(--font-body);
+    font-size: var(--text-xs, 0.78rem);
+    color: var(--text-muted);
+    line-height: 1.65;
+    margin: 0;
+    max-width: 62ch;
+  }
+
+  .scope-summary__caveat {
+    margin-bottom: 20px;
+  }
+
+  .scope-summary__actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+
+  .scope-summary__clear {
+    font-family: var(--font-heading);
+    font-size: 0.6rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--text-muted);
+    background: none;
+    border: 0;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.28);
+    padding: 4px 0;
+    cursor: pointer;
+    transition: color 0.2s ease-out, border-color 0.2s ease-out;
+  }
+
+  .scope-summary__clear:hover,
+  .scope-summary__clear:focus-visible {
+    color: var(--cyan-core);
+    border-color: var(--cyan-core);
+  }
 
   @media (max-width: 640px) {
     .lane-summary {
@@ -367,13 +1113,47 @@ const lanes = [
       padding: 0 24px 24px;
     }
 
-    .lane-list {
-      grid-template-columns: 1fr;
-    }
-
     .lane-meta {
       gap: 24px;
     }
+
+    .deliverable__label {
+      padding: 12px 13px;
+      gap: 12px;
+    }
+
+    /* Price under the title rather than beside it: at 320px a baseline
+       row forces the title into a two-character-per-line column. */
+    .deliverable__head {
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .scope-summary__item:not([hidden]) {
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .scope-summary {
+      padding: 22px 20px;
+    }
+
+    .scope-summary__actions {
+      gap: 14px;
+    }
+  }
+
+  /* Belt and braces: whatever any rule above says, an element carrying the
+     'hidden' attribute is not displayed. 'hidden' is only a UA-stylesheet
+     'display: none', so a single author 'display' declaration defeats it —
+     which is how 26 unselected rows rendered on the first pass despite the
+     DOM correctly reporting them hidden. This makes forgetting harmless. */
+  .scope-summary__item[hidden],
+  .scope-summary__body[hidden],
+  .scope-summary__figure-note[hidden],
+  .lane-count[hidden],
+  [data-scope-clear][hidden] {
+    display: none !important;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -387,8 +1167,10 @@ const lanes = [
       transition: none;
     }
 
-    .lane-list-item::before {
-      box-shadow: none;
+    .deliverable__label,
+    .deliverable__box,
+    .scope-summary__clear {
+      transition: none;
     }
   }
 </style>

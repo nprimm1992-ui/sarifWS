@@ -56,7 +56,10 @@ const data = entry.data;
 const SERVICE_LABELS: Record<string, string> = {
   'strategic-intelligence': 'Strategic Intelligence',
   'brand-positioning': 'Brand & Positioning',
-  'digital-production': 'Digital Production',
+  /* Display title only. The id stays `digital-production` because it is load-
+     bearing across the engagements Zod enum, all six dossiers' services[] and
+     every `#lane-<id>` anchor — see LANES in src/lib/service-catalogue.ts. */
+  'digital-production': 'Digital Platforms',
   'content-media': 'Content & Media',
 };
 const services = data.services.map((id) => ({

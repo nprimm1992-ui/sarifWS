@@ -250,13 +250,53 @@ if (allSteps.size === 0) {
   );
   process.exit(1);
 }
+/*
+ * Number words, extended past the current count on purpose.
+ *
+ * This table stopped at `fourteen` and the dossier already said "Fifteen",
+ * so the regex below matched nothing, `gateWord` was null, and the assertion
+ * was SILENTLY SKIPPED. The claim happened to be true — 15 gates, 15 claimed —
+ * but it was unverified, which is the exact failure mode this file exists to
+ * prevent: a claim that CAN be checked and isn't is worse than one that can't,
+ * because the reader cannot tell the two apart.
+ *
+ * Found while adding sentinel 16, by asking what this gate would do rather
+ * than assuming it would fire. Two things changed as a result: the table now
+ * runs well past any plausible near-term count, and a claim that mentions
+ * build sentinels but does not match this table is now a FAILURE rather than
+ * a shrug (see the fail-closed branch below).
+ */
 const WORD_TO_N = {
   four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
   ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14,
+  fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+  twenty: 20, 'twenty-one': 21, 'twenty-two': 22, 'twenty-three': 23,
+  'twenty-four': 24, 'twenty-five': 25,
 };
+/* Longest-first so `twenty-one` cannot be matched as bare `twenty`. */
+const WORD_ALTERNATION = Object.keys(WORD_TO_N)
+  .sort((a, b) => b.length - a.length)
+  .join('|');
 const gateWord = prose.match(
-  new RegExp(`\\b(${Object.keys(WORD_TO_N).join('|')})\\s+build sentinels`, 'i'),
+  new RegExp(`\\b(${WORD_ALTERNATION})\\s+build sentinels`, 'i'),
 );
+/*
+ * Fail closed on an unrecognised number word. Without this, the ONLY way the
+ * dossier can stop being checked is to write a number this table does not
+ * know — which is precisely what happened at "Fifteen".
+ */
+if (!gateWord && /build sentinels/i.test(prose)) {
+  console.error(
+    `${TAG} FAIL — eng-006 claims a number of "build sentinels" that this ` +
+      `gate could not parse.\n\n    The pipeline currently runs ${gateCount} ` +
+      `gate(s). The claim is spelled as a word and matched against a table of\n` +
+      `    number words; a word outside that table makes the assertion skip ` +
+      `silently rather than\n    disagree. That is how "Fifteen" went ` +
+      `unverified for a whole release. Either spell the\n    number as a word ` +
+      `this table knows, or extend WORD_TO_N in this file.`,
+  );
+  process.exit(1);
+}
 if (gateWord) {
   const gateClaim = WORD_TO_N[gateWord[1].toLowerCase()];
   checks.push({

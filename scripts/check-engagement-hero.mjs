@@ -31,7 +31,7 @@
 
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname, resolve, extname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -745,6 +745,7 @@ for (const file of files) {
  * fail-open species that has already been found seven times in this repo.
  */
 const SERVICES_PAGE = resolve(HERE, '..', 'src', 'pages', 'services.astro');
+const CATALOGUE_MODULE = resolve(HERE, '..', 'src', 'lib', 'service-catalogue.ts');
 let pageLanes;
 if (!existsSync(SERVICES_PAGE)) {
   console.error(
@@ -754,26 +755,102 @@ if (!existsSync(SERVICES_PAGE)) {
   process.exit(1);
 }
 /*
- * The DOM id is not the lane id. services.astro renders
- * `id={`lane-${lane.id}`}`, so the anchor a chip must target is
- * `#lane-<id>`. Linking to `#<id>` produces a 200 page and a fragment
- * that matches nothing — caught here only because the prefix is read out
- * of the template instead of being assumed. Anything that changes that
- * template must change this, and the parse is fail-closed so a renamed
- * pattern is an error rather than a silent pass.
+ * ── How the lane ids are obtained, and why this changed ───────────────
+ *
+ * This block used to learn the lane ids by regex-scanning services.astro for
+ * `/^\s*id:\s*'([a-z0-9-]+)',/gm`, back when the page declared its own
+ * `lanes[]` literal. That parser was correct for exactly four lanes and
+ * catastrophically wrong for anything else: the moment a priced catalogue of
+ * 28 deliverables shared that file, every deliverable `id:` would have been
+ * read as a practice lane, the lane set would have gone from 4 to 32, and the
+ * chip-integrity assertion below would have kept reporting OK while measuring
+ * something that was not the lane set. Verified empirically before the rewrite,
+ * not assumed.
+ *
+ * The lanes now live in `src/lib/service-catalogue.ts`, so this gate imports
+ * that module and reads `LANES` directly. Importing beats parsing outright:
+ * there is no pattern to drift, no shape to change underneath the regex, and
+ * the gate is looking at the identical object the page renders from rather than
+ * at a text approximation of it.
+ *
+ * Two things are still asserted textually, because importing the catalogue only
+ * proves what the catalogue says — not what the PAGE does with it:
+ *
+ *   1. services.astro must actually import LANES from the catalogue. Without
+ *      this the page could drift back to a private lane list and the gate would
+ *      happily validate a catalogue nothing renders.
+ *   2. The anchor prefix is still read out of the `id={`lane-${lane.id}`}`
+ *      template rather than assumed. That is the check that caught the original
+ *      bug: every id was valid, the JSON was clean, the build was green, and
+ *      every chip pointed at `#<id>` while the page emitted `#lane-<id>` — a
+ *      200 response and a fragment matching nothing.
+ *
+ * Fail-closed throughout: an unreadable module, an empty lane set, a missing
+ * import or a renamed template is an error, not a skip. A silently-skipped
+ * cross-file assertion is the fail-open species this repo has now found
+ * eight times.
  */
 let anchorPrefix;
 {
   const src = readFileSync(SERVICES_PAGE, 'utf8');
-  pageLanes = [...src.matchAll(/^\s*id:\s*'([a-z0-9-]+)',/gm)].map((m) => m[1]);
-  if (pageLanes.length === 0) {
+
+  if (!existsSync(CATALOGUE_MODULE)) {
     console.error(
-      `${TAG} FAIL — parsed 0 lane ids out of services.astro. The lanes[] ` +
-        `shape changed, so this assertion silently stopped checking anything. ` +
-        `Fix the parser, do not delete the check.`,
+      `${TAG} FAIL — ${CATALOGUE_MODULE} not found. It is the single source ` +
+        `of truth for the practice lanes; without it this gate cannot tell a ` +
+        `live anchor from a dead one.`,
     );
     process.exit(1);
   }
+
+  /* Node strips the TypeScript types on import (>= 22.6). If that ever stops
+     working the import throws and we fail loudly rather than falling back to a
+     parse that might quietly disagree with the module. */
+  let LANES;
+  try {
+    ({ LANES } = await import(pathToFileURL(CATALOGUE_MODULE).href));
+  } catch (err) {
+    console.error(
+      `${TAG} FAIL — could not import ${CATALOGUE_MODULE}: ` +
+        `${err?.message ?? String(err)}\n` +
+        `  This gate reads the practice lanes from that module. Fix the ` +
+        `import, do not fall back to regex-scanning the page.`,
+    );
+    process.exit(1);
+  }
+
+  if (!Array.isArray(LANES) || LANES.length === 0) {
+    console.error(
+      `${TAG} FAIL — service-catalogue exported no LANES array. The catalogue ` +
+        `shape changed, so this assertion silently stopped checking anything. ` +
+        `Fix the reader, do not delete the check.`,
+    );
+    process.exit(1);
+  }
+
+  pageLanes = LANES.map((l) => l?.id).filter(
+    (id) => typeof id === 'string' && id.length > 0,
+  );
+  if (pageLanes.length !== LANES.length) {
+    console.error(
+      `${TAG} FAIL — ${LANES.length - pageLanes.length} of ${LANES.length} ` +
+        `catalogue lane(s) have no usable string \`id\`. Every lane id is an ` +
+        `anchor target for dossier practice chips.`,
+    );
+    process.exit(1);
+  }
+
+  /* The page must render FROM the catalogue, not from a private copy. */
+  if (!/import\s*\{[^}]*\bLANES\b[^}]*\}\s*from\s*['"][^'"]*service-catalogue['"]/s.test(src)) {
+    console.error(
+      `${TAG} FAIL — services.astro does not import \`LANES\` from ` +
+        `service-catalogue. This gate validates the catalogue's lane ids, so a ` +
+        `page rendering from its own private lane list would be unchecked ` +
+        `while this gate reported OK.`,
+    );
+    process.exit(1);
+  }
+
   const tpl = src.match(/id=\{`([a-z0-9-]*)\$\{lane\.id\}`\}/);
   if (!tpl) {
     console.error(

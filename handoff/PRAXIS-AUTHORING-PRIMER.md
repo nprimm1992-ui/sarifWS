@@ -323,7 +323,7 @@ command palette. Leave it alone.
 ## 8. Verify before you hand back
 
 ```bash
-npm run build          # Zod schema + 16 postbuild steps (14 gating, 1 warns, 1 injector)
+npm run build          # Zod schema + 17 postbuild steps (16 gating, 1 injector)
 npm run check:types    # expect 0 errors 0 warnings
 npx playwright test    # expect 0 failures
 ```
