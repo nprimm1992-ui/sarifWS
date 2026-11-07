@@ -1,7 +1,12 @@
 ---
+import { Picture } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
 import { splitStatValue } from '../lib/stat-value';
 
 export type EngagementAccent = 'policy' | 'civic' | 'venture' | 'founder' | 'education' | 'digital' | 'legal';
+
+/** Carousel cards use `preview`; the dossier page is the full exhibit. */
+export type ProofEntryVariant = 'preview' | 'full';
 
 interface Props {
   classification: string;
@@ -14,7 +19,10 @@ interface Props {
   statLabel?: string;
   leads?: string[];
   highlights?: string[];
+  heroImage?: ImageMetadata;
+  heroAlt?: string;
   accent?: EngagementAccent;
+  variant?: ProofEntryVariant;
   /** When set, renders an "Open full dossier" link to the exhibit page. */
   href?: string;
 }
@@ -30,17 +38,33 @@ const {
   statLabel,
   leads = [],
   highlights = [],
+  heroImage,
+  heroAlt,
   accent,
+  variant = 'full',
   href,
 } = Astro.props;
 
 const isDossier = highlights.length > 0 && leads.length > 0;
+const isPreview = variant === 'preview' && isDossier;
+const plateAlt = heroAlt?.trim();
+const hasPreviewPlate = isPreview && Boolean(heroImage && plateAlt && href);
+const logCountLabel =
+  highlights.length > 0 ? String(highlights.length).padStart(2, '0') : '00';
 ---
 
 <article
-  class:list={['proof-entry', 'panel-frost-base', 'panel-dossier', 'panel-dossier--interactive', className]}
+  class:list={[
+    'proof-entry',
+    'panel-frost-base',
+    'panel-dossier',
+    'panel-dossier--interactive',
+    isPreview && 'proof-entry--preview',
+    className,
+  ]}
   data-reveal-item
   data-eng-accent={accent}
+  data-proof-variant={variant}
   id={id}
 >
   <div class="proof-entry__accent" aria-hidden="true"></div>
@@ -48,58 +72,99 @@ const isDossier = highlights.length > 0 && leads.length > 0;
 
   {
     isDossier ? (
-      <>
-        {sector && <p class="proof-entry__sector sarif-gold-cap-line">{sector}</p>}
-        <h2 class="proof-entry__classification ui-eyebrow">{classification}</h2>
-        {statValue && (
-          <div class="proof-entry__stat" aria-hidden="true">
-            {/*
-              The magnitude suffix gets its own span so it can be tinted apart
-              from the digits. See src/lib/stat-value.ts for why this is a
-              render-time split and not a content or schema change: `statValue`
-              is parsed as a raw string by two build gates, so the JSON must
-              stay byte-identical. Segments always reconcatenate to the input.
-            */}
-            <span class="proof-entry__stat-value">
-              {splitStatValue(statValue).map((seg) =>
-                seg.kind === 'unit' ? (
-                  <span class="proof-entry__stat-unit">{seg.text}</span>
-                ) : (
-                  seg.text
-                ),
+      <div class="proof-entry__body">
+        {isPreview ? (
+          <div class="proof-entry__preview-head">
+            <div class="proof-entry__preview-meta">
+              {sector && <p class="proof-entry__sector sarif-gold-cap-line">{sector}</p>}
+              <h2 class="proof-entry__classification ui-eyebrow">{classification}</h2>
+              {statValue && (
+                <div class="proof-entry__stat" aria-hidden="true">
+                  <span class="proof-entry__stat-value">
+                    {splitStatValue(statValue).map((seg) =>
+                      seg.kind === 'unit' ? (
+                        <span class="proof-entry__stat-unit">{seg.text}</span>
+                      ) : (
+                        seg.text
+                      ),
+                    )}
+                  </span>
+                  {statLabel && <span class="proof-entry__stat-label">{statLabel}</span>}
+                </div>
               )}
-            </span>
-            {statLabel && <span class="proof-entry__stat-label">{statLabel}</span>}
+            </div>
+            {hasPreviewPlate && (
+              <a
+                class="proof-entry__plate-link"
+                href={href}
+                data-testid={`preview-plate-${id ?? num}`}
+                aria-label={`View dossier plate ${num}: ${plateAlt}`}
+              >
+                <figure class="proof-entry__plate">
+                  <Picture
+                    src={heroImage!}
+                    alt={plateAlt!}
+                    widths={[320, 480, 640]}
+                    sizes="(min-width: 720px) 280px, 42vw"
+                    formats={['avif', 'webp']}
+                    fallbackFormat="webp"
+                    loading="lazy"
+                    decoding="async"
+                  pictureAttributes={{ class: 'proof-entry__plate-picture' }}
+                />
+              </figure>
+              </a>
+            )}
           </div>
+        ) : (
+          <>
+            {sector && <p class="proof-entry__sector sarif-gold-cap-line">{sector}</p>}
+            <h2 class="proof-entry__classification ui-eyebrow">{classification}</h2>
+            {statValue && (
+              <div class="proof-entry__stat" aria-hidden="true">
+                <span class="proof-entry__stat-value">
+                  {splitStatValue(statValue).map((seg) =>
+                    seg.kind === 'unit' ? (
+                      <span class="proof-entry__stat-unit">{seg.text}</span>
+                    ) : (
+                      seg.text
+                    ),
+                  )}
+                </span>
+                {statLabel && <span class="proof-entry__stat-label">{statLabel}</span>}
+              </div>
+            )}
+          </>
         )}
-        {leads.map((lead) => (
-          <p class="proof-entry__lead">{lead}</p>
-        ))}
-        {/*
-          highlights strings are rendered with set:html for optional inline
-          markup (e.g. <strong>). Author-controlled, compile-time-static data
-          only — do NOT pass user-submitted or external strings through this
-          prop without escaping. Any literal < > & characters in plain copy
-          must be written as &lt; &gt; &amp; or they will be interpreted as markup.
-        */}
-        <ul class="proof-entry__highlights" role="list">
-          {highlights.map((line) => (
-            <li class="sarif-gold-cap-line" set:html={line} />
+        <div class="proof-entry__mandate">
+          {leads.map((lead) => (
+            <p class="proof-entry__lead">{lead}</p>
           ))}
-        </ul>
+        </div>
+        {!isPreview && (
+          <ul class="proof-entry__highlights" role="list">
+            {highlights.map((line) => (
+              <li class="sarif-gold-cap-line" set:html={line} />
+            ))}
+          </ul>
+        )}
         {href && (
           <a
             class="proof-entry__open"
             href={href}
             data-testid={`open-dossier-${id ?? num}`}
           >
-            <span>Open full dossier</span>
+            <span>
+              {isPreview
+                ? `Open full dossier — ${logCountLabel} log entries`
+                : 'Open full dossier'}
+            </span>
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M4 12 12 4M6 4h6v6" stroke="currentColor" stroke-width="1.4" stroke-linecap="square" />
             </svg>
           </a>
         )}
-      </>
+      </div>
     ) : (
       <>
         <h2 class="proof-entry__classification ui-eyebrow">{classification}</h2>
@@ -257,6 +322,93 @@ const isDossier = highlights.length > 0 && leads.length > 0;
     --panel-frost-fill-alpha: 0.1;
   }
 
+  /* ── Preview variant: mandate on card, operations log in dossier only ─ */
+  .proof-entry--preview {
+    padding: clamp(24px, 3vw, 32px) clamp(24px, 3vw, 36px) clamp(28px, 3.5vw, 36px)
+      clamp(28px, 3.5vw, 40px);
+  }
+
+  .proof-entry--preview .proof-entry__body {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(18px, 2.5vw, 24px);
+    min-width: 0;
+  }
+
+  .proof-entry__preview-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: clamp(16px, 2.5vw, 20px);
+    align-items: start;
+  }
+
+  @media (min-width: 640px) {
+    .proof-entry__preview-head {
+      grid-template-columns: minmax(0, 1fr) minmax(200px, 38%);
+      gap: clamp(18px, 3vw, 28px);
+    }
+  }
+
+  .proof-entry__preview-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .proof-entry__preview-meta .proof-entry__stat {
+    margin-bottom: 0;
+  }
+
+  .proof-entry__mandate {
+    min-width: 0;
+  }
+
+  .proof-entry__plate-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  .proof-entry__plate-link:hover,
+  .proof-entry__plate-link:focus-visible {
+    outline: none;
+  }
+
+  .proof-entry__plate-link:focus-visible .proof-entry__plate {
+    box-shadow: 0 0 0 2px var(--cyan-core);
+  }
+
+  .proof-entry__plate {
+    position: relative;
+    margin: 0;
+    padding: clamp(6px, 1vw, 10px);
+    border: 1px solid rgba(0, 212, 255, 0.16);
+    background:
+      linear-gradient(135deg, rgba(0, 212, 255, 0.05), transparent 58%),
+      rgba(4, 12, 18, 0.5);
+    clip-path: var(--clip-sm);
+    overflow: hidden;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  .proof-entry__plate-link:hover .proof-entry__plate,
+  .proof-entry__plate-link:focus-visible .proof-entry__plate {
+    border-color: rgba(0, 212, 255, 0.38);
+    box-shadow: 0 6px 22px rgba(0, 212, 255, 0.1);
+  }
+
+  .proof-entry__plate-picture,
+  .proof-entry__plate-picture :global(img) {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: min(28vh, 220px);
+    object-fit: contain;
+    object-position: center;
+    background: rgba(2, 8, 14, 0.55);
+  }
+
   .proof-entry__sector {
     margin: 0 0 10px;
     max-width: 100%;
@@ -331,6 +483,10 @@ const isDossier = highlights.length > 0 && leads.length > 0;
     margin-bottom: 18px;
   }
 
+  .proof-entry--preview .proof-entry__lead:last-of-type {
+    margin-bottom: 0;
+  }
+
   .proof-entry__highlights {
     list-style: none;
     padding: 0;
@@ -381,6 +537,11 @@ const isDossier = highlights.length > 0 && leads.length > 0;
 
     .proof-entry__highlights li::before {
       box-shadow: none;
+    }
+
+    .proof-entry__plate-link,
+    .proof-entry__plate {
+      transition: none;
     }
   }
 </style>

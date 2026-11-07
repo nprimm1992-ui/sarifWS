@@ -24,7 +24,7 @@ migrations_dir = "migrations"
 # Bump this value when the consent line on /contact changes.
 # ─────────────────────────────────────────────────────────────────────────────
 [vars]
-CONSENT_VERSION = "2026-04-v1"
+CONSENT_VERSION = "2026-10-v2"
 
 # Cloudflare Access application binding (F4). These values identify which
 # Access application guards /admin/* and /api/admin/*. They are intentionally

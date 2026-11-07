@@ -7,6 +7,7 @@
 // initAtmosphere() is idempotent and re-entrant-safe.
 
 import { subscribe as tickerSubscribe, unsubscribe as tickerUnsubscribe, PRIORITY_OVERLAY } from './main-ticker.js';
+import { resolveLobbyDprCap } from './lobby-display-tier.mjs';
 
 const REFERENCE_ATMOSPHERE_HZ = 30;
 const TARGET_ATMOSPHERE_FPS = 24;
@@ -14,25 +15,13 @@ const MIN_FRAME_INTERVAL_MS = 1000 / TARGET_ATMOSPHERE_FPS;
 const DESKTOP_PARTICLES = 20;
 const MOBILE_PARTICLES = 8;
 const MOBILE_BREAKPOINT = 768;
-const ATMOSPHERE_TIER_FULL_HD = 1920 * 1080;
-const ATMOSPHERE_TIER_QHD = 2560 * 1440;
 
-/** Match lobby-scene tiered DPR caps so the overlay canvas does not raster at 2×
- *  while WebGL runs at 1.2–1.35× on large HiDPI desktops. */
+/** Match lobby-scene DPR caps (tier 0) so overlay canvas stays aligned with WebGL. */
 function resolveAtmosphereDpr() {
-  const raw = Number(window.devicePixelRatio);
-  const dpr = Number.isFinite(raw) && raw > 0 ? raw : 1;
   const w = window.innerWidth;
   const h = window.innerHeight;
   const mobile = w < MOBILE_BREAKPOINT;
-  if (mobile) return Math.min(dpr, 1.5);
-  let cap = 1.65;
-  const px = w * h;
-  if (px > ATMOSPHERE_TIER_QHD) cap = Math.min(cap, 1.35);
-  else if (px > ATMOSPHERE_TIER_FULL_HD) cap = Math.min(cap, 1.5);
-  const dm = typeof navigator !== 'undefined' ? navigator.deviceMemory : undefined;
-  if (typeof dm === 'number' && dm > 0 && dm <= 4) cap = Math.min(cap, 1.38);
-  return Math.min(dpr, cap);
+  return resolveLobbyDprCap(w, h, mobile, 0, window.devicePixelRatio);
 }
 
 let canvas, ctx;
@@ -78,7 +67,9 @@ function initParticles() {
   const w = logicalWidth > 0 ? logicalWidth : window.innerWidth;
   const h = logicalHeight > 0 ? logicalHeight : window.innerHeight;
   isMobile = w < MOBILE_BREAKPOINT;
-  const count = isMobile ? MOBILE_PARTICLES : DESKTOP_PARTICLES;
+  let count = isMobile ? MOBILE_PARTICLES : DESKTOP_PARTICLES;
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  if (path !== '/') count = Math.max(4, Math.floor(count * 0.55));
 
   particles = [];
   for (let i = 0; i < count; i++) {

@@ -245,7 +245,16 @@ function bindProgressHud(caseEl) {
   };
 
   const onScroll = () => schedule();
-  const onResize = () => schedule();
+
+  let resizeRaf = 0;
+  const onResize = () => {
+    if (!active) return;
+    if (resizeRaf) return;
+    resizeRaf = requestAnimationFrame(() => {
+      resizeRaf = 0;
+      compute();
+    });
+  };
 
   const io = new IntersectionObserver((entries) => {
     for (const entry of entries) {
@@ -257,17 +266,25 @@ function bindProgressHud(caseEl) {
   }, { rootMargin: '0px', threshold: 0 });
 
   io.observe(body);
+  let ro = null;
+  if (typeof ResizeObserver !== 'undefined') {
+    ro = new ResizeObserver(onResize);
+    ro.observe(body);
+  } else {
+    window.addEventListener('resize', onResize, { passive: true });
+  }
   window.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('resize', onResize, { passive: true });
   // Compute an initial value so the HUD is not stuck at 0 if the
   // user lands partway down (e.g. deep-link with #hash).
   schedule();
 
   return () => {
     io.disconnect();
+    if (ro) ro.disconnect();
+    else window.removeEventListener('resize', onResize);
     window.removeEventListener('scroll', onScroll);
-    window.removeEventListener('resize', onResize);
     if (rafId) cancelAnimationFrame(rafId);
+    if (resizeRaf) cancelAnimationFrame(resizeRaf);
   };
 }
 

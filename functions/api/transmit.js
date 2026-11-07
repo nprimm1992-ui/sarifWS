@@ -447,7 +447,7 @@ export async function onRequestPost(context) {
   const receivedAt = nowIso();
   const consentVersion =
     (typeof env.CONSENT_VERSION === 'string' && env.CONSENT_VERSION) ||
-    '2026-04-v1';
+    '2026-10-v2';
   const userAgent = sanitize(
     request.headers.get('User-Agent') || '',
     LIMITS.UA_MAX,

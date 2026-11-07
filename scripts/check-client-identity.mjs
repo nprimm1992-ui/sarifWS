@@ -202,7 +202,7 @@ let deny = [];
 if (existsSync(DENYLIST)) {
   deny = readFileSync(DENYLIST, 'utf8')
     .split('\n')
-    .map((l) => l.replace(/#.*$/, '').trim())
+    .map((l) => l.replace(/\r$/, '').replace(/#.*$/, '').trim())
     .filter(Boolean);
 }
 

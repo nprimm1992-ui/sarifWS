@@ -20,6 +20,8 @@ const engagements = engagementEntries
     statLabel: entry.data.statLabel,
     leads: entry.data.leads,
     highlights: entry.data.highlights,
+    heroImage: entry.data.heroImage,
+    heroAlt: entry.data.heroAlt,
     _sort: entry.data.sort ?? Number.parseInt(entry.data.num, 10),
   }))
   .sort((a, b) => a._sort - b._sort || a.num.localeCompare(b.num))

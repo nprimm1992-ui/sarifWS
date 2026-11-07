@@ -12,6 +12,8 @@ interface EngagementItem {
   statLabel: string;
   leads: string[];
   highlights: string[];
+  heroImage?: import('astro').ImageMetadata;
+  heroAlt?: string;
   content?: string;
   href?: string;
 }
@@ -94,8 +96,11 @@ const total = items.length;
                 statLabel={eng.statLabel}
                 leads={eng.leads}
                 highlights={eng.highlights}
+                heroImage={eng.heroImage}
+                heroAlt={eng.heroAlt}
                 content={eng.content}
                 href={eng.href}
+                variant="preview"
                 class="proof-entry--carousel"
               />
             </li>
@@ -200,7 +205,7 @@ const total = items.length;
 
   .eng-carousel__viewport {
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
     scroll-snap-type: x mandatory;
     scroll-behavior: smooth;
     outline: none;
@@ -225,7 +230,7 @@ const total = items.length;
     list-style: none;
     padding: 0;
     margin: 0;
-    min-height: 100%;
+    align-items: flex-start;
   }
 
   .eng-carousel__slide {

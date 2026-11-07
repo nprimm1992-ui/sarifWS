@@ -242,9 +242,10 @@ if (heroImageAbsolute) {
         <Picture
           src={data.heroImage}
           alt={data.heroAlt}
-          widths={[600, 960, 1280, 1600]}
+          widths={[600, 960, 1280]}
           sizes="(min-width: 1040px) 860px, 100vw"
           formats={['avif', 'webp']}
+          fallbackFormat="webp"
           loading="eager"
           decoding="async"
           fetchpriority="high"

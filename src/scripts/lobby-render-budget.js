@@ -20,8 +20,10 @@
  *
  * Safety:
  *   - Min-fps floor (default 24 fps) guarantees the scene never visibly
- *     freezes if a dirty signal is missed. At 24 fps the slow bob / lerp
- *     of the floating geometry still reads as smooth.
+ *     freezes if a dirty signal is missed. Lobby-scene sets 60/30 active,
+ *     24/20 idle, and 30/24 breath floors via setFloorFps().
+ *   - Continuous predicates can still force draws between floor intervals
+ *     (e.g. camera parallax residual while settling).
  *   - Predicate errors fail OPEN (mark the frame dirty); a broken
  *     predicate never silently skips rendering.
  *   - resetRenderBudget() wipes state — called on cleanup() and
@@ -64,6 +66,8 @@ let _oneShotCredits = 0;
 let _continuous = [];
 let _lastRenderAt = 0;
 let _minFps = DEFAULT_MIN_FPS;
+/** When > 0, enforces minimum ms between renders even if floor/predicates want a draw. */
+let _pacingMinIntervalMs = 0;
 
 /** Dev-only introspection: track recent one-shot reasons for HUD/debug. */
 const MAX_RECENT_REASONS = 24;
@@ -86,6 +90,7 @@ export function markDirty(reason) {
   let frames = ONESHOT_FRAMES_DEFAULT;
   if (reason === 'resize') frames = ONESHOT_FRAMES_RESIZE;
   else if (reason === 'contextLoss') frames = ONESHOT_FRAMES_CONTEXT_LOSS;
+  else if (reason === 'mouse' || reason === 'orientation') frames = 2;
   else if (
     reason === 'boot' ||
     reason === 'resume' ||
@@ -125,31 +130,58 @@ export function registerContinuousSource(predicate) {
  *
  * @returns {boolean}
  */
+/**
+ * Minimum interval between GPU draws when the last pass exceeded budget.
+ * Cleared with 0 when the GPU is comfortably fast again.
+ *
+ * @param {number} ms
+ */
+export function setRenderPacingMs(ms) {
+  if (typeof ms !== 'number' || !Number.isFinite(ms) || ms <= 0) {
+    _pacingMinIntervalMs = 0;
+    return;
+  }
+  _pacingMinIntervalMs = Math.min(ms, 50);
+}
+
 export function shouldRender() {
   _frameCount++;
-  if (_oneShotCredits > 0) return true;
-
   const now = performance.now();
-  const floorIntervalMs = MS_PER_SECOND / _minFps;
-  if (_lastRenderAt === 0 || now - _lastRenderAt >= floorIntervalMs) {
-    return true;
+  let wants = false;
+
+  if (_oneShotCredits > 0) wants = true;
+  else {
+    const floorIntervalMs = MS_PER_SECOND / _minFps;
+    if (_lastRenderAt === 0 || now - _lastRenderAt >= floorIntervalMs) {
+      wants = true;
+    } else {
+      for (let i = 0; i < _continuous.length; i++) {
+        let dirty;
+        try {
+          dirty = _continuous[i]() === true;
+        } catch (err) {
+          if (typeof console !== 'undefined' && console.error) {
+            console.error('[lobby-render-budget] continuous predicate threw', err);
+          }
+          dirty = true;
+        }
+        if (dirty) {
+          wants = true;
+          break;
+        }
+      }
+    }
   }
 
-  for (let i = 0; i < _continuous.length; i++) {
-    let dirty;
-    try {
-      dirty = _continuous[i]() === true;
-    } catch (err) {
-      /* A broken predicate must not silently skip rendering; fail open
-         and log once per session. */
-      if (typeof console !== 'undefined' && console.error) {
-        console.error('[lobby-render-budget] continuous predicate threw', err);
-      }
-      dirty = true;
-    }
-    if (dirty) return true;
+  if (!wants) return false;
+  if (
+    _pacingMinIntervalMs > 0
+    && _lastRenderAt > 0
+    && now - _lastRenderAt < _pacingMinIntervalMs
+  ) {
+    return false;
   }
-  return false;
+  return true;
 }
 
 /**
@@ -189,6 +221,7 @@ export function resetRenderBudget() {
   _frameCount = 0;
   _renderCount = 0;
   _minFps = DEFAULT_MIN_FPS;
+  _pacingMinIntervalMs = 0;
 }
 
 /**
@@ -214,6 +247,7 @@ export function introspectRenderBudget() {
     renderCount: _renderCount,
     skipRatio: _frameCount === 0 ? 0 : 1 - _renderCount / _frameCount,
     minFps: _minFps,
+    pacingMinIntervalMs: _pacingMinIntervalMs,
     lastRenderAt: _lastRenderAt,
     recentReasons: _recentReasons.slice(),
   };

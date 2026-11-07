@@ -1,0 +1,116 @@
+/**
+ * Every visitor-facing string for the public Jensen panel.
+ * Draft until Nicholas approves the wording.
+ */
+
+export const COPY = {
+  launcher: 'Ask Jensen',
+  returnToConversation: 'Back to Jensen',
+  name: 'Jensen',
+  eyebrow: 'Intelligence layer · Published corpus',
+  close: 'Close Jensen',
+  newThread: 'Start a new thread',
+  expand: 'Expand conversation',
+  dock: 'Dock conversation',
+  question: 'Question',
+  send: 'Send',
+  stop: 'Stop',
+  brief: 'Brief Nicholas',
+  privacy: 'A brief is stored for 90 days unless we engage, encrypted at rest, and never used to train external models.',
+  empty: "I'm Jensen, Sarif's intelligence layer. Here I answer from Sarif's published pages and show where every answer comes from. For anything private, I'll help you brief Nicholas.",
+  reading: (title) => `Reading: ${title}`,
+  scopeOne: 'One deliverable from this page will travel with the question.',
+  scopeMany: (count) => `${count} deliverables from this page will travel with the question.`,
+  statusWarming: 'Opening a session',
+  statusReading: 'Reading published pages',
+  statusComposing: 'Composing an answer',
+  readingOne: 'Reading 1 published page',
+  readingMany: (count) => `Reading ${count} published pages`,
+  you: 'You',
+  jensen: 'Jensen',
+  scope: 'Scope',
+  stopped: 'Stopped',
+  alsoRead: 'Also read',
+  openPage: 'Open page',
+  copy: 'Copy answer',
+  copied: 'Copied',
+  copyFailed: 'The answer could not be copied.',
+  retry: 'Try again',
+  sourceLabel: (n, title) => `Source ${n}: ${title}`,
+  floorFrom: (amount) => `From ${amount}. A floor, not an invoice.`,
+  floorQuoted: 'Quoted on scope. This is not an invoice.',
+  floorMissing: 'A published price is not available for this scope yet.',
+  quoted: 'quoted on scope',
+  fromPrice: (amount) => `from ${amount}`,
+  traceLabel: 'Sources Jensen read for this answer',
+  counter: (used, max) => `${used} of ${max}`,
+  reviewTitle: 'What Nicholas will receive',
+  reviewHelp: 'This is the brief. Edit it before it is sent. Nothing is emailed to you.',
+  continue: 'Continue',
+  back: 'Back',
+  closeBrief: 'Back to the conversation',
+  sendBrief: 'Send to Nicholas',
+  describe: 'Read that page first',
+  nameLabel: 'Name',
+  emailLabel: 'Email',
+  orgLabel: 'Organization',
+  urlLabel: 'A public page to describe',
+  previewTitle: 'Jensen read that page',
+  previewFailed: 'I could not read that public page, so I will not describe it.',
+  sentTitle: 'Sent',
+  sent: 'Nicholas reads this himself and replies from his own mail. Nothing else was emailed.',
+  briefTooShort: 'The brief needs at least 20 characters. Your text is still in the box.',
+  briefInvalid: 'Name and email are required. Your text is still in the box.',
+  briefFailed: 'The transmission did not send. Your details are still in the form.',
+  challenge: 'The check on this page has not finished. Your question is still in the box.',
+  urlRejected: 'That address has to be a public https page. Your details are still in the form.',
+  placeholder: 'Ask from the published pages',
+  honeypot: 'Leave this empty',
+};
+
+export const PROBLEM = {
+  public_disabled: {
+    title: 'Jensen is offline on the public site right now.',
+    detail: 'You can still brief Nicholas. He reads it himself.',
+    actions: ['brief'],
+  },
+  session_limit: {
+    title: 'This conversation has reached its limit.',
+    detail: 'Start a new thread, or brief Nicholas with what you have.',
+    actions: ['new-thread', 'brief'],
+  },
+  ip_limit: {
+    title: 'The public daily limit has been reached.',
+    detail: 'You can brief Nicholas now, or come back tomorrow.',
+    actions: ['brief'],
+  },
+  over_budget: {
+    title: 'Jensen has reached the public daily budget.',
+    detail: 'You can brief Nicholas now, or come back tomorrow.',
+    actions: ['brief'],
+  },
+  model: {
+    title: 'The answer stopped before it was finished.',
+    detail: 'Your question is still here. Try again.',
+    actions: ['retry'],
+  },
+  network: {
+    title: 'The connection stopped.',
+    detail: 'Your question is back in the box.',
+    actions: ['retry'],
+  },
+  session: {
+    title: 'This conversation could not be continued.',
+    detail: 'Start a new thread, or brief Nicholas.',
+    actions: ['new-thread', 'brief'],
+  },
+  challenge: {
+    title: 'The check on this page has not finished.',
+    detail: 'Your question is still in the box.',
+    actions: ['retry'],
+  },
+};
+
+export function problemCopy(code) {
+  return PROBLEM[code] || PROBLEM.network;
+}

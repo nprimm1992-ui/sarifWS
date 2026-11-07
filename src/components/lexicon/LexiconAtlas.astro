@@ -810,6 +810,12 @@ const cards = graph.flat.map((n) => ({
               <button
                 type="button"
                 class="atlas-card__action"
+                data-jensen-ask={`What does ${c.term} mean here?`}
+                data-jensen-autosend="true"
+              >Ask Jensen about this term</button>
+              <button
+                type="button"
+                class="atlas-card__action"
                 data-lex-copy-cite
                 data-cite={c.citation}
                 aria-label={`Copy citation for ${c.term}`}

@@ -7,9 +7,63 @@ let _linkHandlers = [];
 let _focusTrapHandler = null;
 let _toggleHandler = null;
 let _closeHandler = null;
+let _scrollHandler = null;
+let _resizeHandler = null;
 let _toggleEl = null;
 let _closeEl = null;
 let _mobileMenu = null;
+let _navEl = null;
+
+function syncNavScrolled(nav, sentinel) {
+  if (!nav) return;
+  if (document.documentElement.classList.contains('nav-menu-open')) return;
+  if (sentinel) {
+    nav.classList.toggle('scrolled', sentinel.getBoundingClientRect().bottom < 0);
+  } else {
+    nav.classList.toggle('scrolled', window.scrollY > 10);
+  }
+}
+
+function portalMobileMenu(mobileMenu, nav) {
+  if (!mobileMenu || mobileMenu.parentElement === document.body) return;
+  document.body.appendChild(mobileMenu);
+  mobileMenu.dataset.navHome = 'site-nav';
+}
+
+function restoreMobileMenu(mobileMenu, nav) {
+  if (!mobileMenu || !nav) return;
+  if (mobileMenu.parentElement === nav) return;
+  nav.appendChild(mobileMenu);
+  delete mobileMenu.dataset.navHome;
+}
+
+function setMenuOpenState(open, { nav, mobileMenu, toggle, closeBtn, mainContent }) {
+  document.documentElement.classList.toggle('nav-menu-open', open);
+
+  if (open) {
+    portalMobileMenu(mobileMenu, nav);
+    mobileMenu?.removeAttribute('hidden');
+    toggle?.setAttribute('aria-expanded', 'true');
+    toggle?.setAttribute('aria-label', 'Close navigation menu');
+    document.body.style.overflow = 'hidden';
+    mainContent?.setAttribute('inert', '');
+    if (closeBtn) {
+      requestAnimationFrame(() => closeBtn.focus());
+    } else {
+      const firstLink = mobileMenu?.querySelector('a');
+      if (firstLink) requestAnimationFrame(() => firstLink.focus());
+    }
+    return;
+  }
+
+  mobileMenu?.setAttribute('hidden', '');
+  toggle?.setAttribute('aria-expanded', 'false');
+  toggle?.setAttribute('aria-label', 'Open navigation menu');
+  document.body.style.overflow = '';
+  mainContent?.removeAttribute('inert');
+  restoreMobileMenu(mobileMenu, nav);
+  toggle?.focus();
+}
 
 function initNav() {
   cleanup();
@@ -21,47 +75,51 @@ function initNav() {
   const mobileMenu = document.getElementById('nav-mobile');
   const mainContent = document.getElementById('perspective-root');
 
+  _navEl = nav;
   _toggleEl = toggle;
   _closeEl = closeBtn;
   _mobileMenu = mobileMenu;
 
   if (!nav) return;
 
+  if (mobileMenu && mobileMenu.parentElement === document.body && mobileMenu.hasAttribute('hidden')) {
+    restoreMobileMenu(mobileMenu, nav);
+  }
+
+  nav.classList.remove('scrolled');
+
   if (sentinel) {
     _observer = new IntersectionObserver(
       ([entry]) => {
+        if (document.documentElement.classList.contains('nav-menu-open')) return;
         nav.classList.toggle('scrolled', !entry.isIntersecting);
       },
       { threshold: 0, rootMargin: '0px' }
     );
     _observer.observe(sentinel);
+    requestAnimationFrame(() => syncNavScrolled(nav, sentinel));
   } else {
-    if (window.scrollY > 10) nav.classList.add('scrolled');
+    syncNavScrolled(nav, sentinel);
+  }
+
+  _scrollHandler = () => syncNavScrolled(nav, sentinel);
+  window.addEventListener('scroll', _scrollHandler, { passive: true });
+  _resizeHandler = _scrollHandler;
+  window.addEventListener('resize', _resizeHandler, { passive: true });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('scroll', _scrollHandler);
+    window.visualViewport.addEventListener('resize', _resizeHandler);
   }
 
   function openMenu() {
     if (!mobileMenu || !toggle) return;
-    mobileMenu.removeAttribute('hidden');
-    toggle.setAttribute('aria-expanded', 'true');
-    toggle.setAttribute('aria-label', 'Close navigation menu');
-    document.body.style.overflow = 'hidden';
-    if (mainContent) mainContent.setAttribute('inert', '');
-    if (closeBtn) {
-      requestAnimationFrame(() => closeBtn.focus());
-    } else {
-      const firstLink = mobileMenu.querySelector('a');
-      if (firstLink) requestAnimationFrame(() => firstLink.focus());
-    }
+    setMenuOpenState(true, { nav, mobileMenu, toggle, closeBtn, mainContent });
   }
 
   function closeMenu() {
     if (!mobileMenu || !toggle) return;
-    mobileMenu.setAttribute('hidden', '');
-    toggle.setAttribute('aria-expanded', 'false');
-    toggle.setAttribute('aria-label', 'Open navigation menu');
-    document.body.style.overflow = '';
-    if (mainContent) mainContent.removeAttribute('inert');
-    toggle.focus();
+    setMenuOpenState(false, { nav, mobileMenu, toggle, closeBtn, mainContent });
+    requestAnimationFrame(() => syncNavScrolled(nav, sentinel));
   }
 
   if (toggle) {
@@ -112,6 +170,20 @@ function initNav() {
 
 function cleanup() {
   if (_observer) { _observer.disconnect(); _observer = null; }
+  if (_scrollHandler) {
+    window.removeEventListener('scroll', _scrollHandler);
+    if (window.visualViewport) {
+      window.visualViewport.removeEventListener('scroll', _scrollHandler);
+    }
+    _scrollHandler = null;
+  }
+  if (_resizeHandler) {
+    window.removeEventListener('resize', _resizeHandler);
+    if (window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', _resizeHandler);
+    }
+    _resizeHandler = null;
+  }
   if (_escHandler) { document.removeEventListener('keydown', _escHandler); _escHandler = null; }
 
   _linkHandlers.forEach(({ el, handler }) => el.removeEventListener('click', handler));
@@ -132,11 +204,22 @@ function cleanup() {
   if (_mobileMenu && _focusTrapHandler) {
     _mobileMenu.removeEventListener('keydown', _focusTrapHandler);
     _focusTrapHandler = null;
-    _mobileMenu = null;
   }
+
+  const nav = _navEl ?? document.getElementById('site-nav');
+  const mobileMenu = _mobileMenu ?? document.getElementById('nav-mobile');
+  if (mobileMenu && nav) {
+    restoreMobileMenu(mobileMenu, nav);
+    mobileMenu.setAttribute('hidden', '');
+  }
+
+  _mobileMenu = null;
+  _navEl = null;
 
   const mainContent = document.getElementById('perspective-root');
   if (mainContent) mainContent.removeAttribute('inert');
+  document.body.style.overflow = '';
+  document.documentElement.classList.remove('nav-menu-open');
 }
 
 if (document.readyState === 'loading') {

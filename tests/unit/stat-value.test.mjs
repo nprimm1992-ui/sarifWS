@@ -40,7 +40,7 @@ const unitsOf = (raw) =>
 test('reassembling segments reproduces the input exactly', () => {
   const cases = [
     '$868B', '$106M', '$179.3M', '$243K–$473K', '26 routes', '5 nodes',
-    '48 hours', '4 bar rules', '9.0 KB', '$1.2B', '100%', 'Fixed fee',
+    '48 hours', '48 hrs', '3 channels', '4 bar rules', '9.0 KB', '$1.2B', '100%', 'Fixed fee',
     '', ' ', '—', '$0', '12', 'B', 'M', '$5', '$5B–$6B–$7B',
   ];
   for (const c of cases) {
@@ -114,6 +114,14 @@ test('a trailing word unit is separated from its number', () => {
   assert.deepEqual(splitStatValue('26 routes'), [
     { text: '26 ', kind: 'value' },
     { text: 'routes', kind: 'unit' },
+  ]);
+  assert.deepEqual(splitStatValue('3 channels'), [
+    { text: '3 ', kind: 'value' },
+    { text: 'channels', kind: 'unit' },
+  ]);
+  assert.deepEqual(splitStatValue('48 hrs'), [
+    { text: '48 ', kind: 'value' },
+    { text: 'hrs', kind: 'unit' },
   ]);
 });
 

@@ -84,7 +84,7 @@ import Base from '../layouts/Base.astro';
        `box-sizing: border-box` is global; height stays 100dvh, the
        content box shrinks by the padding, and the flex-center lands
        predictably below the chrome. */
-    padding-top: calc(72px + 36px + env(safe-area-inset-top, 0px));
+    padding-top: calc(var(--nav-chrome-height) + env(safe-area-inset-top, 0px));
   }
 
   .hero__content {
