@@ -1,5 +1,7 @@
 # Sarif Consulting — Desktop Performance Audit
 
+> **Superseded (Aug 2026):** See [`docs/PERFORMANCE_REPORT-2026-08.md`](docs/PERFORMANCE_REPORT-2026-08.md) for the current audit and implementation backlog. Reflective gold lobby floor restored via tiered `Reflector` in `lobby-floor.js` (Aug 2026 implementation pass).
+
 **Date:** Jan 2026  
 **Repo:** `nprimm1992-ui/sarifWS` (working tree at `/app`)  
 **Stack:** Astro 6 (static), Three.js 0.183, Lenis, self-hosted fonts, Cloudflare Pages.  

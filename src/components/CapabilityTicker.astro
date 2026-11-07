@@ -30,7 +30,7 @@ const items = [
      viewport top on load. Fixed layers under the nav like the nav bar itself. */
   .cap-ticker {
     position: fixed;
-    top: 72px;
+    top: calc(var(--nav-row-height) + env(safe-area-inset-top, 0px));
     left: 0;
     right: 0;
     z-index: 999;
@@ -154,7 +154,8 @@ const items = [
      :has() is Baseline (wide) since late 2023; browsers that lack it
      (< 1% by 2026) fall back to the previous behaviour (ticker visible
      behind the overlay). That's a visual nit, not a functional break. */
-  :root:has(#nav-toggle[aria-expanded='true']) .cap-ticker {
+  html.nav-menu-open .cap-ticker,
+:root:has(#nav-toggle[aria-expanded='true']) .cap-ticker {
     opacity: 0;
     transform: translateY(-100%);
     pointer-events: none;

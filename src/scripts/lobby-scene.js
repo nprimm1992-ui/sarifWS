@@ -1,5 +1,6 @@
 // lobby-scene.js — Full-page Three.js 3D lobby environment (source of truth; no parallel .ts fork)
-// Hex floor with cyan-gold gradient tiles, floating glass geometry,
+// Hex floor: gold mirror tiles (Reflector) + cyan→gold hex grout (layer 1;
+// LineSegments2 at boot, optional async procedural upgrade),
 // golden dust particles emanating from 3D wing emblem
 // Post-processed · scroll-driven camera · mouse parallax
 
@@ -12,9 +13,13 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { LUTPass } from 'three/addons/postprocessing/LUTPass.js';
-import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
-import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
-import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import {
+  HEX_FLOOR_RADIUS,
+  HEX_GRID_COLS,
+  HEX_GRID_ROWS,
+  createLineSegmentsHexFloor,
+  upgradeHexGroutToProceduralAsync,
+} from './lobby-hex-floor.js';
 import { getDocumentScrollProgress } from './document-scroll-progress.js';
 import { getHomeScrollVelocity } from './home-smooth-scroll.js';
 import { subscribe as tickerSubscribe, unsubscribe as tickerUnsubscribe, PRIORITY_SCENE } from './main-ticker.js';
@@ -24,73 +29,72 @@ import {
   shouldRender,
   onRendered,
   resetRenderBudget,
+  setFloorFps,
+  setRenderPacingMs,
+  introspectRenderBudget,
 } from './lobby-render-budget.js';
 import { resolvePose, resolveSubpose, POSE_LANDING } from './lobby-route-poses.js';
 import { subscribeReducedMotion } from './reduced-motion.js';
+import {
+  createLobbyHorizonShell,
+  createLobbySkyDome,
+  createPmremGoldFloorFallback,
+  createReflectiveGoldFloor,
+  disposeFloorResources,
+  LOBBY_BACKDROP_LAYER,
+  resizeReflectiveGoldFloor,
+  shouldUseReflectiveFloor,
+} from './lobby-floor.js';
+import { resolveLobbyDprCap, resolveBloomScale } from './lobby-display-tier.mjs';
+import {
+  FLOOR_FPS_ACTIVE_DESKTOP,
+  isRenderFloorIdle,
+  resolveTargetFloorFps,
+} from './lobby-render-floor.mjs';
+import {
+  getGpuTier,
+  recordRenderSample,
+  resetGpuQuality,
+  setGpuQualityMobile,
+} from './lobby-gpu-quality.js';
 
 let renderer, scene, camera, composer;
 /** main-ticker subscription token; replaces the per-module requestAnimationFrame self-loop. */
 let _sceneTickerToken = null;
-/* Previously the lobby subscribed to an "active-scroll" monitor and dimmed
-   render quality (DPR cap, post-processing bypass, sheen freeze) while the
-   user scrolled. In practice the dip was perceptible as a visible quality
-   drop rather than a latency improvement, so the visible dips have been
-   removed. The unified main-ticker alone delivers the scheduling wins
-   (single rAF, priority ordering, pause-on-hidden); per-frame scene fidelity
-   is now constant regardless of scroll state. */
+/* Round 2026 — lobby render fidelity is constant across scroll; the unified
+   main-ticker delivers scheduling wins without per-frame quality dips. */
 /** Incremented on every cleanup so async GLTF / font callbacks never touch a torn-down scene. */
 let _lobbySession = 0;
-/** Screen-space fat-line material for the hex floor grid. Held at module
- *  scope so onResize can keep its `resolution` uniform in sync with the
- *  viewport — LineMaterial renders in pixel units and needs the live size. */
+/** LineMaterial for hex grout while booting on LineSegments2 (layer 1). */
 let _hexLineMat = null;
-/** Logical thickness of the hex grid lines in CSS pixels. 1.5px is 1.5×
- *  the WebGL default (which is clamped to 1px for gl.LINES on virtually
- *  every platform), matching the user-requested "half thicker" feel. */
-const HEX_LINE_WIDTH_PX = 1.5;
+/** ShaderMaterial for procedural hex grout after async upgrade. */
+let _hexProceduralMat = null;
+/** Current hex grout mesh (lines or procedural plane). */
+let _hexGroutMesh = null;
+/** Floor group holding reflector + hex grout — target for async mesh swap. */
+let _hexFloorGroup = null;
+/** 'lines' | 'procedural' — drives opacity updates and resize handling. */
+let _hexGroutMode = null;
+/** Cancels pending sarif:lobby-settled / timer listeners on cleanup. */
+let _hexUpgradeCancel = null;
+/** Floor mesh (Reflector or PMREM fallback) for explicit GPU teardown. */
+let _renderFloorIdle = false;
+/** Last reflector motion-active state — drives RT/MSAA ladder without full DPR bump. */
+let _lastReflectorMotionActive = true;
+/** Last reflector boot-phase state — drives post-settle quality ladder. */
+let _lastReflectorBootPhase = false;
+/** Adaptive GPU tier applied to DPR / bloom / reflector (0 = full quality). */
+let _appliedGpuTier = 0;
+/** Timestamp when the scene ticker subscribed — warm-up window for GPU sampling. */
+let _sceneTickerStartedAt = 0;
+/** Floor mesh (Reflector or PMREM fallback) for explicit GPU teardown. */
+let _floorMesh = null;
+/** Interior sky sphere — seamless navy past the floor vanishing line. */
+let _skyDome = null;
+/** Open cylinder bridging dome to floor — removes warm horizon band. */
+let _horizonShell = null;
 const MOBILE_BREAKPOINT = 768;
-
-/** Embedded IDE previews often report devicePixelRatio≈1; production Chrome on
- *  HiDPI / scaled Windows uses 1.25–2+, which multiplies fragment cost across
- *  the main pass and bloom. Tier caps keep a full-window lobby
- *  closer to preview smoothness without a visible quality cliff on laptops. */
-const LOBBY_TIER_FULL_HD_CSS_PIXELS = 1920 * 1080;
-const LOBBY_TIER_QHD_CSS_PIXELS = 2560 * 1440;
-
-/**
- * @param {number} cssWidth
- * @param {number} cssHeight
- * @param {boolean} mobile
- */
-/** Tiered caps shave the "preview DPR 1 vs production DPR 2" gap while staying softer
- *  on sharpness than aggressive 1.2× ceilings — bloom still steps down on
- *  very large CSS viewports where fill rate dominates. */
-function resolveLobbyPixelRatio(cssWidth, cssHeight, mobile) {
-  const raw = Number(window.devicePixelRatio);
-  const dpr = Number.isFinite(raw) && raw > 0 ? raw : 1;
-  if (mobile) return Math.min(dpr, 1.5);
-  let cap = 1.65;
-  const px = cssWidth * cssHeight;
-  if (px > LOBBY_TIER_QHD_CSS_PIXELS) cap = Math.min(cap, 1.35);
-  else if (px > LOBBY_TIER_FULL_HD_CSS_PIXELS) cap = Math.min(cap, 1.5);
-  const dm = typeof navigator !== 'undefined' ? navigator.deviceMemory : undefined;
-  if (typeof dm === 'number' && dm > 0 && dm <= 4) cap = Math.min(cap, 1.38);
-  return Math.min(dpr, cap);
-}
-
-/** Internal bloom buffer scale (UnrealBloomPass resolution factor).
- *  Round 2026 — desktop scale lowered from 0.72 → 0.5. Bloom is a
- *  blurred bright-pass; its sample radius already smears any high-
- *  frequency detail across multiple pixels, so the visible difference
- *  between 0.5 and 0.72 is below threshold while the fragment work
- *  drops by ~52% on the 5-mip down/upsample chain. */
-function resolveBloomInternalScale(mobile, cssWidth, cssHeight) {
-  if (mobile) return 0.4;
-  const px = cssWidth * cssHeight;
-  if (px > LOBBY_TIER_QHD_CSS_PIXELS) return 0.45;
-  if (px > LOBBY_TIER_FULL_HD_CSS_PIXELS) return 0.5;
-  return 0.5;
-}
+const LOBBY_FLOOR_SIZE = 300;
 
 /* Max delta clamping is handled centrally by main-ticker (100 ms ceiling to
    survive tab sleep/wake without camera snaps). No local clamp needed. */
@@ -127,6 +131,9 @@ let _bloomPass = null;
  *  the text cipher decode begins. Reset on cleanup() so re-init (e.g.
  *  WebGL context-loss recovery) produces a fresh veil-lift. */
 let _firstFrameDispatched = false;
+/** Interior routes defer floating geometry + dust until after first-frame. */
+let _deferredLayersMounted = false;
+let _deferredLayersScheduled = false;
 
 /**
  * Dispatch sarif:first-frame exactly once per lobby lifetime.
@@ -156,6 +163,8 @@ let _firstFrameDispatched = false;
 function dispatchFirstFrame(reason, timestamp) {
   if (_firstFrameDispatched) return;
   _firstFrameDispatched = true;
+  if (reason === 'gl-first-frame') _contextLossCount = 0;
+  lobbyDebugMark('firstFrame', reason);
   document.dispatchEvent(new CustomEvent('sarif:first-frame', {
     detail: { timestamp: timestamp ?? (typeof performance !== 'undefined' ? performance.now() : 0), reason },
   }));
@@ -196,7 +205,7 @@ let _sceneMaterializeActive = false;
  *  even after hex/float animations complete and flip _sceneMaterializeActive off. */
 let _bootLandingInit = false;
 /** Target opacity for the hex grid lines once materialized. */
-const HEX_OPACITY_FINAL = 0.40;
+const HEX_OPACITY_FINAL = 0.54;
 /** @type {Array<{mats: Array<{mat: THREE.Material, targetOpacity: number}>, model: THREE.Object3D, startMs: number, targetScale: number}>} */
 let _planterEntrances = [];
 
@@ -248,6 +257,13 @@ function injectPreloadHints() {
       rel: 'preload',
     });
   }
+  /* Center planter on every route — fills floor reflections early on interior deep links. */
+  critical.push({
+    href: '/terraced-garden-3d-model-low.glb',
+    as: 'fetch',
+    type: 'model/gltf-binary',
+    rel: 'preload',
+  });
   const frag = document.createDocumentFragment();
   for (const { href, as, type, rel } of critical) {
     if (document.querySelector(`link[rel="${rel}"][href="${href}"]`)) continue;
@@ -262,9 +278,8 @@ function injectPreloadHints() {
   document.head.appendChild(frag);
 }
 
-/** After hero wing loads, warm cache for planter GLBs without competing with first paint. */
+/** Warm cache for planter GLBs (center first in loader; hints warm all configs). */
 function prefetchPlanterAssets() {
-  if (!isLandingPath()) return;
   const configs = isMobile ? PLANTER_CONFIG.slice(0, 1) : PLANTER_CONFIG;
   const frag = document.createDocumentFragment();
   for (const cfg of configs) {
@@ -430,7 +445,7 @@ const POSE_MEMORY_BUILD_ID = (() => {
  * the camera offset it multiplies is always 0.
  */
 const IDLE_BREATH_ONSET_MS = 6_000;
-const IDLE_BREATH_AMP_Y = 0.003;
+const IDLE_BREATH_AMP_Y = 0.0015;
 const IDLE_BREATH_PERIOD_S = 9;
 const IDLE_BREATH_ATTACK_TAU_MS = 900;
 const IDLE_BREATH_RELEASE_TAU_MS = 90;
@@ -869,23 +884,13 @@ const LUT_URL_PRIMARY       = '/luts/sarif-primary.webp';
 const LUT_URL_HIGH_CONTRAST = '/luts/sarif-high-contrast.webp';
 
 // ---------------------------------------------------------------------------
-// Hex-grid constants
+// Hex-grid constants (grout geometry lives in lobby-hex-floor.js)
 // ---------------------------------------------------------------------------
-const HEX_R  = 0.8;
-// Kept for grid math symmetry; currently unused at runtime.
-const _HEX_H = HEX_R * Math.sqrt(3);
-void _HEX_H;
-/* Round 2026 — grid extents halved (was 100×80 = 8000 hexes / 96k
- * triangles via LineSegments2). FogExp2(density=0.038) drops the line
- * material's contribution to ~e^(-(40*0.038)^2) ≈ 10% visibility at
- * 40 units and ~3% at 50 units, so anything beyond the new 60×50
- * footprint was already invisible at the camera's resting Z=7. The
- * smaller grid drops geometry processing by 62.5% while changing the
- * rendered pixels by a delta well below the LineMaterial's per-fragment
- * AA threshold. */
-const HEX_COLS = 60;
-const HEX_ROWS = 50;
-
+const HEX_R = HEX_FLOOR_RADIUS;
+const HEX_COLS = HEX_GRID_COLS;
+const HEX_ROWS = HEX_GRID_ROWS;
+/** Y offset for hex grout overlay — slightly above reflector plane. */
+const HEX_GROUT_Y = -2.99;
 // ---------------------------------------------------------------------------
 // Deterministic PRNG (Mulberry32)
 // ---------------------------------------------------------------------------
@@ -900,153 +905,153 @@ function createRng(seed) {
 }
 
 // ---------------------------------------------------------------------------
-// Hex Floor Grid — single layer, cyan-to-gold gradient per-vertex color
+// Hex Floor Grid — LineSegments2 boot, optional procedural upgrade (layer 1)
 // ---------------------------------------------------------------------------
-function buildHexLinesColored(hexRadius, cols, rows) {
-  const verts = [];
-  const vertColors = [];
-  const hexHeight = hexRadius * Math.sqrt(3);
-  const totalW = cols * hexRadius * 1.5;
-  const totalH = rows * hexHeight;
+function getHexGroutOpacity() {
+  if (_hexLineMat) return _hexLineMat.opacity;
+  if (_hexProceduralMat?.uniforms?.uOpacity) return _hexProceduralMat.uniforms.uOpacity.value;
+  return HEX_OPACITY_FINAL;
+}
 
-  const cyanC = new THREE.Color(CYAN);
-  const goldC = new THREE.Color(GOLD);
-  const tempC = new THREE.Color();
-  const maxDist = Math.sqrt((totalW / 2) ** 2 + (totalH / 2) ** 2);
-  const invFade = 1 / (maxDist * 0.6);
+function setHexGroutOpacity(opacity) {
+  if (_hexLineMat) _hexLineMat.opacity = opacity;
+  if (_hexProceduralMat?.uniforms?.uOpacity) _hexProceduralMat.uniforms.uOpacity.value = opacity;
+}
 
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const x = col * hexRadius * 1.5 - totalW / 2;
-      const z = row * hexHeight - totalH / 2 + (col % 2 === 1 ? hexHeight / 2 : 0);
-
-      const t = Math.min(Math.sqrt(x * x + z * z) * invFade, 1.0);
-      tempC.copy(cyanC).lerp(goldC, t);
-
-      for (let i = 0; i < 6; i++) {
-        const a1 = (Math.PI / 3) * i;
-        const a2 = (Math.PI / 3) * ((i + 1) % 6);
-        verts.push(
-          x + hexRadius * Math.cos(a1), 0, z + hexRadius * Math.sin(a1),
-          x + hexRadius * Math.cos(a2), 0, z + hexRadius * Math.sin(a2),
-        );
-        vertColors.push(tempC.r, tempC.g, tempC.b, tempC.r, tempC.g, tempC.b);
-      }
-    }
+function cancelHexProceduralUpgrade() {
+  if (_hexUpgradeCancel) {
+    _hexUpgradeCancel();
+    _hexUpgradeCancel = null;
   }
-  return { verts, vertColors };
 }
 
-/** PMREM-backed floor — replaces Reflector (which re-rendered the full scene
- *  every frame). MeshStandardMaterial picks up scene.environment once IBL loads. */
-function createPmremFloorPlane(FLOOR_SIZE, tintOpacity, fadeStart, fadeEnd) {
-  const floorMat = new THREE.MeshStandardMaterial({
-    color: 0xc8b898,
-    roughness: 0.12,
-    metalness: 0.55,
-    transparent: true,
-    opacity: 0.92,
-    envMapIntensity: 1.0,
-  });
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE), floorMat);
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = -3;
+/**
+ * After boot settles, compile-test procedural hex off the hot path and swap
+ * if the driver accepts the shader. LineSegments2 remains if compile fails.
+ */
+function scheduleHexProceduralUpgrade() {
+  cancelHexProceduralUpgrade();
+  const debugFlags = readLobbyDebugFlags();
+  if (debugFlags.noProceduralHex || debugFlags.forceLines) return;
 
-  const blendMat = new THREE.ShaderMaterial({
-    uniforms: {
-      uTintColor: { value: new THREE.Color(0xe8dcc8) },
-      uTintOpacity: { value: tintOpacity },
-      uBgColor: { value: new THREE.Color(LOBBY_BG) },
-      uFadeStart: { value: fadeStart },
-      uFadeEnd: { value: fadeEnd },
-    },
-    vertexShader: /* glsl */`
-      varying vec2 vWorldXZ;
-      void main() {
-        vec4 worldPos = modelMatrix * vec4(position, 1.0);
-        vWorldXZ = worldPos.xz;
-        gl_Position = projectionMatrix * viewMatrix * worldPos;
-      }`,
-    fragmentShader: /* glsl */`
-      uniform vec3 uTintColor;
-      uniform float uTintOpacity;
-      uniform vec3 uBgColor;
-      uniform float uFadeStart;
-      uniform float uFadeEnd;
-      varying vec2 vWorldXZ;
-      void main() {
-        float dist = length(vWorldXZ);
-        float edge = smoothstep(uFadeStart, uFadeEnd, dist);
-        vec3 color = mix(uTintColor, uBgColor, edge);
-        float alpha = mix(uTintOpacity, 1.0, edge);
-        gl_FragColor = vec4(color, alpha);
-      }`,
-    transparent: true,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-  });
-  const blend = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE), blendMat);
-  blend.rotation.x = -Math.PI / 2;
-  blend.position.y = -2.99;
+  const session = _lobbySession;
+  let cancelled = false;
+  let settledTimer = null;
+  let fallbackTimer = null;
 
-  return { floor, blend };
+  const cleanup = () => {
+    cancelled = true;
+    document.removeEventListener('sarif:lobby-settled', onSettled);
+    if (settledTimer) clearTimeout(settledTimer);
+    if (fallbackTimer) clearTimeout(fallbackTimer);
+    settledTimer = null;
+    fallbackTimer = null;
+    if (_hexUpgradeCancel === cleanup) _hexUpgradeCancel = null;
+  };
+  _hexUpgradeCancel = cleanup;
+
+  const runUpgrade = () => {
+    if (cancelled || session !== _lobbySession) return;
+    if (_hexGroutMode !== 'lines' || !_hexGroutMesh || !_hexFloorGroup) return;
+    if (!renderer || !camera || !scene) return;
+
+    upgradeHexGroutToProceduralAsync({
+      renderer,
+      camera,
+      scene,
+      parentGroup: _hexFloorGroup,
+      linesMesh: _hexGroutMesh,
+      lineMaterial: _hexLineMat,
+      planeSize: LOBBY_FLOOR_SIZE,
+      y: HEX_GROUT_Y,
+      hexRadius: HEX_R,
+      cols: HEX_COLS,
+      rows: HEX_ROWS,
+      getOpacity: getHexGroutOpacity,
+      onSwapped: (procedural) => {
+        _hexGroutMesh = procedural;
+        _hexGroutMode = 'procedural';
+        _hexLineMat = null;
+        _hexProceduralMat = procedural.material;
+        lobbyDebugMark('hexGroutUpgraded', { mode: 'procedural' });
+        markDirty('hexUpgrade');
+      },
+    }).then((mode) => {
+      if (cancelled || session !== _lobbySession) return;
+      if (mode === 'lines' && import.meta.env.DEV) {
+        lobbyDebugMark('hexGroutUpgradeSkipped', { reason: 'compile-failed' });
+      }
+    }).catch(() => {
+      /* upgradeHexGroutToProceduralAsync handles disposal; keep lines path. */
+    });
+  };
+
+  const onSettled = () => {
+    document.removeEventListener('sarif:lobby-settled', onSettled);
+    settledTimer = setTimeout(runUpgrade, 0);
+  };
+  document.addEventListener('sarif:lobby-settled', onSettled);
+
+  /* Interior routes skip the landing boot ladder — settled may never fire. */
+  fallbackTimer = setTimeout(runUpgrade, 2800);
+
+  if (!_bootTransitionActive && !_reflectorBootPhaseActive) {
+    settledTimer = setTimeout(runUpgrade, 400);
+  }
 }
 
+/** Gold mirror Reflector floor + hex grout lines on layer 1. */
 function createHexGridFloor() {
   const group = new THREE.Group();
+  _hexFloorGroup = group;
+  const debugFlags = readLobbyDebugFlags();
 
-  const FLOOR_SIZE = 300;
+  const FLOOR_SIZE = LOBBY_FLOOR_SIZE;
+  const w = typeof window !== 'undefined' ? window.innerWidth : 1280;
+  const h = typeof window !== 'undefined' ? window.innerHeight : 720;
+  const bootPhase = _isLanding && !_prefersReducedMotionLocked;
+  const useReflector = shouldUseReflectiveFloor(_prefersReducedMotionLocked) && !debugFlags.noReflector;
 
-  if (isMobile) {
-    const { floor, blend } = createPmremFloorPlane(FLOOR_SIZE, 0.32, 8.0, 40.0);
-    group.add(floor);
-    group.add(blend);
+  if (useReflector) {
+    _floorMesh = createReflectiveGoldFloor(
+      FLOOR_SIZE, FLOOR_Y, w, h, isMobile, _appliedGpuTier, isReflectorMotionActive(), bootPhase,
+    );
+    group.add(_floorMesh);
+    lobbyDebugMark('reflectorCreated', {
+      resolution: _floorMesh.userData.sarifFloorRes,
+      multisample: _floorMesh.userData.sarifFloorMsaa,
+      bootPhase,
+    });
   } else {
-    const { floor, blend } = createPmremFloorPlane(FLOOR_SIZE, 0.28, 10.0, 45.0);
-    group.add(floor);
-    group.add(blend);
+    _floorMesh = createPmremGoldFloorFallback(FLOOR_SIZE, FLOOR_Y, GOLD);
+    group.add(_floorMesh);
   }
 
-  const { verts, vertColors } = buildHexLinesColored(HEX_R, HEX_COLS, HEX_ROWS);
-
-  /* LineSegments2 + LineMaterial render lines as instanced triangle strips
-     at a real pixel linewidth. Plain THREE.LineSegments (gl.LINES) is
-     clamped to 1px on every modern browser regardless of material
-     linewidth, so we use the fat-lines pipeline to honour the requested
-     thickness. Geometry input format is identical to the old flat
-     position/color arrays — LineSegmentsGeometry.setPositions/setColors
-     takes the same paired-endpoint layout buildHexLinesColored produces. */
-  const hexGeo = new LineSegmentsGeometry();
-  hexGeo.setPositions(verts);
-  hexGeo.setColors(vertColors);
-
-  const hexStartOpacity = (_isLanding && !_prefersReducedMotionLocked) ? 0 : HEX_OPACITY_FINAL;
-  _hexLineMat = new LineMaterial({
-    vertexColors: true,
-    transparent: true,
-    opacity: hexStartOpacity,
-    linewidth: HEX_LINE_WIDTH_PX,
-    worldUnits: false,
-    depthWrite: false,
-    /* Participate in scene fog (FogExp2 @ LOBBY_BG) so far-field lines fade
-       into the background. The original ShaderMaterial did a hand-rolled
-       smoothstep(8,50) alpha fade; LineMaterial's built-in fog on
-       FogExp2(density=0.038) reaches ~e^(-(50*0.038)^2) ≈ 2.7% visibility
-       at 50 units, i.e. effectively the same vanish distance without the
-       per-fragment branch. */
-    fog: true,
-  });
-  _hexLineMat.resolution.set(window.innerWidth, window.innerHeight);
-
-  const hexMesh = new LineSegments2(hexGeo, _hexLineMat);
-  hexMesh.position.y = -2.99;
-  /* LineSegments2 computes its bounds from the instance buffer; call once
-     so frustum culling uses real bounds instead of the default zero box
-     (which would flicker the grid at wide FOV / edge-of-screen). */
-  hexMesh.computeLineDistances();
-  /* Hex grid on layer 1 (main camera sees layer 1; keeps floor separate). */
-  hexMesh.layers.set(1);
-  group.add(hexMesh);
+  if (!debugFlags.noHex) {
+    const hexStartOpacity = (_isLanding && !_prefersReducedMotionLocked) ? 0 : HEX_OPACITY_FINAL;
+    const { mesh, lineMaterial } = createLineSegmentsHexFloor({
+      y: HEX_GROUT_Y,
+      opacity: hexStartOpacity,
+      cssWidth: w,
+      cssHeight: h,
+      hexRadius: HEX_R,
+      cols: HEX_COLS,
+      rows: HEX_ROWS,
+      cyanHex: CYAN,
+      goldHex: GOLD,
+    });
+    _hexGroutMesh = mesh;
+    _hexLineMat = lineMaterial;
+    _hexProceduralMat = null;
+    _hexGroutMode = 'lines';
+    group.add(mesh);
+    lobbyDebugMark('hexGroutCreated', { mode: 'lines' });
+  } else {
+    _hexGroutMesh = null;
+    _hexLineMat = null;
+    _hexProceduralMat = null;
+    _hexGroutMode = null;
+  }
 
   return group;
 }
@@ -1868,6 +1873,34 @@ function updateDustParticles(time) {
   _dustMesh.material.uniforms.uTime.value = t;
 }
 
+/** Floating wireframe cluster + dust — sync on landing; deferred on interior cold boot. */
+function mountDeferredSceneLayers(session) {
+  if (session !== _lobbySession || !scene || _deferredLayersMounted) return;
+  _deferredLayersMounted = true;
+  if (readLobbyDebugFlags().noDeferred) return;
+  createFloatingGeometry().forEach((obj) => {
+    scene.add(obj);
+    floatingObjects.push(obj);
+  });
+  scene.add(createDustParticles());
+  markDirty('assetMounted');
+}
+
+/** After veil lift on interior routes, mount float/dust without blocking first paint. */
+function scheduleInteriorDeferredLayers() {
+  if (_deferredLayersMounted || _deferredLayersScheduled || _isLanding) return;
+  _deferredLayersScheduled = true;
+  const session = _lobbySession;
+  const mount = () => {
+    if (session !== _lobbySession) return;
+    mountDeferredSceneLayers(session);
+  };
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(mount, { timeout: 120 });
+  } else {
+    setTimeout(mount, 0);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Static SVG Fallback (prefers-reduced-motion / no WebGL)
@@ -1883,6 +1916,12 @@ function createStaticFallback(reason = 'no-webgl') {
      still have an unresolved veil. dispatchFirstFrame() has its own
      one-shot guard, so calling it here is safe and cheap. */
   dispatchFirstFrame(reason);
+  if (typeof document !== 'undefined') {
+    document.documentElement.dataset.lobbyFallbackReason = reason;
+  }
+  if (import.meta.env.DEV && typeof console !== 'undefined' && console.warn) {
+    console.warn('[lobby-scene] static SVG fallback active:', reason);
+  }
 
   if (document.getElementById('lobby-fallback')) return;
 
@@ -1929,6 +1968,29 @@ function createStaticFallback(reason = 'no-webgl') {
   });
 
   document.body.appendChild(svg);
+}
+
+/** Tear down the SVG fallback so a recovered WebGL init can show the canvas. */
+function removeStaticFallback() {
+  const fallback = document.getElementById('lobby-fallback');
+  if (fallback) fallback.remove();
+  const canvas = document.getElementById('lobby-canvas');
+  if (canvas) canvas.style.removeProperty('display');
+  if (typeof document !== 'undefined') {
+    delete document.documentElement.dataset.lobbyFallbackReason;
+  }
+}
+
+/** Release the lobby canvas WebGL context so a persisted canvas can re-init. */
+function loseLobbyCanvasContext() {
+  if (!renderer) return;
+  try {
+    const gl = renderer.getContext();
+    const ext = gl?.getExtension('WEBGL_lose_context');
+    if (ext) ext.loseContext();
+  } catch {
+    /* Best-effort — never block cleanup. */
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -2082,6 +2144,7 @@ function decodeLut2DImage(img) {
 // Scene Initialisation
 // ---------------------------------------------------------------------------
 function initScene(canvas) {
+  lobbyDebugMark('initSceneStart');
   const pathNorm = window.location.pathname.replace(/\/+$/, '') || '/';
   _isLanding = pathNorm === '/';
   const session = _lobbySession;
@@ -2106,12 +2169,17 @@ function initScene(canvas) {
   });
   renderer.debug.checkShaderErrors = import.meta.env.DEV;
   renderer.setSize(w, h, false);
-  renderer.setPixelRatio(resolveLobbyPixelRatio(w, h, isMobile));
+  renderer.setPixelRatio(resolveLobbyDprCap(w, h, isMobile, _appliedGpuTier, window.devicePixelRatio));
   renderer.setClearColor(FOG_COLOR, 1);
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(FOG_COLOR);
   scene.fog = new THREE.FogExp2(FOG_COLOR, 0.038);
+
+  _skyDome = createLobbySkyDome();
+  scene.add(_skyDome);
+  _horizonShell = createLobbyHorizonShell(LOBBY_BG, FLOOR_Y);
+  scene.add(_horizonShell);
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   pmrem.compileEquirectangularShader();
@@ -2120,14 +2188,12 @@ function initScene(canvas) {
   const envDir = new THREE.DirectionalLight(0xdcc090, 0.9 * AMBIENT_LIGHT_INTENSITY_SCALE);
   envDir.position.set(1, 2, 3);
   envScene.add(envDir);
-  /* Synthetic hemisphere IBL ships as the default. A real studio HDR
-     (if present at /env/lobby-studio.hdr) will asynchronously upgrade
-     the environment below — materials re-render with the new PMREM
-     target the next frame. If the HDR 404s, this synthetic rig stays
-     and the visual register is indistinguishable from before, so the
-     build never depends on the optional HDR asset. */
-  _activeEnvRT = pmrem.fromScene(envScene, 0.04);
-  scene.environment = _activeEnvRT.texture;
+  const debugFlags = readLobbyDebugFlags();
+  if (!debugFlags.noPmrem) {
+    _activeEnvRT = pmrem.fromScene(envScene, 0.04);
+    scene.environment = _activeEnvRT.texture;
+    lobbyDebugMark('pmremDone');
+  }
   pmrem.dispose();
 
   /* Async HDR upgrade (Pillar 2 · 2a). Non-blocking; never throws to the
@@ -2165,13 +2231,10 @@ function initScene(canvas) {
   if (useMemory) {
     startPoseTween(bootPose, bootPose.tweenMs ?? ROUTE_TWEEN_MS);
   }
-  /* Layer 1 is reserved for objects the main camera renders but the
-     floor Reflector must NOT capture (currently: the hex grid lines, so
-     they don't appear mirrored in the reflector below them). Three.js
-     Reflectors default to layer 0 only, so leaving their virtual camera
-     untouched is enough — we just need the user-facing camera to see
-     both layers. */
+  /* Layer 1: hex grout. Layer 2: sky backdrop only.
+     Reflector layer 0: emblem, planters, cyan/gold floaters. */
   camera.layers.enable(1);
+  camera.layers.enable(LOBBY_BACKDROP_LAYER);
 
   scene.add(new THREE.HemisphereLight(0x9a8a6a, 0x6a8a6a, 1.4 * AMBIENT_LIGHT_INTENSITY_SCALE));
 
@@ -2253,8 +2316,9 @@ function initScene(canvas) {
   for (const l of _emblemSceneLights) _emblemSceneLightBaseIntensities.push(l.intensity);
 
   scene.add(createHexGridFloor());
-  createFloatingGeometry().forEach(obj => { scene.add(obj); floatingObjects.push(obj); });
-  scene.add(createDustParticles());
+  if (startOnLanding) {
+    mountDeferredSceneLayers(session);
+  }
 
   /* Logo group is always created; visibility is driven by the emblem fade
      state machine (onRouteChange). On interior routes, _logoGroup.visible
@@ -2273,15 +2337,17 @@ function initScene(canvas) {
      wash under control because there are no bright emissives left in the
      scene to bloom. Promoted to module scope so the boot transition can
      lerp its strength from "hot" → calm. */
-  const bloomScale = resolveBloomInternalScale(isMobile, w, h);
+  const bloomScale = resolveBloomScale(isMobile, w, h, true, _appliedGpuTier);
   const calmBloom = isMobile ? BOOT_BLOOM_STRENGTH_CALM_MOBILE : BOOT_BLOOM_STRENGTH_CALM_DESKTOP;
-  _bloomPass = new UnrealBloomPass(
-    new THREE.Vector2(canvas.width * bloomScale, canvas.height * bloomScale),
-    startOnLanding ? BOOT_BLOOM_STRENGTH_HOT : calmBloom,
-    isMobile ? 0.6  : 0.5,
-    isMobile ? 0.90 : 0.85,
-  );
-  composer.addPass(_bloomPass);
+  if (!debugFlags.noBloom) {
+    _bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(canvas.width * bloomScale, canvas.height * bloomScale),
+      startOnLanding ? BOOT_BLOOM_STRENGTH_HOT : calmBloom,
+      isMobile ? 0.6  : 0.5,
+      isMobile ? 0.90 : 0.85,
+    );
+    composer.addPass(_bloomPass);
+  }
 
   /* OutputPass applies tone-mapping + sRGB encoding. Placing it BEFORE
      LUTPass means the LUT operates on display-referred values — matching
@@ -2311,6 +2377,7 @@ function initScene(canvas) {
      toggled below. */
   if (startOnLanding && !_prefersReducedMotionLocked) {
     _bootTransitionActive = true;
+    _reflectorBootPhaseActive = true;
     _bootTransitionStartMs = performance.now();
     _sceneMaterializeActive = true;
     _sceneMaterializeStartMs = performance.now();
@@ -2319,10 +2386,13 @@ function initScene(canvas) {
        so the CSS filter is committed before the first render. */
   } else {
     _bootTransitionActive = false;
+    _reflectorBootPhaseActive = false;
     _sceneMaterializeActive = false;
     _bootLandingInit = false;
     /* data-lobby-boot='calm' was already set at the top of initScene(). */
   }
+  if (_hexGroutMode === 'lines') scheduleHexProceduralUpgrade();
+  lobbyDebugMark('initSceneEnd');
 }
 
 // ---------------------------------------------------------------------------
@@ -2512,16 +2582,17 @@ function tickSceneMaterialize(timestamp) {
   const elapsed = timestamp - _sceneMaterializeStartMs;
   let allDone = true;
 
-  /* --- Hex grid line fade-in --- */
-  if (_hexLineMat) {
+  /* --- Hex grid fade-in (lines or procedural) --- */
+  if (_hexLineMat || _hexProceduralMat) {
     const hexElapsed = elapsed - SCENE_MAT_HEX_DELAY_MS;
-    if (hexElapsed >= 0) {
-      const hexT = Math.min(hexElapsed / SCENE_MAT_HEX_DURATION_MS, 1.0);
-      const hexEased = 1 - Math.pow(1 - hexT, 2);
-      _hexLineMat.opacity = HEX_OPACITY_FINAL * hexEased;
-      if (hexT < 1) allDone = false;
-    } else {
+    if (hexElapsed < 0) {
       allDone = false;
+      setHexGroutOpacity(0);
+    } else {
+      const hexT = Math.min(hexElapsed / SCENE_MAT_HEX_DURATION_MS, 1.0);
+      const eased = 1 - Math.pow(1 - hexT, 2);
+      setHexGroutOpacity(HEX_OPACITY_FINAL * eased);
+      if (hexT < 1) allDone = false;
     }
   }
 
@@ -2586,6 +2657,98 @@ function tickSceneMaterialize(timestamp) {
   }
 }
 
+/**
+ * Reflector quality ladder: high RT + MSAA when the mirror is visually primary.
+ * Boot-phase cost is handled separately via isReflectorBootPhase().
+ * @returns {boolean}
+ */
+function isReflectorMotionActive() {
+  return (
+    !_renderFloorIdle
+    || _idleBreathEnvelope > 0.001
+    || _isLanding
+    || _planterEntrances.length > 0
+  );
+}
+
+/** Low RT/MSAA during landing boot until sarif:lobby-settled. */
+function isReflectorBootPhase() {
+  return _reflectorBootPhaseActive;
+}
+
+/**
+ * Apply DPR, bloom, and reflector settings at the current GPU tier.
+ * @param {number} [tier]
+ */
+function applyLobbyDisplaySettings(tier = _appliedGpuTier) {
+  if (!renderer || !camera) return;
+  _appliedGpuTier = tier;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const dpr = resolveLobbyDprCap(w, h, isMobile, tier, window.devicePixelRatio);
+  renderer.setPixelRatio(dpr);
+  renderer.setSize(w, h, false);
+  if (composer) composer.setSize(w, h);
+  const bloomMotionActive = !_renderFloorIdle;
+  const reflectorMotionActive = isReflectorMotionActive();
+  const reflectorBootPhase = isReflectorBootPhase();
+  const bloomScale = resolveBloomScale(isMobile, w, h, bloomMotionActive, tier);
+  if (_bloomPass) {
+    const bw = Math.max(1, Math.floor(renderer.domElement.width * bloomScale));
+    const bh = Math.max(1, Math.floor(renderer.domElement.height * bloomScale));
+    _bloomPass.setSize(bw, bh);
+  }
+  if (_floorMesh && _floorMesh.userData.sarifFloorKind === 'reflector') {
+    const newFloor = resizeReflectiveGoldFloor(
+      _floorMesh,
+      LOBBY_FLOOR_SIZE,
+      FLOOR_Y,
+      w,
+      h,
+      isMobile,
+      tier,
+      reflectorMotionActive,
+      reflectorBootPhase,
+    );
+    if (newFloor !== _floorMesh) _floorMesh = newFloor;
+  }
+  if (import.meta.env.DEV && typeof window !== 'undefined' && window.__sarifLobbyDebug) {
+    window.__sarifLobbyDebug.appliedGpuTier = tier;
+    window.__sarifLobbyDebug.reflectorBootPhase = reflectorBootPhase;
+  }
+}
+
+/**
+ * @param {number} tier
+ */
+function applyLobbyGpuTier(tier) {
+  if (tier === _appliedGpuTier) return;
+  applyLobbyDisplaySettings(tier);
+  markDirty('resize');
+}
+
+/**
+ * @param {number} timestamp
+ * @param {number} dtSec
+ * @returns {boolean}
+ */
+function isGpuSampleEligible(timestamp, dtSec) {
+  if (typeof document !== 'undefined' && document.hidden) return false;
+  if (!_firstFrameDispatched) return false;
+  if (_bootTransitionActive) return false;
+  if (_planterEntrances.length > 0) return false;
+  if (_sceneTickerStartedAt > 0 && timestamp - _sceneTickerStartedAt < 2000) return false;
+  if (dtSec > 0.05) return false;
+  return true;
+}
+
+function onLobbyVisibilityChange() {
+  if (typeof document === 'undefined' || document.hidden) return;
+  resetGpuQuality();
+  _appliedGpuTier = 0;
+  applyLobbyDisplaySettings(0);
+}
+
 function updateObjects(time, dtSec) {
   const tick = REFERENCE_LOBBY_TICK_HZ * dtSec;
   floatingObjects.forEach(obj => {
@@ -2648,6 +2811,7 @@ function animateStep(timestamp, dtSec) {
      one frame and dilute the ease-in-out at either end. */
   updatePoseTween(timestamp);
   updateCamera(dtSec);
+  updateRenderFloorPolicy(timestamp);
   tickSceneMaterialize(timestamp);
   tickEmblemFade(timestamp);
   updateObjects(timestamp, dtSec);
@@ -2676,14 +2840,19 @@ function animateStep(timestamp, dtSec) {
 
     if (rawT >= 1.0) {
       _bootTransitionActive = false;
+      _reflectorBootPhaseActive = false;
       if (_bloomPass) {
         _bloomPass.strength = isMobile ? BOOT_BLOOM_STRENGTH_CALM_MOBILE : BOOT_BLOOM_STRENGTH_CALM_DESKTOP;
       }
       if (typeof document !== 'undefined') {
         document.documentElement.setAttribute('data-lobby-boot', 'calm');
       }
+      applyLobbyDisplaySettings(_appliedGpuTier);
       document.dispatchEvent(new CustomEvent('sarif:lobby-settled'));
     }
+  } else if (_bloomPass) {
+    const calmBloom = isMobile ? BOOT_BLOOM_STRENGTH_CALM_MOBILE : BOOT_BLOOM_STRENGTH_CALM_DESKTOP;
+    _bloomPass.strength = _renderFloorIdle ? calmBloom * 0.92 : calmBloom;
   }
 
   /* Dirty-flag arbitrator (lobby-render-budget.js) decides whether this
@@ -2693,9 +2862,20 @@ function animateStep(timestamp, dtSec) {
      safety floor, so slow animations (floating-geometry bob, camera
      settle) never visibly freeze even without a continuous source. */
   if (shouldRender()) {
+    const renderStart = performance.now();
     if (composer) composer.render();
     else renderer.render(scene, camera);
     onRendered();
+    if (!_firstFrameDispatched) lobbyDebugMark('firstComposerRender');
+    const renderMs = performance.now() - renderStart;
+    if (renderMs > 14) {
+      setRenderPacingMs(Math.min(renderMs * 0.88, 40));
+    } else if (renderMs < 9) {
+      setRenderPacingMs(0);
+    }
+    recordRenderSample(renderMs, { eligible: isGpuSampleEligible(timestamp, dtSec) });
+    const newTier = getGpuTier();
+    if (newTier !== _appliedGpuTier) applyLobbyGpuTier(newTier);
 
     /* First rendered frame — lift the reveal veil and start text decode.
        This fires once per lobby lifetime (reset by cleanup). The event
@@ -2703,6 +2883,7 @@ function animateStep(timestamp, dtSec) {
        consumers; it supersedes the old DOMContentLoaded-triggered decode
        start so everything arrives in one coordinated moment. */
     dispatchFirstFrame('gl-first-frame', timestamp);
+    scheduleInteriorDeferredLayers();
   }
 }
 
@@ -2811,12 +2992,10 @@ function onResize() {
   camera.fov = (w / h < 1) ? baseFovResize + (1 - w / h) * 22 : baseFovResize;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);
-  renderer.setPixelRatio(resolveLobbyPixelRatio(w, h, isMobile));
+  renderer.setPixelRatio(resolveLobbyDprCap(w, h, isMobile, _appliedGpuTier, window.devicePixelRatio));
 
   if (composer) composer.setSize(w, h);
-
-  /* LineMaterial needs explicit viewport dimensions in CSS pixels to keep
-     its screen-space linewidth stable across resizes / DPR changes. */
+  applyLobbyDisplaySettings(_appliedGpuTier);
   if (_hexLineMat) _hexLineMat.resolution.set(w, h);
 
   /* Projection matrix + composer buffers changed; force a multi-frame
@@ -2841,6 +3020,7 @@ function onResize() {
    astro:after-swap fires after the new page DOM is in place; we use it to
    sync route-dependent state (emblem visibility). */
 let _lifecycleHooksAttached = false;
+let _lobbyVisibilityHookAttached = false;
 /** Tracks the user's motion preference. Historically this was locked on
  *  first init to avoid flicker, but Round-3 audit §3.1 requires live
  *  response to OS preference toggles. We now treat a *change* as the
@@ -2849,8 +3029,63 @@ let _lifecycleHooksAttached = false;
  *  SVG fallback reassert) keep honouring this value frame to frame
  *  without introducing mid-frame flicker. */
 let _prefersReducedMotionLocked = null;
+/** Reflector boot ladder: low RT/MSAA until lobby-settled. */
+let _reflectorBootPhaseActive = false;
 /** Pending post-context-loss re-init handle so we don't double-schedule. */
 let _contextLossReinitScheduled = false;
+/** Context losses this session — drives backoff and static fallback. */
+let _contextLossCount = 0;
+const CONTEXT_LOSS_MAX_RETRIES = 3;
+const CONTEXT_LOSS_BACKOFF_MS = [500, 1000, 2000];
+const BOOT_RENDER_PACING_MS = 1000 / 15;
+const BOOT_RENDER_PACING_WINDOW_MS = 500;
+
+/** Dev-only isolation flags (localStorage `sarif.lobbyDebug` JSON). */
+function readLobbyDebugFlags() {
+  if (!import.meta.env.DEV || typeof localStorage === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem('sarif.lobbyDebug');
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return typeof parsed === 'object' && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function initLobbyDebug() {
+  if (!import.meta.env.DEV || typeof window === 'undefined') return;
+  window.__sarifLobbyDebug = {
+    timestamps: {},
+    contextLossCount: 0,
+    appliedGpuTier: _appliedGpuTier,
+    reflectorBootPhase: false,
+    debugFlags: readLobbyDebugFlags(),
+    mark(label, detail) {
+      this.timestamps[label] = performance.now();
+      if (detail !== undefined) this[label] = detail;
+    },
+    snapshot() {
+      return {
+        timestamps: { ...this.timestamps },
+        contextLossCount: this.contextLossCount,
+        appliedGpuTier: _appliedGpuTier,
+        reflectorBootPhase: _reflectorBootPhaseActive,
+        hexGroutMode: _hexGroutMode,
+        debugFlags: readLobbyDebugFlags(),
+        renderBudget: introspectRenderBudget(),
+      };
+    },
+  };
+}
+
+function lobbyDebugMark(label, detail) {
+  if (!import.meta.env.DEV || typeof window === 'undefined' || !window.__sarifLobbyDebug) return;
+  window.__sarifLobbyDebug.mark(label, detail);
+  if (label === 'contextLost') {
+    window.__sarifLobbyDebug.contextLossCount = _contextLossCount;
+  }
+}
 
 /**
  * Pillar 4f — prefers-reduced-transparency.
@@ -3007,28 +3242,74 @@ function onLiveReducedMotion(reduced) {
 }
 
 let _contextLossHandlersAttached = false;
+/** Fallback when webglcontextrestored never fires (common after Windows TDR). */
+let _contextLossRecoveryTimer = null;
+const CONTEXT_RESTORE_TIMEOUT_MS = 3000;
+
 function attachContextLossHandlers(canvas) {
   /* Attach once per document. The canvas is a persistent DOM element so a
      single listener outlives any number of init/cleanup cycles. Repeated
      attach would stack listeners and multiply the recovery work. */
   if (_contextLossHandlersAttached) return;
   _contextLossHandlersAttached = true;
-  /* A persistent WebGL context will eventually hit webglcontextlost on some
-     devices (GPU reset, driver timeout). Recovery path: tear down fully,
-     then schedule a re-init on the next rAF so the browser has time to
-     release and restore the underlying context. */
+
+  const scheduleRecovery = () => {
+    if (_contextLossCount > CONTEXT_LOSS_MAX_RETRIES) return;
+    const canvasEl = document.getElementById('lobby-canvas');
+    if (!canvasEl || canvasEl.style.display === 'none') return;
+    const backoff = CONTEXT_LOSS_BACKOFF_MS[
+      Math.min(Math.max(_contextLossCount - 1, 0), CONTEXT_LOSS_BACKOFF_MS.length - 1)
+    ];
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        if (_contextLossCount > CONTEXT_LOSS_MAX_RETRIES) return;
+        removeStaticFallback();
+        initLobby();
+        markDirty('contextLoss');
+      });
+    }, backoff);
+  };
+
+  const clearContextRecoveryTimer = () => {
+    if (_contextLossRecoveryTimer !== null) {
+      clearTimeout(_contextLossRecoveryTimer);
+      _contextLossRecoveryTimer = null;
+    }
+  };
+
   canvas.addEventListener('webglcontextlost', (event) => {
     event.preventDefault();
+    _contextLossCount++;
+    lobbyDebugMark('contextLost', _contextLossCount);
+
+    if (_contextLossCount > CONTEXT_LOSS_MAX_RETRIES) {
+      clearContextRecoveryTimer();
+      cleanup();
+      canvas.style.display = 'none';
+      createStaticFallback('gpu-reset');
+      return;
+    }
+
     if (_contextLossReinitScheduled) return;
     _contextLossReinitScheduled = true;
     cleanup();
-    requestAnimationFrame(() => {
+
+    /* Some drivers never emit webglcontextrestored after TDR — recover anyway. */
+    clearContextRecoveryTimer();
+    _contextLossRecoveryTimer = setTimeout(() => {
+      if (!_contextLossReinitScheduled) return;
+      lobbyDebugMark('contextRestoredTimeout');
       _contextLossReinitScheduled = false;
-      initLobby();
-      /* Recovery draws need a couple of guaranteed frames to commit new
-         materials / PMREM targets before the arbitrator begins skipping. */
-      markDirty('contextLoss');
-    });
+      scheduleRecovery();
+    }, CONTEXT_RESTORE_TIMEOUT_MS);
+  });
+
+  canvas.addEventListener('webglcontextrestored', () => {
+    lobbyDebugMark('contextRestored');
+    clearContextRecoveryTimer();
+    if (!_contextLossReinitScheduled) return;
+    _contextLossReinitScheduled = false;
+    scheduleRecovery();
   });
 }
 
@@ -3176,6 +3457,12 @@ function onRouteChange(pathname) {
     _sceneStartTime = 0;
   }
   _isLanding = landing;
+  if (landing && !_deferredLayersMounted && scene) {
+    /* Interior cold boot may defer float/dust until after first frame; if the
+       user navigates to landing before idle fires, mount synchronously so the
+       hero materialization and dust emergence have their layers. */
+    mountDeferredSceneLayers(_lobbySession);
+  }
   setEmblemTarget(landing);
   /* Pillar 3 — resolve the route to its pose and start the camera
      tween. `resolvePose` is defensive against unknown routes (falls
@@ -3197,12 +3484,8 @@ function onRouteChange(pathname) {
      continuous sources will carry forward while _emblemPhase is
      fadingIn/fadingOut or _poseTween.active is true. */
   markDirty('route');
-  if (landing) {
-    /* Tall landing page: planter prefetch stays landing-only, and the
-       emblem preload hint is only useful when we're actually about to
-       render the emblem. Hints are idempotent (dedup on rel+href). */
-    prefetchPlanterAssets();
-  }
+  /* Idempotent cache warm for planter GLBs (dedup on rel+href). */
+  prefetchPlanterAssets();
   /* scrollProgress is read every frame by animateStep(); on route change the
      next ticker frame recalibrates against the new document layout without
      any explicit nudge. */
@@ -3222,13 +3505,24 @@ function isLandingPathForString(pathname) {
 }
 
 function cleanup() {
+  if (_contextLossRecoveryTimer !== null) {
+    clearTimeout(_contextLossRecoveryTimer);
+    _contextLossRecoveryTimer = null;
+  }
   _lobbySession++;
   _firstFrameDispatched = false;
+  _deferredLayersMounted = false;
+  _deferredLayersScheduled = false;
   /* Dirty-flag arbitrator holds predicates that closure-capture the
      disposed scene/camera; wipe them before the traversal below tears
      those objects down, so a later ticker frame cannot evaluate a
      predicate against freed GL resources. */
+  _renderFloorIdle = false;
+  _appliedGpuTier = 0;
+  _sceneTickerStartedAt = 0;
+  resetGpuQuality();
   resetRenderBudget();
+  setFloorFps(FLOOR_FPS_ACTIVE_DESKTOP);
   _lastScrollForDirty = 0;
   if (_sceneTickerToken) {
     tickerUnsubscribe(_sceneTickerToken);
@@ -3246,6 +3540,7 @@ function cleanup() {
   detachReducedTransparencyListener();
   teardownSectionObserver();
 
+  cancelHexProceduralUpgrade();
   floatingObjects.length = 0;
   dustData.length = 0;
   _dustMesh = null;
@@ -3253,7 +3548,24 @@ function cleanup() {
   /* The material itself is disposed by the scene.traverse sweep below; just
      drop the module-level handle so a post-cleanup resize doesn't touch a
      disposed GL resource. */
+  /* Hex mesh is disposed by scene.traverse below — only drop handles. */
   _hexLineMat = null;
+  _hexProceduralMat = null;
+  _hexGroutMesh = null;
+  _hexFloorGroup = null;
+  _hexGroutMode = null;
+  disposeFloorResources(_floorMesh);
+  _floorMesh = null;
+  if (_skyDome) {
+    if (_skyDome.geometry) _skyDome.geometry.dispose();
+    if (_skyDome.material) _skyDome.material.dispose();
+    _skyDome = null;
+  }
+  if (_horizonShell) {
+    if (_horizonShell.geometry) _horizonShell.geometry.dispose();
+    if (_horizonShell.material) _horizonShell.material.dispose();
+    _horizonShell = null;
+  }
   _logoGroup = null;
   _emblemMats.length = 0;
   _emblemLights.length = 0;
@@ -3275,6 +3587,8 @@ function cleanup() {
   _lutPass = null;
   _bloomPass = null;
   _bootTransitionActive = false;
+  _reflectorBootPhaseActive = false;
+  _lastReflectorBootPhase = false;
   _sceneMaterializeActive = false;
   _bootLandingInit = false;
   _planterEntrances = [];
@@ -3291,6 +3605,7 @@ function cleanup() {
   _poseTween.active = false;
   _poseBase.scrollDolly = true;
   _poseBase.tx = _poseBase.ty = _poseBase.tz = null;
+  loseLobbyCanvasContext();
   if (renderer) { renderer.dispose(); renderer = null; }
   camera = null;
   if (scene) {
@@ -3315,6 +3630,9 @@ function cleanup() {
 }
 
 export function initLobby() {
+  initLobbyDebug();
+  lobbyDebugMark('initLobbyStart');
+
   if (renderer) {
     // Already initialized; just sync route-dependent state (emblem visibility).
     onRouteChange(window.location.pathname);
@@ -3357,37 +3675,34 @@ export function initLobby() {
   /* A previous init may have hidden the canvas for the reduced-motion
      or no-WebGL branch. Clear it so a live-toggle back to motion-on
      restores the GL path on the same element. */
+  removeStaticFallback();
   canvas.style.removeProperty('display');
 
-  const testCanvas = document.createElement('canvas');
-  const testCtx = testCanvas.getContext('webgl2') || testCanvas.getContext('webgl');
-  if (!testCtx) {
-    canvas.style.display = 'none';
-    createStaticFallback('no-webgl');
-    return;
-  }
-  /* Release the probe context before WebGLRenderer allocates the real one.
-     Some drivers enforce a low max-context limit; holding a throwaway
-     context can make the lobby fail in standalone browsers while a lean
-     embedded preview still succeeds. */
-  const loseProbe = testCtx.getExtension('WEBGL_lose_context');
-  if (loseProbe) loseProbe.loseContext();
-  testCanvas.width = 0;
-  testCanvas.height = 0;
-
+  /* Do not probe WebGL on a throwaway canvas — it wastes a context slot and
+     after driver TDR some GPUs fail getContext on the probe while the real
+     lobby canvas still works. Try WebGLRenderer directly in initScene(). */
   attachContextLossHandlers(canvas);
   attachReducedTransparencyListener();
 
   isMobile = window.innerWidth < MOBILE_BREAKPOINT;
+  setGpuQualityMobile(isMobile);
   try {
     initScene(canvas);
   } catch (err) {
     if (import.meta.env.DEV && typeof console !== 'undefined' && console.error) {
       console.error('[lobby-scene] WebGL scene init failed', err);
     }
+    if (import.meta.env.DEV && typeof window !== 'undefined' && window.__sarifLobbyDebug) {
+      window.__sarifLobbyDebug.lastInitError = String(err?.message || err);
+    }
     cleanup();
     canvas.style.display = 'none';
-    createStaticFallback('init-failed');
+    const msg = String(err?.message || err || '');
+    if (/webgl|context|gl/i.test(msg)) {
+      createStaticFallback('no-webgl');
+    } else {
+      createStaticFallback('init-failed');
+    }
     return;
   }
 
@@ -3400,6 +3715,10 @@ export function initLobby() {
     window.addEventListener('mousemove', onMouseMove, { passive: true });
   }
   window.addEventListener('resize', onResize, { passive: true });
+  if (!_lobbyVisibilityHookAttached && typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', onLobbyVisibilityChange);
+    _lobbyVisibilityHookAttached = true;
+  }
   /* Round-3 P8c — keydown resets the idle-breathing envelope. Mouse /
      scroll are already covered by onMouseMove / onPointerRawUpdate /
      animateStep's scroll-delta branch. Capture phase + passive so we
@@ -3445,8 +3764,8 @@ export function initLobby() {
        on first paint. setEmblemTarget didn't fire a load here because the
        target matches the snapped state. */
     ensureLogoAssetsLoaded();
-    prefetchPlanterAssets();
   }
+  prefetchPlanterAssets();
 
   /* Register continuous dirty sources for motion that's always driving
      visible pixels while certain conditions hold:
@@ -3460,7 +3779,9 @@ export function initLobby() {
   registerContinuousSource(() => _emblemPhase !== 'hidden');
   registerContinuousSource(() => _isLanding === true);
   registerContinuousSource(() => _bootTransitionActive || _sceneMaterializeActive || _planterEntrances.length > 0);
-  registerContinuousSource(cameraLerpResidualDirty);
+  /* Camera lerp residual omitted — markDirty('mouse') + input-active floor
+     cover parallax; continuous residual forced extra draws while breath
+     oscillated Y residual. */
   /* Pillar 3 — keep rendering while a route pose tween is in flight,
      even when mouse / scroll / emblem are all idle (pure camera-only
      transitions still need per-frame pixels). */
@@ -3482,10 +3803,29 @@ export function initLobby() {
      first render fires — ensuring every shader is resident before any camera
      move that would otherwise trigger an on-demand compile stall. */
   const sessionAtCompile = _lobbySession;
-  renderer.compileAsync(scene, camera).catch(() => {}).then(() => {
+  const debugFlags = readLobbyDebugFlags();
+  const tickerDelay = typeof debugFlags.delayTicker === 'number'
+    ? debugFlags.delayTicker
+    : (debugFlags.delayTicker ? 3000 : 0);
+
+  const startSceneTicker = () => {
     if (_lobbySession !== sessionAtCompile) return;
     if (_sceneTickerToken) tickerUnsubscribe(_sceneTickerToken);
+    setGpuQualityMobile(isMobile);
+    _sceneTickerStartedAt = performance.now();
+    setRenderPacingMs(BOOT_RENDER_PACING_MS);
+    setTimeout(() => setRenderPacingMs(0), BOOT_RENDER_PACING_WINDOW_MS);
     _sceneTickerToken = tickerSubscribe(animateStep, PRIORITY_SCENE);
+    lobbyDebugMark('tickerStart');
+  };
+
+  renderer.compileAsync(scene, camera).catch(() => {}).then(() => {
+    if (_lobbySession !== sessionAtCompile) return;
+    if (tickerDelay > 0) {
+      setTimeout(startSceneTicker, tickerDelay);
+    } else {
+      startSceneTicker();
+    }
   });
 }
 
@@ -3495,6 +3835,51 @@ export function initLobby() {
  *  ultimate target for X is (targetMouseX * 0.4) — camera.position.x
  *  chases (mouseX * 0.4) and mouseX itself chases targetMouseX, so a
  *  single check against targetMouseX covers the two-stage lerp chain. */
+function isSceneVisuallyIdle(now) {
+  const idleMs = now - _lastInputTs;
+  return (
+    _emblemPhase === 'hidden'
+    && idleMs > IDLE_BREATH_ONSET_MS
+    && _idleBreathEnvelope < 0.001
+    && !poseTweenDirty()
+    && !cameraLerpResidualDirty()
+    && !_bootTransitionActive
+    && !_sceneMaterializeActive
+    && _planterEntrances.length === 0
+    && !_isLanding
+  );
+}
+
+function updateRenderFloorPolicy(now) {
+  const targetFps = resolveTargetFloorFps(now, {
+    isMobile,
+    prefersReducedMotion: _prefersReducedMotionLocked === true,
+    lastInputTs: _lastInputTs,
+    isLanding: _isLanding,
+    idleBreathEnvelope: _idleBreathEnvelope,
+    isSceneVisuallyIdle: isSceneVisuallyIdle(now),
+  });
+  const idle = isRenderFloorIdle(targetFps, isMobile);
+  const prevFloorIdle = _renderFloorIdle;
+  if (idle !== _renderFloorIdle) _renderFloorIdle = idle;
+  const reflectorMotion = isReflectorMotionActive();
+  const reflectorBootPhase = isReflectorBootPhase();
+  const displayPolicyDirty =
+    idle !== prevFloorIdle
+    || reflectorMotion !== _lastReflectorMotionActive
+    || reflectorBootPhase !== _lastReflectorBootPhase;
+  _lastReflectorMotionActive = reflectorMotion;
+  _lastReflectorBootPhase = reflectorBootPhase;
+  if (displayPolicyDirty) applyLobbyDisplaySettings(_appliedGpuTier);
+  setFloorFps(targetFps);
+}
+
+function estimateIdleBreathYOffset() {
+  if (_idleBreathEnvelope <= 0.001) return 0;
+  const phase = (performance.now() / 1000) * (2 * Math.PI / IDLE_BREATH_PERIOD_S);
+  return Math.sin(phase) * IDLE_BREATH_AMP_Y * _idleBreathEnvelope;
+}
+
 function cameraLerpResidualDirty() {
   if (!camera) return false;
   /* Two-stage lerp chain: mouseX → targetMouseX (via `am`) and
@@ -3504,7 +3889,8 @@ function cameraLerpResidualDirty() {
     ? CAM_START_Y + (CAM_END_Y - CAM_START_Y) * scrollProgress
     : _poseBase.y;
   const baseX = _poseBase.x + targetMouseX * 0.4;
+  const breathY = estimateIdleBreathYOffset();
   if (Math.abs(baseX - camera.position.x) > CAMERA_LERP_EPSILON) return true;
-  if (Math.abs(baseY - camera.position.y) > CAMERA_LERP_EPSILON) return true;
+  if (Math.abs(baseY - (camera.position.y - breathY)) > CAMERA_LERP_EPSILON) return true;
   return false;
 }

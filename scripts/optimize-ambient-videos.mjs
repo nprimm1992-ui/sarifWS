@@ -5,8 +5,8 @@
  *   The repo ships two decorative video clips referenced from
  *   `src/components/AboutDossierCard.astro`:
  *
- *     public/Context flow.mp4  (~6.1 MB, H.264)
- *     public/Amber_Light_Network_..._kY2lTZ1w.mp4  (~3.3 MB, H.264)
+ *     public/media/about/context-flow.mp4
+ *     public/media/about/amber-network.mp4
  *
  *   The card consumes these at most a few hundred CSS pixels tall and
  *   loops them silently. Shipping them at full quality / size wastes
@@ -62,14 +62,12 @@ const CLIPS = [
     label: 'methodology',
     candidates: [
       'media/about/context-flow.mp4',
-      'Context flow.mp4',
     ],
   },
   {
     label: 'principle',
     candidates: [
       'media/about/amber-network.mp4',
-      'Amber_Light_Network_In_a_cinematic_style_a_man_with_short_brown_hair_kY2lTZ1w.mp4',
     ],
   },
 ];

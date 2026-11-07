@@ -296,9 +296,10 @@ const hasDocs = docs.length > 0;
               <Picture
                 src={data.heroImage!}
                 alt={heroAlt!}
-                widths={[600, 960, 1280, 1600, 2048]}
+                widths={[600, 720, 960]}
                 sizes="(min-width: 960px) 720px, 100vw"
                 formats={['avif', 'webp']}
+                fallbackFormat="webp"
                 loading="eager"
                 decoding="async"
                 fetchpriority="high"

@@ -90,6 +90,7 @@ let _returnFocusEl = null;
 /** @type {IndexItem[]} */
 let _currentMatches = [];
 let _selectedIndex = 0;
+let _askQuery = '';
 let _bound = false;
 /** Active scope; 'all' means no filter. */
 let _scope = 'all';
@@ -295,19 +296,20 @@ function badgeFor(item) {
   return typeof cat === 'string' && cat.length > 0 ? cat : null;
 }
 
-function render(matches, queryTokens) {
+function render(matches, queryTokens, query) {
   _currentMatches = matches;
+  _askQuery = query.trim();
   if (!_results || !_input) return;
-  _results.innerHTML = '';
+  _results.replaceChildren();
 
   if (matches.length === 0) {
     _empty?.removeAttribute('hidden');
-    _input.setAttribute('aria-expanded', 'false');
-    _input.removeAttribute('aria-activedescendant');
-    return;
+    _input.setAttribute('aria-expanded', _askQuery ? 'true' : 'false');
+    if (!_askQuery) _input.removeAttribute('aria-activedescendant');
+  } else {
+    _empty?.setAttribute('hidden', '');
+    _input.setAttribute('aria-expanded', 'true');
   }
-  _empty?.setAttribute('hidden', '');
-  _input.setAttribute('aria-expanded', 'true');
 
   /* Group by type only when the active scope is "all"; otherwise
      results are already homogeneous and grouping adds clutter. */
@@ -328,7 +330,7 @@ function render(matches, queryTokens) {
 
   let globalIndex = 0;
   for (const group of groups) {
-    if (shouldGroup) {
+    if (shouldGroup && group.items.length > 0) {
       const heading = document.createElement('li');
       heading.className = 'command-palette__section';
       heading.setAttribute('role', 'presentation');
@@ -340,7 +342,35 @@ function render(matches, queryTokens) {
       globalIndex += 1;
     }
   }
+  if (_askQuery) _results.appendChild(renderAskJensen(_askQuery, globalIndex));
   highlightSelected();
+}
+
+function renderAskJensen(query, index) {
+  const li = document.createElement('li');
+  li.setAttribute('role', 'presentation');
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.setAttribute('role', 'option');
+  button.id = `command-palette-opt-${index}`;
+  button.dataset.index = String(index);
+  button.dataset.askJensen = 'true';
+  button.className = 'command-palette__item';
+  button.tabIndex = -1;
+  button.setAttribute('aria-selected', index === _selectedIndex ? 'true' : 'false');
+  const shown = query.length > 80 ? `${query.slice(0, 79)}…` : query;
+  button.textContent = `Ask Jensen: ${shown}`;
+  button.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const question = query;
+    close();
+    document.dispatchEvent(new CustomEvent('jensen:ask', {
+      detail: { question, autoSend: true },
+    }));
+  });
+  li.appendChild(button);
+  return li;
 }
 
 function renderItem(item, index, queryTokens) {
@@ -509,7 +539,7 @@ function runSearch() {
   updateStatus(query, allMatches, scoped);
   updateClearVisibility();
   _selectedIndex = 0;
-  render(scoped, tokens);
+  render(scoped, tokens, query);
 }
 
 /* ------------------------------------------------------------------ *
@@ -550,7 +580,21 @@ function navigateTo(url, newTab) {
   }
 }
 
+function optionCount() {
+  return _results?.querySelectorAll('[role="option"]').length ?? 0;
+}
+
 function activateSelected(newTab) {
+  const options = _results?.querySelectorAll('[role="option"]') ?? [];
+  const selected = options[_selectedIndex];
+  if (selected instanceof HTMLElement && selected.dataset.askJensen === 'true') {
+    const question = _askQuery;
+    close();
+    document.dispatchEvent(new CustomEvent('jensen:ask', {
+      detail: { question, autoSend: true },
+    }));
+    return;
+  }
   const item = _currentMatches[_selectedIndex];
   if (!item) return;
   navigateTo(item.url, newTab);
@@ -705,17 +749,17 @@ function onGlobalKeydown(e) {
   /* Results navigation — only when the input has real focus. If the
      user explicitly tabbed into the scope toolbar, arrows belong to
      scope navigation (handled above). */
-  const hasMatches = _currentMatches.length > 0;
+  const count = optionCount();
   if (e.key === 'ArrowDown') {
     e.preventDefault();
-    if (!hasMatches) return;
-    _selectedIndex = Math.min(_selectedIndex + 1, _currentMatches.length - 1);
+    if (count === 0) return;
+    _selectedIndex = Math.min(_selectedIndex + 1, count - 1);
     highlightSelected();
     return;
   }
   if (e.key === 'ArrowUp') {
     e.preventDefault();
-    if (!hasMatches) return;
+    if (count === 0) return;
     _selectedIndex = Math.max(_selectedIndex - 1, 0);
     highlightSelected();
     return;

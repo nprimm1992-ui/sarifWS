@@ -47,7 +47,7 @@ export interface Props {
 const {
   src,
   alt,
-  widths = [400, 800, 1200, 1600],
+  widths = [400, 800, 1200],
   sizes = '(min-width: 960px) 800px, 100vw',
   class: className,
   fetchpriority = 'auto',
@@ -71,6 +71,7 @@ const hasFigcaption = hasClassification || hasCaption;
       widths={widths}
       sizes={sizes}
       formats={formats}
+      fallbackFormat="webp"
       loading={loading}
       decoding={decoding}
       fetchpriority={fetchpriority}

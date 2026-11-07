@@ -41,6 +41,10 @@
 /* Mobile layouts are narrower so sections grow taller. Stepping each tier
    up by ~1.3× preserves the |fallback - actual| delta across breakpoints. */
 @media (max-width: 768px) {
+  :root {
+    --nav-row-height: 64px;
+  }
+
   .cv-auto[data-cv-size="sm"]   { contain-intrinsic-size: auto 520px; }
   .cv-auto[data-cv-size="md"]   { contain-intrinsic-size: auto 1200px; }
   .cv-auto[data-cv-size="lg"]   { contain-intrinsic-size: auto 1900px; }
@@ -204,6 +208,11 @@
   --text-secondary: var(--text-spatial-secondary);
   --text-muted:     var(--text-spatial-muted);
   --text-on-dark:   #eae6dc;
+
+  /* Fixed nav chrome — sentinel, ticker offset, hero padding stay aligned */
+  --nav-row-height: 72px;
+  --cap-ticker-height: 36px;
+  --nav-chrome-height: calc(var(--nav-row-height) + var(--cap-ticker-height));
 
   /* Glass Panel System — slightly elevated opacity for dark-bg contrast */
   --glass-bg:       rgba(255, 255, 255, 0.62);
